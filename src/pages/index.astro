@@ -1,0 +1,122 @@
+---
+import Layout from '../layouts/Layout.astro'
+import { Badge, Text } from '@mrmartineau/zui/astro'
+import { buildLabItems, labHref, statusColor } from '../data/lab'
+
+// Discover every `src/pages/<slug>/index.{astro,md}` and read its frontmatter.
+const modules = import.meta.glob('./*/index.{astro,md}', { eager: true })
+const items = buildLabItems(modules)
+const dateFmt = new Intl.DateTimeFormat('en-GB', {
+	day: 'numeric',
+	month: 'short',
+	year: 'numeric',
+})
+---
+
+<Layout title="lab.zander.wtf">
+	<main class="page">
+		<header class="flow">
+			<h1>lab.zander.wtf</h1>
+			<Text size="1">Experiments, little tools and things in progress.</Text>
+		</header>
+
+		{
+			items.length === 0 ? (
+				<p class="empty">No lab items yet.</p>
+			) : (
+				<ul class="list">
+					{items.map((item) => (
+						<li class="item">
+							<a class="item-link" href={labHref(item)}>
+								<span class="item-head">
+									<span class="item-title">{item.title}</span>
+									<Badge color={statusColor[item.status]}>
+										{item.status}
+									</Badge>
+								</span>
+								{item.description && (
+									<span class="item-desc">{item.description}</span>
+								)}
+								<span class="item-meta">
+									{item.date && (
+										<time datetime={item.date}>
+											{dateFmt.format(new Date(item.date))}
+										</time>
+									)}
+									{item.tags?.map((tag) => (
+										<span class="tag">#{tag}</span>
+									))}
+								</span>
+							</a>
+						</li>
+					))}
+				</ul>
+			)
+		}
+	</main>
+</Layout>
+
+<style>
+	.page {
+		max-width: 44rem;
+		margin-inline: auto;
+		padding: var(--space-xl) var(--space-md);
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-lg);
+	}
+	h1 {
+		margin: 0;
+		font-size: var(--step-4);
+	}
+	.list {
+		list-style: none;
+		margin: 0;
+		padding: 0;
+		display: flex;
+		flex-direction: column;
+	}
+	.item + .item {
+		border-block-start: var(--border-style) 1px var(--color-border);
+	}
+	.item-link {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-3xs);
+		padding: var(--space-sm) var(--space-2xs);
+		text-decoration: none;
+		color: inherit;
+		border-radius: var(--radius-md);
+		transition: background-color 150ms var(--ease);
+	}
+	.item-link:hover {
+		background: var(--color-surface);
+	}
+	.item-head {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: var(--space-sm);
+	}
+	.item-title {
+		font-weight: 600;
+		display: inline-flex;
+		align-items: center;
+		gap: var(--space-3xs);
+	}
+	.item-desc {
+		color: var(--color-text);
+		opacity: 0.7;
+		font-size: var(--step--1);
+	}
+	.item-meta {
+		display: flex;
+		flex-wrap: wrap;
+		gap: var(--space-2xs);
+		font-size: var(--step--1);
+		opacity: 0.5;
+	}
+	.empty {
+		opacity: 0.6;
+	}
+</style>

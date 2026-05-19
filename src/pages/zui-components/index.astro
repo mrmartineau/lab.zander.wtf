@@ -1,0 +1,86 @@
+---
+import Layout from '../../layouts/Layout.astro'
+import {
+	Badge,
+	Button,
+	Card,
+	CardBody,
+	CardDescription,
+	CardHeader,
+	CardTitle,
+	Flex,
+	Input,
+	Label,
+	Link,
+	Text,
+} from '@mrmartineau/zui/astro'
+
+// Lab item metadata — read by the homepage listing.
+export const title = 'ZUI component showcase'
+export const description = 'Live demo of the ZUI CSS-first UI library.'
+export const date = '2026-05-19'
+export const status = 'live'
+export const tags = ['ui', 'zui']
+---
+
+<Layout title="ZUI component showcase — lab.zander.wtf">
+	<main class="page">
+		<header class="flow">
+			<Link href="/">← All lab items</Link>
+			<Flex align="center" gap="sm">
+				<h1>ZUI components</h1>
+				<Badge variant="fill" color="emerald">live</Badge>
+			</Flex>
+			<Text size="1">Live demo of the ZUI CSS-first UI library.</Text>
+		</header>
+
+		<Card>
+			<CardHeader>
+				<CardTitle>Buttons</CardTitle>
+				<CardDescription>Variants, colours and sizes.</CardDescription>
+			</CardHeader>
+			<CardBody>
+				<Flex gap="sm" wrap="wrap" align="center">
+					<Button>Default</Button>
+					<Button variant="outline" color="accent">Outline</Button>
+					<Button variant="subtle">Subtle</Button>
+					<Button variant="ghost">Ghost</Button>
+					<Button color="destructive">Destructive</Button>
+					<Button size="sm" shape="soft">Small pill</Button>
+					<Button icon><i class="ph ph-plus"></i></Button>
+				</Flex>
+			</CardBody>
+		</Card>
+
+		<Card>
+			<CardHeader>
+				<CardTitle>Form</CardTitle>
+				<CardDescription>Inputs inherit theme tokens.</CardDescription>
+			</CardHeader>
+			<CardBody>
+				<Flex direction="column" gap="sm">
+					<div class="flow">
+						<Label for="email">Email</Label>
+						<Input id="email" type="email" placeholder="hi@zander.wtf" />
+					</div>
+					<Button>Submit</Button>
+				</Flex>
+			</CardBody>
+		</Card>
+	</main>
+</Layout>
+
+<style>
+	.page {
+		max-width: 48rem;
+		margin-inline: auto;
+		padding: var(--space-xl) var(--space-md);
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-lg);
+	}
+	h1 {
+		margin: 0;
+		font-size: var(--step-4);
+	}
+</style>

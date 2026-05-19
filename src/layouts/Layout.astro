@@ -1,0 +1,35 @@
+---
+import '@mrmartineau/zui/css'
+
+interface Props {
+	title?: string
+}
+
+const { title = 'lab.zander.wtf' } = Astro.props
+---
+
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+<link rel="icon" type="image/svg+xml" href="https://zander.wtf/favicon.svg" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<meta name="generator" content={Astro.generator} />
+		<!-- Phosphor Icons — ZUI components reference `ph ph-*` classes -->
+		<link
+			rel="stylesheet"
+			href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/regular/style.css"
+		/>
+		<title>{title}</title>
+	</head>
+	<body>
+		<slot />
+	</body>
+</html>
+
+<style>
+	body {
+		margin: 0;
+		min-height: 100dvh;
+	}
+</style>

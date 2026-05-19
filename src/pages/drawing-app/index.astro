@@ -1,0 +1,486 @@
+---
+import Layout from '../../layouts/Layout.astro'
+import { Card, CardBody, Popover, Tooltip } from '@mrmartineau/zui/astro'
+
+// Lab item metadata — read by the homepage listing.
+export const title = 'Drawing app'
+export const description = 'Kid-friendly drawing app built with p5.js — brushes, shapes, emoji stamps, symmetry mode and undo.'
+export const date = '2026-05-19'
+export const status = 'live'
+export const tags = ['drawing', 'p5.js']
+---
+<Layout title="Drawing app — lab.zander.wtf">
+<div id="app">
+  <Card id="toolbar">
+    <CardBody class="toolbar-body">
+      <div class="tool-group">
+        <Tooltip text="Trails" placement="right"><button class="tool-btn active" data-mode="trails" onclick="setMode('trails',this)">✨</button></Tooltip>
+        <Tooltip text="Splatter" placement="right"><button class="tool-btn" data-mode="splatter" onclick="setMode('splatter',this)">💥</button></Tooltip>
+        <Tooltip text="Spirograph" placement="right"><button class="tool-btn" data-mode="spirograph" onclick="setMode('spirograph',this)">🌀</button></Tooltip>
+        <Tooltip text="Bubbles" placement="right"><button class="tool-btn" data-mode="bubbles" onclick="setMode('bubbles',this)">🫧</button></Tooltip>
+        <Tooltip text="Lightning" placement="right"><button class="tool-btn" data-mode="lightning" onclick="setMode('lightning',this)">⚡</button></Tooltip>
+        <Tooltip text="Pen" placement="right"><button class="tool-btn" data-mode="pen" onclick="setMode('pen',this)">✏️</button></Tooltip>
+        <Tooltip text="Eraser" placement="right"><button class="tool-btn" data-mode="eraser" onclick="setMode('eraser',this)">🩹</button></Tooltip>
+      </div>
+      <div class="tool-sep"></div>
+      <div class="tool-group">
+        <Tooltip text="Shapes" placement="right">
+          <button class="tool-btn" id="shape-trigger" popovertarget="shape-pop" style="anchor-name: --shape-pop">⭕</button>
+        </Tooltip>
+      </div>
+      <Popover id="shape-pop" type="auto" style="position-area: inline-end center; margin: 0 0 0 8px">
+        <div class="stamp-grid">
+          <button class="tool-btn" data-mode="circle" onclick="setShape('circle','⭕',this)" popovertarget="shape-pop" popovertargetaction="hide">⭕</button>
+          <button class="tool-btn" data-mode="square" onclick="setShape('square','🟦',this)" popovertarget="shape-pop" popovertargetaction="hide">🟦</button>
+          <button class="tool-btn" data-mode="triangle" onclick="setShape('triangle','🔺',this)" popovertarget="shape-pop" popovertargetaction="hide">🔺</button>
+          <button class="tool-btn" data-mode="star" onclick="setShape('star','⭐',this)" popovertarget="shape-pop" popovertargetaction="hide">⭐</button>
+          <button class="tool-btn" data-mode="heart" onclick="setShape('heart','❤️',this)" popovertarget="shape-pop" popovertargetaction="hide">❤️</button>
+        </div>
+      </Popover>
+      <div class="tool-sep"></div>
+      <div class="tool-group">
+        <Tooltip text="Stamps" placement="right">
+          <button class="tool-btn" id="stamp-trigger" popovertarget="stamp-pop" style="anchor-name: --stamp-pop">🌟</button>
+        </Tooltip>
+      </div>
+      <Popover id="stamp-pop" type="auto" style="position-area: inline-end center; margin: 0 0 0 8px">
+        <div class="stamp-grid">
+          <button class="tool-btn" data-mode="emoji" onclick="setEmoji('🌈',this)" popovertarget="stamp-pop" popovertargetaction="hide">🌈</button>
+          <button class="tool-btn" data-mode="emoji" onclick="setEmoji('🐱',this)" popovertarget="stamp-pop" popovertargetaction="hide">🐱</button>
+          <button class="tool-btn" data-mode="emoji" onclick="setEmoji('🚀',this)" popovertarget="stamp-pop" popovertargetaction="hide">🚀</button>
+          <button class="tool-btn" data-mode="emoji" onclick="setEmoji('🦄',this)" popovertarget="stamp-pop" popovertargetaction="hide">🦄</button>
+          <button class="tool-btn" data-mode="emoji" onclick="setEmoji('🌟',this)" popovertarget="stamp-pop" popovertargetaction="hide">🌟</button>
+          <button class="tool-btn" data-mode="emoji" onclick="setEmoji('🌸',this)" popovertarget="stamp-pop" popovertargetaction="hide">🌸</button>
+          <button class="tool-btn" data-mode="emoji" onclick="setEmoji('🐶',this)" popovertarget="stamp-pop" popovertargetaction="hide">🐶</button>
+          <button class="tool-btn" data-mode="emoji" onclick="setEmoji('🦋',this)" popovertarget="stamp-pop" popovertargetaction="hide">🦋</button>
+          <button class="tool-btn" data-mode="emoji" onclick="setEmoji('❤️',this)" popovertarget="stamp-pop" popovertargetaction="hide">❤️</button>
+        </div>
+      </Popover>
+      <div class="tool-sep"></div>
+      <div class="tool-group">
+        <Tooltip text="Pen colour" placement="right">
+          <div class="picker">
+            <input type="color" id="pen-colour" value="#ffffff" oninput="penColour=this.value">
+          </div>
+        </Tooltip>
+        <Tooltip text="Background colour" placement="right">
+          <div class="picker">
+            <input type="color" id="bg-colour" value="#141414" oninput="bgColour=this.value">
+          </div>
+        </Tooltip>
+      </div>
+      <div class="tool-sep"></div>
+      <div class="tool-group">
+        <Tooltip text="Brush size" placement="right">
+          <div class="slider-wrap">
+            <input type="range" id="sz" min="2" max="40" value="12" oninput="brushSize=+this.value;document.getElementById('szv').textContent=this.value">
+            <span class="slider-val" id="szv">12</span>
+          </div>
+        </Tooltip>
+        <Tooltip text="Speed" placement="right">
+          <div class="slider-wrap">
+            <input type="range" id="sp" min="1" max="10" value="5" oninput="speed=+this.value;document.getElementById('spv').textContent=this.value">
+            <span class="slider-val" id="spv">5</span>
+          </div>
+        </Tooltip>
+        <Tooltip text="Symmetry" placement="right"><button class="tool-btn" onclick="toggleSym(this)">🪞</button></Tooltip>
+      </div>
+      <div class="tool-spacer"></div>
+      <div class="tool-group">
+        <Tooltip text="Undo" placement="right"><button class="tool-btn" onclick="undo()">↩️</button></Tooltip>
+        <Tooltip text="Random colour" placement="right"><button class="tool-btn" onclick="randomColour()">🎨</button></Tooltip>
+        <Tooltip text="Clear canvas" placement="right"><button class="tool-btn" onclick="clearCanvas()">🗑</button></Tooltip>
+        <Tooltip text="Save image" placement="right"><button class="tool-btn" onclick="saveImage()">⬇</button></Tooltip>
+      </div>
+    </CardBody>
+  </Card>
+  <canvas id="c"></canvas>
+</div>
+</Layout>
+
+<script is:inline src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.4/p5.min.js"></script>
+<script is:inline>
+let mode = 'trails';
+let brushSize = 12;
+let speed = 5;
+let hue = Math.random() * 360;
+let penColour = '#ffffff';
+let bgColour = '#141414';
+let currentEmoji = '🌟';
+let symmetry = false;
+let p5Instance;
+let isDrawing = false;
+let prevX, prevY;
+let t = 0;
+const history = [];
+const shapeModes = ['circle', 'square', 'triangle', 'star', 'heart'];
+
+function setMode(m, el) {
+  mode = m;
+  document.querySelectorAll('.tool-btn[data-mode]').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+}
+
+function setEmoji(em, el) {
+  currentEmoji = em;
+  const trigger = document.getElementById('stamp-trigger');
+  if (trigger) trigger.textContent = em;
+  setMode('emoji', el);
+}
+
+function setShape(m, icon, el) {
+  const trigger = document.getElementById('shape-trigger');
+  if (trigger) trigger.textContent = icon;
+  setMode(m, el);
+}
+
+function toggleSym(el) {
+  symmetry = !symmetry;
+  el.classList.toggle('active', symmetry);
+}
+
+function randomColour() {
+  hue = Math.random() * 360;
+}
+
+// Snapshot the canvas so the last action can be undone.
+function pushHistory() {
+  if (!p5Instance) return;
+  history.push(p5Instance.get());
+  if (history.length > 12) history.shift();
+}
+
+function undo() {
+  if (p5Instance && history.length) p5Instance.image(history.pop(), 0, 0);
+}
+
+function clearCanvas() {
+  if (!p5Instance) return;
+  pushHistory();
+  p5Instance.background(bgColour);
+}
+
+function saveImage() {
+  const canvas = document.getElementById('c');
+  const link = document.createElement('a');
+  link.download = 'my-art-' + Date.now() + '.png';
+  link.href = canvas.toDataURL('image/png');
+  link.click();
+}
+
+// Ignore pointer events that start on the toolbar panel.
+function onToolbar(e) {
+  return !!(e && e.target && e.target.closest && e.target.closest('#toolbar'));
+}
+
+// Bind ZUI tooltip triggers — ZUI's own init only runs on `astro:page-load`,
+// which this site does not emit (no <ClientRouter />).
+document.querySelectorAll('[data-tooltip-trigger]').forEach(trigger => {
+  const pop = document.getElementById(trigger.dataset.tooltipTrigger);
+  if (!pop) return;
+  const show = () => { try { pop.showPopover(); } catch {} };
+  const hide = () => { try { pop.hidePopover(); } catch {} };
+  trigger.addEventListener('mouseenter', show);
+  trigger.addEventListener('mouseleave', hide);
+  trigger.addEventListener('focusin', show);
+  trigger.addEventListener('focusout', hide);
+});
+
+new p5(function(p) {
+  p5Instance = p;
+
+  // Drawing coordinates — set per mirror pass by forEachMirror().
+  // jx/jy are a random scatter offset applied to held stamps.
+  let cx = 0, cy = 0, px = 0, py = 0, jx = 0, jy = 0;
+  // Smoothed pen width — eased toward the speed-based target each drag event.
+  let penW = brushSize, penPrevW = brushSize;
+
+  p.setup = function() {
+    p.createCanvas(p.windowWidth, p.windowHeight, document.getElementById('c'));
+    p.colorMode(p.HSB, 360, 100, 100, 100);
+    p.background(bgColour);
+  };
+
+  p.windowResized = function() {
+    p.resizeCanvas(p.windowWidth, p.windowHeight);
+    history.length = 0; // snapshots no longer match canvas size
+  };
+
+  p.draw = function() {
+    t += 0.02 * speed;
+    hue = (hue + 0.3) % 360;
+    if (!isDrawing) return;
+    if (mode === 'spirograph' || mode === 'lightning') {
+      forEachMirror(paintContinuous);
+    } else if (mode === 'emoji' || shapeModes.includes(mode)) {
+      // Stamp frequency follows mouse speed: faster movement → more stamps.
+      // A slow trickle continues when the mouse is held still.
+      const spd = p.dist(p.pmouseX, p.pmouseY, p.mouseX, p.mouseY);
+      const interval = Math.round(p.constrain(p.map(spd, 0, 40, 16, 2), 2, 16));
+      if (p.frameCount % interval === 0) {
+        jx = p.random(-brushSize * 1.5, brushSize * 1.5);
+        jy = p.random(-brushSize * 1.5, brushSize * 1.5);
+        forEachMirror(stampTick);
+        jx = 0; jy = 0;
+      }
+    }
+  };
+
+  p.mousePressed = function(e) {
+    if (onToolbar(e)) return;
+    isDrawing = true;
+    prevX = p.mouseX; prevY = p.mouseY;
+    penW = penPrevW = brushSize;
+    pushHistory();
+    forEachMirror(paintDown);
+  };
+
+  p.mouseReleased = function() { isDrawing = false; };
+
+  p.mouseDragged = function() {
+    if (!isDrawing) return;
+    if (mode === 'pen' || mode === 'eraser') {
+      // Ease the pen width toward the speed-based target so it changes smoothly.
+      const d = p.dist(prevX, prevY, p.mouseX, p.mouseY);
+      const target = p.constrain(p.map(d, 0, 60, brushSize, brushSize * 0.25), brushSize * 0.25, brushSize);
+      penPrevW = penW;
+      penW = p.lerp(penW, target, 0.2);
+    }
+    forEachMirror(paintMove);
+    prevX = p.mouseX; prevY = p.mouseY;
+  };
+
+  // Run fn once per symmetry mirror, with cx/cy/px/py set for that pass.
+  function forEachMirror(fn) {
+    const W = p.width, H = p.height;
+    const mx = p.mouseX, my = p.mouseY, omx = prevX, omy = prevY;
+    const passes = symmetry
+      ? [[mx, my, omx, omy], [W - mx, my, W - omx, omy],
+         [mx, H - my, omx, H - omy], [W - mx, H - my, W - omx, H - omy]]
+      : [[mx, my, omx, omy]];
+    for (const [a, b, c, d] of passes) {
+      cx = a; cy = b; px = c; py = d;
+      fn();
+    }
+  }
+
+  function paintDown() {
+    if (mode === 'bubbles') spawnBubble();
+    if (mode === 'splatter') drawSplatter();
+    if (mode === 'pen') penDot(penColour);
+    if (mode === 'eraser') penDot(bgColour);
+    if (shapeModes.includes(mode)) drawShape(mode);
+    if (mode === 'emoji') stampEmoji();
+  }
+
+  function paintMove() {
+    if (mode === 'trails') drawTrail();
+    if (mode === 'splatter') drawSplatter();
+    if (mode === 'bubbles') spawnBubble();
+    if (mode === 'pen') drawPen(penColour);
+    if (mode === 'eraser') drawPen(bgColour);
+  }
+
+  function paintContinuous() {
+    if (mode === 'spirograph') drawSpirograph();
+    if (mode === 'lightning') drawLightning();
+  }
+
+  function stampTick() {
+    if (mode === 'emoji') stampEmoji();
+    else drawShape(mode);
+  }
+
+  function penDot(col) {
+    p.noStroke();
+    p.fill(col);
+    p.ellipse(cx, cy, brushSize, brushSize);
+  }
+
+  function drawPen(col) {
+    // Draw the segment as overlapping dots, tapering width penPrevW → penW.
+    const d = p.dist(px, py, cx, cy);
+    const steps = p.max(1, p.floor(d / 2));
+    p.noStroke();
+    p.fill(col);
+    for (let i = 0; i <= steps; i++) {
+      const x = p.lerp(px, cx, i / steps);
+      const y = p.lerp(py, cy, i / steps);
+      const w = p.lerp(penPrevW, penW, i / steps);
+      p.ellipse(x, y, w, w);
+    }
+  }
+
+  function drawShape(shape) {
+    const s = brushSize * 2.5;
+    const x = cx + jx, y = cy + jy;
+    p.noStroke();
+    p.fill(penColour);
+    if (shape === 'circle') {
+      p.ellipse(x, y, s, s);
+    } else if (shape === 'square') {
+      p.rectMode(p.CENTER);
+      p.rect(x, y, s, s, s * 0.12);
+    } else if (shape === 'triangle') {
+      const r = s * 0.62;
+      p.triangle(x, y - r, x - r * 0.87, y + r * 0.5, x + r * 0.87, y + r * 0.5);
+    } else if (shape === 'star') {
+      polyStar(x, y, s * 0.28, s * 0.6, 5);
+    } else if (shape === 'heart') {
+      drawHeart(x, y, s);
+    }
+  }
+
+  function polyStar(x, y, rInner, rOuter, points) {
+    p.beginShape();
+    for (let i = 0; i < points * 2; i++) {
+      const r = i % 2 === 0 ? rOuter : rInner;
+      const a = p.PI * i / points - p.HALF_PI;
+      p.vertex(x + p.cos(a) * r, y + p.sin(a) * r);
+    }
+    p.endShape(p.CLOSE);
+  }
+
+  function drawHeart(x, y, s) {
+    const u = s * 0.5;
+    p.beginShape();
+    p.vertex(x, y + u * 0.6);
+    p.bezierVertex(x, y + u * 0.1, x - u, y - u * 0.3, x - u, y - u * 0.7);
+    p.bezierVertex(x - u, y - u * 1.2, x, y - u * 1.2, x, y - u * 0.5);
+    p.bezierVertex(x, y - u * 1.2, x + u, y - u * 1.2, x + u, y - u * 0.7);
+    p.bezierVertex(x + u, y - u * 0.3, x, y + u * 0.1, x, y + u * 0.6);
+    p.endShape(p.CLOSE);
+  }
+
+  function stampEmoji() {
+    p.noStroke();
+    p.textAlign(p.CENTER, p.CENTER);
+    p.textSize(brushSize * 3);
+    p.text(currentEmoji, cx + jx, cy + jy);
+  }
+
+  function drawTrail() {
+    let d = p.dist(px, py, cx, cy);
+    let steps = p.max(1, p.floor(d / 3));
+    for (let i = 0; i < steps; i++) {
+      let x = p.lerp(px, cx, i / steps);
+      let y = p.lerp(py, cy, i / steps);
+      let sz = brushSize + p.sin(t + i * 0.5) * brushSize * 0.5;
+      let h2 = (hue + i * 3) % 360;
+      p.noStroke();
+      p.fill(h2, 90, 95, 60);
+      p.ellipse(x, y, sz, sz);
+      p.fill(h2, 70, 100, 30);
+      p.ellipse(x + p.random(-sz, sz), y + p.random(-sz, sz), sz * 0.3, sz * 0.3);
+    }
+  }
+
+  function drawSplatter() {
+    let count = p.floor(speed * 4) + 5;
+    for (let i = 0; i < count; i++) {
+      let angle = p.random(p.TWO_PI);
+      let dist2 = p.random(brushSize * 0.5, brushSize * 3);
+      let x = cx + p.cos(angle) * dist2;
+      let y = cy + p.sin(angle) * dist2;
+      let sz = p.random(2, brushSize);
+      let h2 = (hue + p.random(-30, 30) + 360) % 360;
+      p.noStroke();
+      p.fill(h2, 90, 95, 80);
+      p.ellipse(x, y, sz, sz * p.random(0.3, 1));
+    }
+    p.fill(hue, 60, 100, 40);
+    p.ellipse(cx, cy, brushSize * 1.5, brushSize * 1.5);
+  }
+
+  function drawSpirograph() {
+    let steps = p.floor(speed * 3) + 3;
+    for (let i = 0; i < steps; i++) {
+      t += 0.05;
+      let R = brushSize * 4, r = brushSize * 2, d = brushSize * 3;
+      let x = cx + (R - r) * p.cos(t) + d * p.cos((R - r) / r * t);
+      let y = cy + (R - r) * p.sin(t) - d * p.sin((R - r) / r * t);
+      let h2 = (hue + t * 20) % 360;
+      p.noStroke();
+      p.fill(h2, 90, 95, 50);
+      p.ellipse(x, y, brushSize * 0.5, brushSize * 0.5);
+    }
+  }
+
+  function spawnBubble() {
+    let count = p.floor(speed * 0.5) + 1;
+    for (let i = 0; i < count; i++) {
+      let x = cx + p.random(-brushSize * 2, brushSize * 2);
+      let y = cy + p.random(-brushSize * 2, brushSize * 2);
+      let sz = p.random(brushSize * 0.5, brushSize * 2.5);
+      let h2 = (hue + p.random(-40, 40) + 360) % 360;
+      p.noFill();
+      p.stroke(h2, 70, 95, 70);
+      p.strokeWeight(p.random(1, 3));
+      p.ellipse(x, y, sz, sz);
+      p.noStroke();
+      p.fill(h2, 40, 100, 15);
+      p.ellipse(x, y, sz, sz);
+    }
+  }
+
+  function drawLightning() {
+    let steps = p.floor(speed * 2) + 2;
+    for (let i = 0; i < steps; i++) {
+      let x1 = cx + p.random(-brushSize * 3, brushSize * 3);
+      let y1 = cy + p.random(-brushSize * 3, brushSize * 3);
+      let x2 = x1 + p.random(-brushSize * 4, brushSize * 4);
+      let y2 = y1 + p.random(-brushSize * 4, brushSize * 4);
+      let h2 = (hue + p.random(-20, 20) + 360) % 360;
+      p.stroke(h2, 60, 100, 80);
+      p.strokeWeight(p.random(1, 3));
+      p.line(x1, y1, x2, y2);
+      let mx = (x1 + x2) / 2 + p.random(-10, 10);
+      let my = (y1 + y2) / 2 + p.random(-10, 10);
+      p.stroke(h2, 30, 100, 50);
+      p.strokeWeight(1);
+      p.line(x1, y1, mx, my);
+      p.line(mx, my, x2, y2);
+    }
+  }
+});
+</script>
+
+<style>
+  #app { margin: 0; }
+  canvas#c { position: fixed; inset: 0; display: block; cursor: crosshair; z-index: 0; }
+
+  #toolbar { position: fixed; top: 0; left: 0; bottom: 0; z-index: 10; border-radius: 0; display: flex; }
+  .toolbar-body {
+    display: flex; flex-direction: column; align-items: center;
+    gap: 6px; padding: 8px 6px; height: 100%; overflow-y: auto;
+  }
+  .tool-group { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+  .tool-sep { width: 24px; height: 0.5px; background: #333; flex: none; }
+  .tool-spacer { flex: 1 1 auto; min-height: 8px; }
+
+  .tool-btn {
+    width: 38px; height: 38px; flex: none;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 17px; line-height: 1;
+    border: 0.5px solid #444; border-radius: 8px;
+    background: #1a1a1a; color: #eee; cursor: pointer;
+    transition: background 0.15s;
+  }
+  .tool-btn:hover { background: #2a2a2a; }
+  .tool-btn.active { background: #2a2a2a; border-color: #666; }
+
+  .picker { width: 38px; height: 38px; }
+  .picker input[type=color] {
+    width: 100%; height: 100%; padding: 0; cursor: pointer;
+    border: 0.5px solid #444; border-radius: 8px; background: none;
+  }
+
+  .slider-wrap { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+  .slider-wrap input[type=range] {
+    writing-mode: vertical-lr; direction: rtl;
+    width: 8px; height: 72px;
+  }
+  .slider-val { font-size: 11px; color: #888; }
+
+  .stamp-grid { display: grid; grid-template-columns: repeat(3, 38px); gap: 6px; }
+</style>

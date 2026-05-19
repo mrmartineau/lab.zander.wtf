@@ -1,0 +1,605 @@
+---
+import Dojo from '../../components/data-transformation/Dojo.tsx'
+import Layout from '../../layouts/Layout.astro'
+
+// Lab item metadata — read by the homepage listing.
+export const title = 'Data Transformation Dojo'
+export const description =
+	'Interactive React trainer for reshaping data in JavaScript — 20 real-world map/filter/reduce challenges with hints and a live test runner.'
+export const date = '2026-05-19'
+export const status = 'live'
+export const tags = ['javascript', 'react', 'interactive']
+---
+
+<Layout title="Data Transformation Dojo — lab.zander.wtf">
+	<Dojo client:load />
+</Layout>
+
+<style is:global>
+	.dtd {
+		--dtd-mono: ui-monospace, 'SF Mono', 'JetBrains Mono', 'Fira Code',
+			Menlo, Consolas, monospace;
+		/* Syntax palette — derived from ZUI semantic tokens. */
+		--dtd-syntax-kw: var(--color-theme);
+		--dtd-syntax-str: var(--color-success);
+		--dtd-syntax-num: var(--color-accent);
+		--dtd-syntax-fn: var(--color-warning);
+		--dtd-syntax-prop: color-mix(in oklch, var(--color-accent) 70%, var(--color-text));
+		--dtd-syntax-com: color-mix(in oklch, var(--color-text) 45%, transparent);
+		--dtd-syntax-pun: color-mix(in oklch, var(--color-text) 65%, transparent);
+		/* Editor box metrics — shared by the textarea and its highlight layer. */
+		--dtd-editor-pad: var(--space-sm);
+		--dtd-editor-lh: 1.6;
+		display: flex;
+		height: 100dvh;
+		color: var(--color-text);
+		background: var(--color-background);
+		font-size: var(--step-0);
+		line-height: 1.5;
+	}
+
+	/* ---- Syntax tokens --------------------------------------------- */
+	.dtd-tok-kw {
+		color: var(--dtd-syntax-kw);
+	}
+	.dtd-tok-str {
+		color: var(--dtd-syntax-str);
+	}
+	.dtd-tok-num {
+		color: var(--dtd-syntax-num);
+	}
+	.dtd-tok-fn {
+		color: var(--dtd-syntax-fn);
+	}
+	.dtd-tok-prop {
+		color: var(--dtd-syntax-prop);
+	}
+	.dtd-tok-com {
+		color: var(--dtd-syntax-com);
+		font-style: italic;
+	}
+	.dtd-tok-pun {
+		color: var(--dtd-syntax-pun);
+	}
+
+	/* ---- Sidebar ---------------------------------------------------- */
+	.dtd-sidebar {
+		flex: none;
+		width: 19rem;
+		display: flex;
+		flex-direction: column;
+		background: var(--color-surface);
+		border-inline-end: var(--border-style) 1px var(--color-border);
+		min-height: 0;
+	}
+	.dtd-brand {
+		padding: var(--space-md);
+		border-block-end: var(--border-style) 1px var(--color-border);
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-2xs);
+	}
+	.dtd-brand-title {
+		margin: 0;
+		font-size: var(--step-2);
+		line-height: 1.15;
+		letter-spacing: -0.01em;
+	}
+	.dtd-brand-sub {
+		margin: 0;
+		font-size: var(--step--1);
+		opacity: 0.65;
+	}
+	.dtd-progress {
+		margin-block-start: var(--space-2xs);
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-3xs);
+	}
+	.dtd-progress-row {
+		display: flex;
+		justify-content: space-between;
+		font-size: var(--step--1);
+		font-variant-numeric: tabular-nums;
+		opacity: 0.8;
+	}
+	.dtd-progress-track {
+		height: 6px;
+		border-radius: var(--radius-full);
+		background: color-mix(in oklch, var(--color-border) 70%, transparent);
+		overflow: hidden;
+	}
+	.dtd-progress-fill {
+		height: 100%;
+		border-radius: inherit;
+		background: var(--color-success);
+		transition: width 300ms var(--ease);
+	}
+
+	.dtd-list {
+		list-style: none;
+		margin: 0;
+		padding: var(--space-2xs);
+		display: flex;
+		flex-direction: column;
+		gap: 2px;
+		overflow-y: auto;
+		flex: 1;
+		min-height: 0;
+	}
+	.dtd-list-btn {
+		width: 100%;
+		display: flex;
+		align-items: center;
+		gap: var(--space-2xs);
+		padding: var(--space-2xs) var(--space-xs);
+		border: 0;
+		border-radius: var(--radius-md);
+		background: transparent;
+		color: inherit;
+		text-align: start;
+		cursor: pointer;
+		transition: background-color 120ms var(--ease);
+	}
+	.dtd-list-btn:hover {
+		background: color-mix(in oklch, var(--color-text) 7%, transparent);
+	}
+	.dtd-list-btn.is-active {
+		background: color-mix(in oklch, var(--color-theme) 16%, transparent);
+	}
+	.dtd-list-num {
+		flex: none;
+		width: 1.6rem;
+		height: 1.6rem;
+		display: grid;
+		place-items: center;
+		border-radius: var(--radius-full);
+		background: color-mix(in oklch, var(--color-text) 9%, transparent);
+		font-size: var(--step--1);
+		font-variant-numeric: tabular-nums;
+	}
+	.dtd-list-btn.is-done .dtd-list-num {
+		background: var(--color-success);
+		color: var(--color-background);
+	}
+	.dtd-list-btn.is-active .dtd-list-num {
+		background: var(--color-theme);
+		color: var(--color-background);
+	}
+	.dtd-list-btn.is-active.is-done .dtd-list-num {
+		background: var(--color-success);
+	}
+	.dtd-list-text {
+		flex: 1;
+		min-width: 0;
+		display: flex;
+		flex-direction: column;
+	}
+	.dtd-list-title {
+		font-size: var(--step--1);
+		font-weight: 600;
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
+	}
+	.dtd-list-method {
+		font-size: var(--step--2);
+		opacity: 0.55;
+		font-family: var(--dtd-mono);
+	}
+	.dtd-dot {
+		flex: none;
+		width: 8px;
+		height: 8px;
+		border-radius: var(--radius-full);
+	}
+	.dtd-dot-easy {
+		background: var(--color-success);
+	}
+	.dtd-dot-medium {
+		background: var(--color-warning);
+	}
+	.dtd-dot-hard {
+		background: var(--color-error);
+	}
+	.dtd-back {
+		padding: var(--space-xs) var(--space-md);
+		border-block-start: var(--border-style) 1px var(--color-border);
+		font-size: var(--step--1);
+		flex: none;
+	}
+
+	/* ---- Main panel ------------------------------------------------- */
+	.dtd-main {
+		flex: 1;
+		min-width: 0;
+		overflow: hidden;
+	}
+	.dtd-scroll {
+		height: 100%;
+		overflow-y: auto;
+		padding: var(--space-lg) var(--space-lg) var(--space-2xl);
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-md);
+		max-width: 60rem;
+		margin-inline: auto;
+	}
+
+	.dtd-head {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-2xs);
+	}
+	.dtd-head-top {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: var(--space-sm);
+	}
+	.dtd-step {
+		font-size: var(--step--1);
+		text-transform: uppercase;
+		letter-spacing: 0.08em;
+		opacity: 0.5;
+		font-weight: 600;
+	}
+	.dtd-title {
+		margin: 0;
+		font-size: var(--step-4);
+		line-height: 1.1;
+		letter-spacing: -0.02em;
+	}
+	.dtd-tags {
+		display: flex;
+		flex-wrap: wrap;
+		gap: var(--space-3xs);
+	}
+	.dtd-brief {
+		margin: 0;
+		opacity: 0.78;
+	}
+
+	.dtd-h3 {
+		margin: 0 0 var(--space-3xs);
+		font-size: var(--step-0);
+		display: flex;
+		align-items: center;
+		gap: var(--space-3xs);
+	}
+	.dtd-h3 i {
+		color: var(--color-theme);
+	}
+	.dtd-task {
+		padding: var(--space-sm) var(--space-md);
+		background: color-mix(in oklch, var(--color-theme) 9%, transparent);
+		border: var(--border-style) 1px
+			color-mix(in oklch, var(--color-theme) 28%, transparent);
+		border-radius: var(--radius-lg);
+	}
+	.dtd-task p {
+		margin: 0;
+	}
+
+	/* ---- Workbench: editor + sample data side by side -------------- */
+	.dtd-workbench {
+		display: grid;
+		grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr);
+		gap: var(--space-sm);
+		align-items: start;
+	}
+	.dtd-panel-bar {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: var(--space-sm);
+		padding: var(--space-3xs) var(--space-sm);
+		border-block-end: var(--border-style) 1px var(--color-border);
+		font-size: var(--step--2);
+	}
+	.dtd-panel-name {
+		display: flex;
+		align-items: center;
+		gap: var(--space-3xs);
+		font-family: var(--dtd-mono);
+		opacity: 0.7;
+	}
+
+	.dtd-data {
+		border: var(--border-style) 1px var(--color-border);
+		border-radius: var(--radius-lg);
+		background: var(--color-surface);
+		overflow: hidden;
+	}
+	.dtd-data-body {
+		padding: var(--space-sm);
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-sm);
+		max-height: 28rem;
+		overflow-y: auto;
+	}
+	.dtd-data-case {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-3xs);
+	}
+	.dtd-data-name {
+		font-size: var(--step--2);
+		text-transform: uppercase;
+		letter-spacing: 0.06em;
+		opacity: 0.5;
+		font-weight: 700;
+	}
+
+	.dtd-pre {
+		margin: 0;
+		font-family: var(--dtd-mono);
+		font-size: var(--step--1);
+		white-space: pre-wrap;
+		word-break: break-word;
+		background: color-mix(in oklch, var(--color-text) 6%, transparent);
+		padding: var(--space-2xs) var(--space-xs);
+		border-radius: var(--radius-sm);
+	}
+	.dtd-code {
+		font-family: var(--dtd-mono);
+		font-size: 0.9em;
+		background: color-mix(in oklch, var(--color-text) 10%, transparent);
+		padding: 0.1em 0.35em;
+		border-radius: var(--radius-sm);
+	}
+
+	/* ---- Editor (highlighted overlay) ------------------------------ */
+	.dtd-editor-wrap {
+		border: var(--border-style) 1px var(--color-border);
+		border-radius: var(--radius-lg);
+		overflow: hidden;
+		background: var(--color-surface);
+	}
+	.dtd-editor-kbd {
+		display: flex;
+		align-items: center;
+		gap: 4px;
+		opacity: 0.6;
+	}
+	.dtd-editor-kbd kbd {
+		font-family: var(--dtd-mono);
+		font-size: var(--step--2);
+		background: color-mix(in oklch, var(--color-text) 10%, transparent);
+		border: var(--border-style) 1px var(--color-border);
+		border-radius: var(--radius-sm);
+		padding: 0 5px;
+		line-height: 1.4;
+	}
+	.dtd-editor-area {
+		position: relative;
+	}
+	/* The textarea and the highlight <pre> must render identically so the
+	   transparent caret lines up with the coloured text underneath it. */
+	.dtd-editor,
+	.dtd-editor-hl {
+		margin: 0;
+		padding: var(--dtd-editor-pad);
+		font-family: var(--dtd-mono);
+		font-size: var(--step--1);
+		line-height: var(--dtd-editor-lh);
+		tab-size: 2;
+		white-space: pre-wrap;
+		overflow-wrap: break-word;
+		word-break: break-word;
+		border: 0;
+	}
+	.dtd-editor-hl {
+		position: absolute;
+		inset: 0;
+		overflow: hidden;
+		pointer-events: none;
+		color: var(--color-text);
+	}
+	.dtd-editor {
+		position: relative;
+		display: block;
+		width: 100%;
+		min-height: 16rem;
+		resize: vertical;
+		background: transparent;
+		color: transparent;
+		caret-color: var(--color-text);
+		overflow-y: auto;
+	}
+	.dtd-editor:focus {
+		outline: 2px solid var(--color-theme);
+		outline-offset: -2px;
+	}
+	.dtd-editor::selection {
+		background: color-mix(in oklch, var(--color-theme) 35%, transparent);
+	}
+
+	/* ---- Actions ---------------------------------------------------- */
+	.dtd-actions {
+		display: flex;
+		flex-wrap: wrap;
+		gap: var(--space-2xs);
+	}
+	.dtd-actions .zui-button i {
+		margin-inline-end: 0.3em;
+	}
+
+	/* ---- Hints ------------------------------------------------------ */
+	.dtd-hints {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-2xs);
+	}
+	.dtd-hint {
+		display: flex;
+		gap: var(--space-xs);
+		padding: var(--space-xs) var(--space-sm);
+		background: color-mix(in oklch, var(--color-warning) 12%, transparent);
+		border: var(--border-style) 1px
+			color-mix(in oklch, var(--color-warning) 30%, transparent);
+		border-radius: var(--radius-md);
+	}
+	.dtd-hint p {
+		margin: 0;
+	}
+	.dtd-hint-badge {
+		flex: none;
+		font-size: var(--step--2);
+		font-weight: 700;
+		text-transform: uppercase;
+		letter-spacing: 0.05em;
+		opacity: 0.7;
+		padding-block-start: 0.15em;
+	}
+	.dtd-solution-btn {
+		align-self: flex-start;
+		border: 0;
+		background: transparent;
+		color: var(--color-text);
+		opacity: 0.65;
+		cursor: pointer;
+		font-size: var(--step--1);
+		text-decoration: underline;
+		text-underline-offset: 3px;
+		display: flex;
+		align-items: center;
+		gap: var(--space-3xs);
+		padding: var(--space-3xs) 0;
+	}
+	.dtd-solution-btn:hover {
+		opacity: 1;
+	}
+
+	/* ---- Results ---------------------------------------------------- */
+	.dtd-results {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-2xs);
+	}
+	.dtd-result-banner {
+		display: flex;
+		gap: var(--space-xs);
+		align-items: flex-start;
+		padding: var(--space-sm) var(--space-md);
+		border-radius: var(--radius-lg);
+		border: var(--border-style) 1px var(--color-border);
+	}
+	.dtd-result-banner i {
+		font-size: 1.4em;
+		line-height: 1.1;
+	}
+	.dtd-result-banner.is-pass {
+		background: color-mix(in oklch, var(--color-success) 14%, transparent);
+		border-color: color-mix(in oklch, var(--color-success) 40%, transparent);
+	}
+	.dtd-result-banner.is-pass i {
+		color: var(--color-success);
+	}
+	.dtd-result-banner.is-fail {
+		background: color-mix(in oklch, var(--color-error) 12%, transparent);
+		border-color: color-mix(in oklch, var(--color-error) 36%, transparent);
+	}
+	.dtd-result-banner.is-fail i {
+		color: var(--color-error);
+	}
+	.dtd-result-banner > div {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-3xs);
+	}
+	.dtd-result-sub {
+		font-size: var(--step--1);
+		opacity: 0.7;
+	}
+
+	.dtd-test-list {
+		list-style: none;
+		margin: 0;
+		padding: 0;
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-3xs);
+	}
+	.dtd-test {
+		border: var(--border-style) 1px var(--color-border);
+		border-radius: var(--radius-md);
+		padding: var(--space-2xs) var(--space-sm);
+	}
+	.dtd-test.is-pass {
+		border-inline-start: 3px solid var(--color-success);
+	}
+	.dtd-test.is-fail {
+		border-inline-start: 3px solid var(--color-error);
+	}
+	.dtd-test-head {
+		display: flex;
+		align-items: center;
+		gap: var(--space-3xs);
+		font-size: var(--step--1);
+	}
+	.dtd-test.is-pass .dtd-test-head i {
+		color: var(--color-success);
+	}
+	.dtd-test.is-fail .dtd-test-head i {
+		color: var(--color-error);
+	}
+	.dtd-test-name {
+		font-weight: 600;
+	}
+	.dtd-diff {
+		display: grid;
+		grid-template-columns: 1fr 1fr;
+		gap: var(--space-2xs);
+		margin-block-start: var(--space-2xs);
+	}
+	.dtd-diff-col {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-3xs);
+		min-width: 0;
+	}
+	.dtd-diff-label {
+		font-size: var(--step--2);
+		text-transform: uppercase;
+		letter-spacing: 0.06em;
+		opacity: 0.5;
+		font-weight: 700;
+	}
+
+	/* ---- Responsive ------------------------------------------------- */
+	@media (max-width: 60rem) {
+		.dtd {
+			flex-direction: column;
+			height: auto;
+			min-height: 100dvh;
+		}
+		.dtd-sidebar {
+			width: 100%;
+		}
+		.dtd-list {
+			max-height: 14rem;
+		}
+		.dtd-main {
+			overflow: visible;
+		}
+		.dtd-scroll {
+			height: auto;
+			overflow: visible;
+			padding: var(--space-md);
+		}
+		.dtd-workbench {
+			grid-template-columns: 1fr;
+		}
+		.dtd-diff {
+			grid-template-columns: 1fr;
+		}
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.dtd * {
+			transition: none !important;
+		}
+	}
+</style>
