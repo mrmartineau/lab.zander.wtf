@@ -1,43 +1,91 @@
-# Astro Starter Kit: Minimal
+# lab.zander.wtf
 
-```sh
-pnpm create astro@latest -- --template minimal
-```
+A personal lab site hosting **experiments, little tools and demos**. Built with
+[Astro](https://astro.build) (static output) and styled with
+[ZUI](https://github.com/mrmartineau/zui).
 
-> 🧑‍🚀 **Seasoned astronaut?** Delete this file. Have fun!
+The homepage lists every lab item; each item is its own page with a bespoke
+design.
 
-## 🚀 Project Structure
+## Lab items
 
-Inside of your Astro project, you'll see the following folders and files:
+| Slug                  | What it is                                              |
+| :-------------------- | :------------------------------------------------------ |
+| `data-transformation` | A React "dojo" for practising data-transform challenges |
+| `drawing-app`         | A small in-browser drawing app                          |
+| `zui-components`      | A reference page showcasing ZUI components              |
+
+## Project structure
 
 ```text
-/
-├── public/
-├── src/
-│   └── pages/
-│       └── index.astro
-└── package.json
+src/
+  components/            Per-item React/Astro components
+  data/lab.ts            Lab item types + discovery helper (no manual registry)
+  layouts/Layout.astro   Minimal shell — ZUI CSS + Phosphor icons + body reset
+  pages/
+    index.astro          Homepage — globs pages and reads their frontmatter
+    <slug>/index.astro   One directory per lab item, named by its slug
 ```
 
-Astro looks for `.astro` or `.md` files in the `src/pages/` directory. Each page is exposed as a route based on its file name.
+## Adding a lab item
 
-There's nothing special about `src/components/`, but that's where we like to put any Astro/React/Vue/Svelte/Preact components.
+1. Create `src/pages/<slug>/index.astro` (or `index.md`), plus any supporting
+   files — components, assets, etc.
+2. Declare the item's metadata in that page's frontmatter.
 
-Any static assets, like images, can be placed in the `public/` directory.
+No central registry to edit — the homepage globs `src/pages/<slug>/index.{astro,md}`,
+derives the slug from the directory name, and reads each page's frontmatter.
+URL is `/<slug>`. List is sorted newest-first by `date`.
 
-## 🧞 Commands
+### Frontmatter metadata
 
-All commands are run from the root of the project, from a terminal:
+In an `.astro` page, expose metadata as module-level `export const`:
 
-| Command                   | Action                                           |
-| :------------------------ | :----------------------------------------------- |
-| `pnpm install`             | Installs dependencies                            |
-| `pnpm dev`             | Starts local dev server at `localhost:4321`      |
-| `pnpm build`           | Build your production site to `./dist/`          |
-| `pnpm preview`         | Preview your build locally, before deploying     |
-| `pnpm astro ...`       | Run CLI commands like `astro add`, `astro check` |
-| `pnpm astro -- --help` | Get help using the Astro CLI                     |
+```astro
+---
+import Layout from '../../layouts/Layout.astro'
 
-## 👀 Want to learn more?
+export const title = 'My experiment'
+export const description = 'What it does.'
+export const date = '2026-05-19'
+export const status = 'live'
+export const tags = ['demo']
+---
+```
 
-Feel free to check [our documentation](https://docs.astro.build) or jump into our [Discord server](https://astro.build/chat).
+In an `.md` page, put the same keys in the YAML frontmatter block.
+
+| Field         | Required | Notes                                           |
+| :------------ | :------- | :---------------------------------------------- |
+| `title`       | no\*     | Display name — falls back to the slug           |
+| `description` | no       | One-line summary                                |
+| `date`        | no\*     | ISO `YYYY-MM-DD` — drives sort order            |
+| `status`      | no       | `live` \| `wip` \| `archived` — defaults `live` |
+| `tags`        | no       | Free-form string tags                           |
+
+\* Optional but recommended — without `title`/`date` the listing degrades.
+
+## Design conventions
+
+- **UI library is ZUI** (`@mrmartineau/zui`). CSS is imported once in
+  `Layout.astro`. Always use ZUI design tokens — never hard-code colours,
+  spacing, radii, shadows or font sizes.
+- **Icons are Phosphor** — `<i class="ph ph-icon-name"></i>`. The web font is
+  loaded in `Layout.astro`.
+- Each lab item page may have a completely bespoke design. `Layout.astro` is
+  intentionally minimal.
+
+## Commands
+
+Requires Node `>=22.12.0`. Run from the project root:
+
+| Command        | Action                               |
+| :------------- | :----------------------------------- |
+| `pnpm install` | Install dependencies                 |
+| `pnpm dev`     | Start the local dev server           |
+| `pnpm build`   | Build the static site to `./dist/`   |
+| `pnpm preview` | Preview the production build locally |
+
+Run `pnpm build` after changes to confirm the site compiles.
+
+See [AGENTS.md](./AGENTS.md) for full guidance on working in this repo.
