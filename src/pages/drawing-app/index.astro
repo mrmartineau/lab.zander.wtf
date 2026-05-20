@@ -298,17 +298,13 @@ new p5(function(p) {
   }
 
   function drawPen(col) {
-    // Draw the segment as overlapping dots, tapering width penPrevW → penW.
+    // Pen size follows mouse speed: slow movement → thick, fast → thin.
     const d = p.dist(px, py, cx, cy);
-    const steps = p.max(1, p.floor(d / 2));
-    p.noStroke();
-    p.fill(col);
-    for (let i = 0; i <= steps; i++) {
-      const x = p.lerp(px, cx, i / steps);
-      const y = p.lerp(py, cy, i / steps);
-      const w = p.lerp(penPrevW, penW, i / steps);
-      p.ellipse(x, y, w, w);
-    }
+    const w = p.constrain(p.map(d, 0, 60, brushSize, brushSize * 0.25), brushSize * 0.25, brushSize);
+    p.stroke(col);
+    p.strokeWeight(w);
+    p.strokeCap(p.ROUND);
+    p.line(px, py, cx, cy);
   }
 
   function drawShape(shape) {
