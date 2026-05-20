@@ -5,6 +5,7 @@
  * localStorage.
  */
 
+import Editor, { type OnMount } from '@monaco-editor/react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { type Difficulty, challenges } from './challenges'
 import { type RunResult, formatValue, runChallenge } from './evaluator'
@@ -68,8 +69,8 @@ export default function Dojo() {
 	const [hydrated, setHydrated] = useState(false)
 	const [selectedId, setSelectedId] = useState(challenges[0].id)
 	const [results, setResults] = useState<Record<string, RunResult>>({})
-	const textareaRef = useRef<HTMLTextAreaElement>(null)
-	const highlightRef = useRef<HTMLPreElement>(null)
+	// Monaco's built-in light/dark theme, tracked to the OS colour scheme.
+	const [monacoTheme, setMonacoTheme] = useState<'vs' | 'vs-dark'>('vs-dark')
 
 	// Hydrate from localStorage after mount so server and client first
 	// renders match.
@@ -97,16 +98,14 @@ export default function Dojo() {
 	const result = results[challenge.id]
 	const isSolved = progress.completed.includes(challenge.id)
 	const allHintsShown = revealedHints >= challenge.hints.length
-	const highlighted = useMemo(() => highlightJs(code), [code])
 
-	// Keep the highlight layer scrolled in lockstep with the textarea.
-	const syncScroll = useCallback(() => {
-		const ta = textareaRef.current
-		const hl = highlightRef.current
-		if (ta && hl) {
-			hl.scrollTop = ta.scrollTop
-			hl.scrollLeft = ta.scrollLeft
-		}
+	// Follow the OS light/dark preference for the editor theme.
+	useEffect(() => {
+		const mq = window.matchMedia('(prefers-color-scheme: dark)')
+		const apply = () => setMonacoTheme(mq.matches ? 'vs-dark' : 'vs')
+		apply()
+		mq.addEventListener('change', apply)
+		return () => mq.removeEventListener('change', apply)
 	}, [])
 
 	const setCode = useCallback(
@@ -165,27 +164,18 @@ export default function Dojo() {
 		}
 	}, [challenge, setCode])
 
-	const handleKeyDown = useCallback(
-		(e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-			if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
-				e.preventDefault()
-				handleRun()
-				return
-			}
-			if (e.key === 'Tab') {
-				e.preventDefault()
-				const ta = e.currentTarget
-				const { selectionStart: start, selectionEnd: end, value } = ta
-				const next = `${value.slice(0, start)}  ${value.slice(end)}`
-				setCode(next)
-				requestAnimationFrame(() => {
-					ta.selectionStart = start + 2
-					ta.selectionEnd = start + 2
-				})
-			}
-		},
-		[handleRun, setCode],
-	)
+	// Keep a live ref to handleRun so the Monaco command — registered once on
+	// mount — always invokes the current closure.
+	const runRef = useRef(handleRun)
+	useEffect(() => {
+		runRef.current = handleRun
+	}, [handleRun])
+
+	const handleEditorMount = useCallback<OnMount>((editor, monaco) => {
+		editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter, () => {
+			runRef.current()
+		})
+	}, [])
 
 	const solvedCount = progress.completed.length
 	const progressPct = Math.round((solvedCount / challenges.length) * 100)
@@ -299,25 +289,36 @@ export default function Dojo() {
 								</span>
 							</div>
 							<div className="dtd-editor-area">
-								<pre
-									ref={highlightRef}
-									className="dtd-editor-hl"
-									aria-hidden="true"
-									// biome-ignore lint/security/noDangerouslySetInnerHtml: highlighter escapes its input
-									dangerouslySetInnerHTML={{ __html: highlighted }}
-								/>
-								<textarea
-									ref={textareaRef}
-									className="dtd-editor"
+								<Editor
+									language="javascript"
+									theme={monacoTheme}
 									value={code}
-									onChange={(e) => setCode(e.target.value)}
-									onKeyDown={handleKeyDown}
-									onScroll={syncScroll}
-									spellCheck={false}
-									autoCapitalize="off"
-									autoCorrect="off"
-									autoComplete="off"
-									rows={14}
+									onChange={(value) => setCode(value ?? '')}
+									onMount={handleEditorMount}
+									loading={
+										<span className="dtd-editor-loading">
+											Loading editor…
+										</span>
+									}
+									options={{
+										minimap: { enabled: false },
+										fontSize: 13,
+										lineNumbers: 'on',
+										scrollBeyondLastLine: false,
+										tabSize: 2,
+										insertSpaces: true,
+										automaticLayout: true,
+										padding: { top: 12, bottom: 12 },
+										renderLineHighlight: 'line',
+										smoothScrolling: true,
+										wordWrap: 'on',
+										folding: false,
+										overviewRulerLanes: 0,
+										scrollbar: {
+											verticalScrollbarSize: 10,
+											horizontalScrollbarSize: 10,
+										},
+									}}
 								/>
 							</div>
 						</section>

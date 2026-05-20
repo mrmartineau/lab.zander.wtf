@@ -12,7 +12,8 @@ export const tags = ['javascript', 'react', 'interactive']
 ---
 
 <Layout title="Data Transformation Dojo — lab.zander.wtf">
-	<Dojo client:load />
+	<!-- client:only — Monaco is browser-only and cannot be server-rendered. -->
+	<Dojo client:only="react" />
 </Layout>
 
 <style is:global>
@@ -27,9 +28,6 @@ export const tags = ['javascript', 'react', 'interactive']
 		--dtd-syntax-prop: color-mix(in oklch, var(--color-accent) 70%, var(--color-text));
 		--dtd-syntax-com: color-mix(in oklch, var(--color-text) 45%, transparent);
 		--dtd-syntax-pun: color-mix(in oklch, var(--color-text) 65%, transparent);
-		/* Editor box metrics — shared by the textarea and its highlight layer. */
-		--dtd-editor-pad: var(--space-sm);
-		--dtd-editor-lh: 1.6;
 		display: flex;
 		height: 100dvh;
 		color: var(--color-text);
@@ -350,7 +348,7 @@ export const tags = ['javascript', 'react', 'interactive']
 		border-radius: var(--radius-sm);
 	}
 
-	/* ---- Editor (highlighted overlay) ------------------------------ */
+	/* ---- Editor (Monaco) ------------------------------------------- */
 	.dtd-editor-wrap {
 		border: var(--border-style) 1px var(--color-border);
 		border-radius: var(--radius-lg);
@@ -372,48 +370,20 @@ export const tags = ['javascript', 'react', 'interactive']
 		padding: 0 5px;
 		line-height: 1.4;
 	}
+	/* Monaco fills this box; the resize handle lets it grow taller. */
 	.dtd-editor-area {
-		position: relative;
+		height: 24rem;
+		min-height: 12rem;
+		resize: vertical;
+		overflow: hidden;
 	}
-	/* The textarea and the highlight <pre> must render identically so the
-	   transparent caret lines up with the coloured text underneath it. */
-	.dtd-editor,
-	.dtd-editor-hl {
-		margin: 0;
-		padding: var(--dtd-editor-pad);
+	.dtd-editor-loading {
+		display: grid;
+		place-items: center;
+		height: 100%;
 		font-family: var(--dtd-mono);
 		font-size: var(--step--1);
-		line-height: var(--dtd-editor-lh);
-		tab-size: 2;
-		white-space: pre-wrap;
-		overflow-wrap: break-word;
-		word-break: break-word;
-		border: 0;
-	}
-	.dtd-editor-hl {
-		position: absolute;
-		inset: 0;
-		overflow: hidden;
-		pointer-events: none;
-		color: var(--color-text);
-	}
-	.dtd-editor {
-		position: relative;
-		display: block;
-		width: 100%;
-		min-height: 16rem;
-		resize: vertical;
-		background: transparent;
-		color: transparent;
-		caret-color: var(--color-text);
-		overflow-y: auto;
-	}
-	.dtd-editor:focus {
-		outline: 2px solid var(--color-theme);
-		outline-offset: -2px;
-	}
-	.dtd-editor::selection {
-		background: color-mix(in oklch, var(--color-theme) 35%, transparent);
+		opacity: 0.6;
 	}
 
 	/* ---- Actions ---------------------------------------------------- */
