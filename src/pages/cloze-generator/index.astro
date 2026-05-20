@@ -1,0 +1,224 @@
+---
+import Layout from '../../layouts/Layout.astro'
+import { Badge, Button, Card, CardBody, CardHeader, CardTitle, Flex, Link, Text } from '@mrmartineau/zui/astro'
+
+export const title = 'Cloze test generator'
+export const description = 'Paste in some text, click words to hide them, then test your recall — a tool for language teachers.'
+export const date = '2013-06-01'
+export const status = 'live'
+export const tags = ['tool', 'language']
+---
+
+<Layout title="Cloze test generator — lab.zander.wtf">
+	<main class="page">
+		<header class="flow">
+			<Link href="/">← All lab items</Link>
+			<Flex align="center" gap="sm">
+				<h1>Cloze test generator</h1>
+				<Badge variant="fill" color="emerald">live</Badge>
+			</Flex>
+			<Text size="1">{description}</Text>
+		</header>
+
+		<Card>
+			<CardHeader>
+				<CardTitle>1. Paste in text</CardTitle>
+			</CardHeader>
+			<CardBody>
+				<Flex direction="column" gap="sm">
+					<Flex gap="sm" wrap="wrap" align="center">
+						<Text size="0">Placeholders:</Text>
+						<Button size="sm" variant="subtle" data-placeholder="lorem">Lorem ipsum</Button>
+						<Button size="sm" variant="subtle" data-placeholder="kafka">Kafka</Button>
+						<Button size="sm" variant="subtle" data-placeholder="pangram">Pangram</Button>
+					</Flex>
+					<textarea id="cloze-input" autofocus></textarea>
+				</Flex>
+			</CardBody>
+		</Card>
+
+		<div class="grid">
+			<Card>
+				<CardHeader>
+					<CardTitle>2. Click words to hide</CardTitle>
+				</CardHeader>
+				<CardBody>
+					<Text size="0">Click words only once. Type the hidden word back in to test yourself.</Text>
+					<div id="cloze-result"></div>
+				</CardBody>
+			</Card>
+			<Card>
+				<CardHeader>
+					<CardTitle>3. Keywords</CardTitle>
+				</CardHeader>
+				<CardBody>
+					<Text size="0">Click again to remove from this list and put the word back into the text.</Text>
+					<div id="cloze-keywords"></div>
+					<Flex>
+						<Button id="cloze-randomise" size="sm" variant="outline">Randomise</Button>
+					</Flex>
+				</CardBody>
+			</Card>
+		</div>
+	</main>
+</Layout>
+
+<script is:inline>
+	(() => {
+		const samples = {
+			lorem: "Suspendisse dictum feugiat nisl ut dapibus. Mauris iaculis porttitor posuere. Praesent id metus massa, ut blandit odio. Proin quis tortor orci. Etiam at risus et justo dignissim congue. Donec congue lacinia dui, a porttitor lectus condimentum laoreet. Nunc eu ullamcorper orci. Quisque eget odio ac lectus vestibulum faucibus eget in metus.",
+			kafka: "One morning, when Gregor Samsa woke from troubled dreams, he found himself transformed in his bed into a horrible vermin. He lay on his armour-like back, and if he lifted his head a little he could see his brown belly, slightly domed and divided by arches into stiff sections.",
+			pangram: "The quick, brown fox jumps over a lazy dog. DJs flock by when MTV ax quiz prog. Junk MTV quiz graced by fox whelps. Bawds jog, flick quartz, vex nymphs. Waltz, bad nymph, for quick jigs vex!",
+		};
+
+		const input = document.getElementById('cloze-input');
+		const result = document.getElementById('cloze-result');
+		const keywords = document.getElementById('cloze-keywords');
+
+		// Split text into a stream of word/punctuation spans so individual words
+		// can be replaced with an <input> when clicked.
+		function render(text) {
+			result.innerHTML = '';
+			const parts = text.split(/(\s+|[.,!?;:"'()\[\]\/])/);
+			for (const part of parts) {
+				if (part === '') continue;
+				if (/^\s+$/.test(part)) {
+					result.appendChild(document.createTextNode(part));
+				} else if (/^[.,!?;:"'()\[\]\/]+$/.test(part)) {
+					result.appendChild(document.createTextNode(part));
+				} else {
+					const span = document.createElement('span');
+					span.className = 'word';
+					span.textContent = part;
+					result.appendChild(span);
+				}
+			}
+		}
+
+		let counter = 0;
+		result.addEventListener('click', (e) => {
+			const target = e.target;
+			if (!(target instanceof HTMLElement) || !target.classList.contains('word')) return;
+			if (target.querySelector('input')) return;
+			counter += 1;
+			const id = 'kw-' + counter;
+			target.dataset.kw = id;
+			const word = target.textContent ?? '';
+			const width = target.offsetWidth;
+
+			// Mirror the word into the keywords list so the user can see the answers.
+			const tag = document.createElement('span');
+			tag.className = 'kw';
+			tag.dataset.kw = id;
+			tag.textContent = word;
+			keywords.appendChild(tag);
+
+			// Swap the word out for an input the user fills in.
+			const inputEl = document.createElement('input');
+			inputEl.type = 'text';
+			inputEl.placeholder = '?';
+			inputEl.dataset.answer = word;
+			inputEl.style.width = Math.max(width, 48) + 'px';
+			target.textContent = '';
+			target.appendChild(inputEl);
+		});
+
+		// Validate as the user types.
+		result.addEventListener('input', (e) => {
+			const t = e.target;
+			if (!(t instanceof HTMLInputElement)) return;
+			if (t.value.trim() === t.dataset.answer) {
+				const span = t.parentElement;
+				if (span) { span.textContent = t.dataset.answer ?? ''; span.classList.add('correct'); }
+			} else {
+				t.classList.toggle('error', t.value.length > 0);
+			}
+		});
+
+		// Click a keyword to put the word back in the text.
+		keywords.addEventListener('click', (e) => {
+			const t = e.target;
+			if (!(t instanceof HTMLElement) || !t.classList.contains('kw')) return;
+			const id = t.dataset.kw;
+			const span = result.querySelector(`.word[data-kw="${id}"]`);
+			if (span) { span.textContent = t.textContent ?? ''; span.classList.remove('correct'); delete span.dataset.kw; }
+			t.remove();
+		});
+
+		// Shuffle the keywords list (Fisher-Yates).
+		document.getElementById('cloze-randomise')?.addEventListener('click', () => {
+			const children = Array.from(keywords.children);
+			for (let i = children.length - 1; i > 0; i--) {
+				const j = Math.floor(Math.random() * (i + 1));
+				[children[i], children[j]] = [children[j], children[i]];
+			}
+			keywords.replaceChildren(...children);
+		});
+
+		input.addEventListener('input', () => render(input.value));
+		document.querySelectorAll('[data-placeholder]').forEach((b) => {
+			b.addEventListener('click', () => {
+				const k = b.getAttribute('data-placeholder');
+				input.value = samples[k] ?? '';
+				render(input.value);
+			});
+		});
+	})();
+</script>
+
+<style>
+	.page {
+		max-width: 56rem;
+		margin-inline: auto;
+		padding: var(--space-xl) var(--space-md);
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-lg);
+	}
+	h1 { margin: 0; font-size: var(--step-4); }
+	.grid {
+		display: grid;
+		grid-template-columns: 2fr 1fr;
+		gap: var(--space-md);
+	}
+	@media (max-width: 720px) { .grid { grid-template-columns: 1fr; } }
+	textarea {
+		width: 100%;
+		min-height: 9rem;
+		font: var(--step--1)/1.5 Georgia, serif;
+		padding: var(--space-sm);
+		background: var(--color-surface);
+		color: var(--color-text);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-md);
+		resize: vertical;
+	}
+	#cloze-result, #cloze-keywords {
+		min-height: 3rem;
+		margin-top: var(--space-xs);
+		font: var(--step-0)/1.6 Georgia, serif;
+	}
+	.word { cursor: pointer; padding: 0 2px; border-radius: 3px; }
+	.word:hover { background: var(--color-surface); }
+	.word.correct { background: color-mix(in oklab, var(--color-success, #2a9d4a) 20%, transparent); }
+	.word input {
+		font: inherit;
+		padding: 0 4px;
+		min-width: 3rem;
+		border: none;
+		border-bottom: 1px dashed var(--color-border);
+		background: transparent;
+		color: var(--color-text);
+		outline: none;
+	}
+	.word input.error { color: #c04141; }
+	.kw {
+		display: inline-block;
+		padding: 2px 8px;
+		margin: 0 4px 4px 0;
+		background: var(--color-surface);
+		border-radius: var(--radius-sm);
+		cursor: pointer;
+	}
+	.kw:hover { background: var(--color-border); }
+</style>
