@@ -1,0 +1,763 @@
+---
+import Layout from '../../layouts/Layout.astro'
+import { Badge, Flex, Link, Text } from '@mrmartineau/zui/astro'
+
+export const title = 'Pure CSS icons'
+export const description = 'A 2010 study in drawing icons with nothing but div, span, border-radius and transform. No SVG, no images.'
+export const date = '2010-08-01'
+export const status = 'archived'
+export const tags = ['css']
+---
+
+<Layout title="Pure CSS icons — lab.zander.wtf">
+	<main class="page">
+		<header class="flow">
+			<Link href="/">← All lab items</Link>
+			<Flex align="center" gap="sm">
+				<h1>Pure CSS icons</h1>
+				<Badge variant="fill" color="gray">archived</Badge>
+			</Flex>
+			<Text size="1">{description}</Text>
+		</header>
+
+		<div class="flex gap-md">
+			<div class="wrapper" style="font-size:12px;">
+				<h3>RSS (without border)</h3>
+				<div id="rss_icon_main" class="outside gap">
+						<a href="http://rathersplendid.net"><span class="outer_ring"></span>
+						<span class="middle_ring"></span>
+						<span class="circle"></span></a>
+				</div><!-- /rss_icon_main -->
+				<h3>RSS (with Border)</h3>
+				<div id="rss_icon_wrapper" class="gap">
+						<div id="rss_icon_main" class="inside">
+							<a href="http://rathersplendid.net"><span class="outer_ring"></span>
+							<span class="middle_ring"></span>
+							<span class="circle"></span></a>
+						</div><!-- /rss_icon_main -->
+				</div><!-- /rss_icon_wrapper -->
+				<h3>32px RSS</h3>
+				<p>The dimensions for this and the 16px icon are fixed.</p>
+				<div id="rss_icon_main" class="outside px32 gap">
+						<a href="http://rathersplendid.net"><span class="outer_ring"></span>
+						<span class="middle_ring"></span>
+						<span class="circle"></span></a>
+				</div><!-- /rss_icon_main -->
+				<h3>32px RSS with border</h3>
+				<div id="rss_icon_wrapper" class="px32 gap">
+						<div id="rss_icon_main" class="inside">
+							<a href="http://rathersplendid.net"><span class="outer_ring"></span>
+							<span class="middle_ring"></span>
+							<span class="circle"></span></a>
+						</div><!-- /rss_icon_main -->
+				</div><!-- /rss_icon_wrapper -->
+				<h3>16px RSS</h3>
+				<div id="rss_icon_main" class="outside px16 gap">
+						<a href="http://rathersplendid.net"><span class="outer_ring"></span>
+						<span class="middle_ring"></span>
+						<span class="circle"></span></a>
+				</div><!-- /rss_icon_main -->
+				<!--div id="heart" class="gap">
+					<span class="circle left"></span>
+					<span class="circle right"></span>
+					<span class="point"></span>
+				</div>< /heart -->
+				<h3>Heart</h3>
+				<div id="heart_two" class="gap">
+					<span class="heart_left"></span>
+					<span class="heart_right"></span>
+				</div><!-- /heart_two -->
+				<h3>iPhone</h3>
+				<div id="iphone" class="gap">
+					<span class="earpiece"></span>
+					<span class="screen"></span>
+					<span class="home"></span>
+				</div><!-- /iphone -->
+				<h3>Microphone</h3>
+				<div id="voice" class="gap">
+					<span class="mic"></span>
+					<div class="wrap">
+						<span class="shell"></span>
+						<span class="stem"></span>
+						<span class="base"></span>
+					</div><!-- /wrap -->
+				</div><!-- / #voice -->
+				<h3>Block</h3>
+				<div id="block" class="gap">
+					<span></span>
+				</div><!-- / #block -->
+				<h3>Triangle</h3>
+				<div id="triangle" class="gap"></div>
+				<h3>Disc</h3>
+				<div id="disc" class="gap">
+					<span></span>
+				</div><!-- /disc -->
+				<h3>Target</h3>
+				<div id="target" class="gap">
+					<span class="inner"></span>
+					<span class="outer"></span>
+				</div><!-- /target -->
+				<h3>Mini Target</h3>
+				<div id="mini_target" class="gap">
+					<span></span>
+				</div><!-- /mini_taget -->
+				<h3>Can</h3>
+				<div id="can" class="gap">
+					<span></span>
+				</div><!-- /can -->
+				<h3>Upright Can</h3>
+				<div id="upright_can" class="gap">
+					<span></span>
+				</div><!-- /upright_can -->
+				<h3>Eye</h3>
+				<div id="eye" class="gap">
+					<span class="inner"></span>
+				</div><!-- /eye -->
+			</div><!-- / #wrapper -->
+			<!-- Wrapper 2 -->
+			<div class="wrapper" style="font-size:7px;">
+				<div id="rss_icon_main" class="outside gap">
+						<a href="http://rathersplendid.net"><span class="outer_ring"></span>
+						<span class="middle_ring"></span>
+						<span class="circle"></span></a>
+				</div><!-- /rss_icon_main -->
+				<div id="rss_icon_wrapper" class="gap">
+						<div id="rss_icon_main" class="inside">
+							<a href="http://rathersplendid.net"><span class="outer_ring"></span>
+							<span class="middle_ring"></span>
+							<span class="circle"></span></a>
+						</div><!-- /rss_icon_main -->
+				</div><!-- /rss_icon_wrapper -->
+				<div id="rss_icon_main" class="outside px32 gap">
+						<a href="http://rathersplendid.net"><span class="outer_ring"></span>
+						<span class="middle_ring"></span>
+						<span class="circle"></span></a>
+				</div><!-- /rss_icon_main -->
+				<div id="rss_icon_wrapper" class="px32 gap">
+						<div id="rss_icon_main" class="inside">
+							<a href="http://rathersplendid.net"><span class="outer_ring"></span>
+							<span class="middle_ring"></span>
+							<span class="circle"></span></a>
+						</div><!-- /rss_icon_main -->
+				</div><!-- /rss_icon_wrapper -->
+				<div id="rss_icon_main" class="outside px16 gap">
+						<a href="http://rathersplendid.net"><span class="outer_ring"></span>
+						<span class="middle_ring"></span>
+						<span class="circle"></span></a>
+				</div><!-- /rss_icon_main -->
+				<div id="heart_two" class="gap">
+					<span class="heart_left"></span>
+					<span class="heart_right"></span>
+				</div><!-- /heart_two -->
+				<div id="iphone" class="gap">
+					<span class="earpiece"></span>
+					<span class="screen"></span>
+					<span class="home"></span>
+				</div><!-- /iphone -->
+				<div id="voice" class="gap">
+					<span class="mic"></span>
+					<div class="wrap">
+						<span class="shell"></span>
+						<span class="stem"></span>
+						<span class="base"></span>
+					</div><!-- /wrap -->
+				</div><!-- / #voice -->
+				<div id="block" class="gap">
+					<span></span>
+				</div><!-- / #block -->
+				<div id="triangle" class="gap"></div>
+				<div id="disc" class="gap">
+					<span></span>
+				</div><!-- /disc -->
+				<div id="target" class="gap">
+					<span class="inner"></span>
+					<span class="outer"></span>
+				</div><!-- /target -->
+				<div id="mini_target" class="gap">
+					<span></span>
+				</div><!-- /mini_target -->
+				<div id="can" class="gap">
+					<span></span>
+				</div><!-- /can -->
+				<div id="upright_can" class="gap">
+					<span></span>
+				</div><!-- /upright_can -->
+				<div id="eye" class="gap">
+					<span class="inner"></span>
+				</div><!-- /eye -->
+			</div><!-- / #wrapper2 -->
+			<div class="wrapper" style="font-size:3px;">
+				<div id="rss_icon_main" class="outside gap">
+						<a href="http://rathersplendid.net"><span class="outer_ring"></span>
+						<span class="middle_ring"></span>
+						<span class="circle"></span></a>
+				</div><!-- /rss_icon_main -->
+				<div id="rss_icon_wrapper" class="gap">
+						<div id="rss_icon_main" class="inside">
+							<a href="http://rathersplendid.net"><span class="outer_ring"></span>
+							<span class="middle_ring"></span>
+							<span class="circle"></span></a>
+						</div><!-- /rss_icon_main -->
+				</div><!-- /rss_icon_wrapper -->
+				<div id="rss_icon_main" class="outside px32 gap">
+						<a href="http://rathersplendid.net"><span class="outer_ring"></span>
+						<span class="middle_ring"></span>
+						<span class="circle"></span></a>
+				</div><!-- /rss_icon_main -->
+				<div id="rss_icon_wrapper" class="px32 gap">
+						<div id="rss_icon_main" class="inside">
+							<a href="http://rathersplendid.net"><span class="outer_ring"></span>
+							<span class="middle_ring"></span>
+							<span class="circle"></span></a>
+						</div><!-- /rss_icon_main -->
+				</div><!-- /rss_icon_wrapper -->
+				<div id="rss_icon_main" class="outside px16 gap">
+						<a href="http://rathersplendid.net"><span class="outer_ring"></span>
+						<span class="middle_ring"></span>
+						<span class="circle"></span></a>
+				</div><!-- /rss_icon_main -->
+				<!--div id="heart" class="gap">
+					<span class="circle left"></span>
+					<span class="circle right"></span>
+					<span class="point"></span>
+				</div>< /heart -->
+				<div id="heart_two" class="gap">
+					<span class="heart_left"></span>
+					<span class="heart_right"></span>
+				</div><!-- /heart_two -->
+				<div id="iphone" class="gap">
+					<span class="earpiece"></span>
+					<span class="screen"></span>
+					<span class="home"></span>
+				</div><!-- /iphone -->
+				<div id="voice" class="gap">
+					<span class="mic"></span>
+					<div class="wrap">
+						<span class="shell"></span>
+						<span class="stem"></span>
+						<span class="base"></span>
+					</div><!-- /wrap -->
+				</div><!-- / #voice -->
+				<div id="block" class="gap">
+					<span></span>
+				</div><!-- / #block -->
+				<div id="triangle" class="gap"></div>
+				<div id="disc" class="gap">
+					<span></span>
+				</div><!-- /disc -->
+				<div id="target" class="gap">
+					<span class="inner"></span>
+					<span class="outer"></span>
+				</div><!-- /target -->
+				<div id="mini_target" class="gap">
+					<span></span>
+				</div><!-- /mini_target -->
+				<div id="can" class="gap">
+					<span></span>
+				</div><!-- /can -->
+				<div id="upright_can" class="gap">
+					<span></span>
+				</div><!-- /upright_can -->
+				<div id="eye" class="gap">
+					<span class="inner"></span>
+				</div><!-- /eye -->
+			</div><!-- / #wrapper3 -->
+		</div>
+	</main>
+</Layout>
+
+<style>
+	.page {
+		max-width: 60rem;
+		margin-inline: auto;
+		padding: var(--space-xl) var(--space-md);
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-lg);
+	}
+	h1 { margin: 0; font-size: var(--step-4); }
+
+	.wrapper {
+		width: 22em;
+		margin-right: 50px;
+}
+.gap {
+		margin: 20px auto 60px;
+}
+
+.wrapper > * {
+	 transition: all 0.12s ease-out;
+}
+.wrapper > *:hover {
+	 transform: scale(1.1);
+}
+
+#rss_icon_wrapper {
+		width: 10em;
+		height: 10em;
+		background-color: #f86c11;
+		border: 0.3em solid #c63e0d;
+		position: relative;
+		border-radius: 1.5em;
+		background: -webkit-gradient(
+		    linear,
+		    left bottom,
+		    left top,
+		    color-stop(0.12, rgb(255,107,28)),
+		    color-stop(1, rgb(255,159,41))
+		);
+		/*-webkit-border-image: -webkit-gradient(
+		    linear,
+		    left bottom,
+		    left top,
+		    color-stop(0.12, rgb(255,107,28)),
+		    color-stop(1, rgb(255,159,41))
+		);*/
+		background: linear-gradient(
+		    center bottom,
+		    rgb(255,107,28) 12%,
+		    rgb(255,159,41) 100%
+		);
+		overflow: hidden;
+}
+#rss_icon_main {
+		width: 80%;
+		height: 80%;
+		position: relative;
+		overflow: hidden;
+}
+#rss_icon_main.inside {
+		top: 10%;
+		left: 10%;
+}
+#rss_icon_main.inside span {
+		border-color: #fff;
+}
+#rss_icon_main.outside {
+		width: 9em;
+		height: 9em;
+		margin-right: auto;
+		margin-left: auto;
+}
+#rss_icon_main.outside span {
+		border-color: currentColor;
+}
+#rss_icon_main.outside .circle {
+		background-color: currentColor;
+}
+.outer_ring, .middle_ring {
+		border: 1.5em solid #fff;
+}
+.outer_ring, .middle_ring, .circle {
+		position: absolute;
+}
+.outer_ring {
+		width: 170%;
+		height: 170%;
+		right: 0;
+		top: 0;
+		border-radius: 10.5em;
+}
+.middle_ring {
+		position: absolute;
+		width: 110%;
+		height: 110%;
+		top: 32%;
+		border-radius: 8em;
+		right: 32%;
+}
+.circle {
+		width: 30%;
+		height: 30%;
+		border-radius: 4em;
+		left: 0;
+		bottom: 0;
+		background-color: #fff;
+}
+/* @end */
+/* @group 32px RSS */
+#rss_icon_wrapper.px32 {
+		width: 32px;
+		height: 32px;
+		border-radius: 5px;
+		border-width: 2px;
+}
+#rss_icon_main.outside.px32 {
+		width: 32px;
+		height: 32px;
+}
+.px32 .outer_ring {
+		border: 4px solid #fff;
+		border-radius: 30px;
+}
+.px32 .middle_ring {
+		border: 4px solid #fff;
+		border-radius: 20px;
+}
+.px32 .circle {
+		width: 34%;
+		height: 34%;
+}
+/* @end */
+/* @group 16px RSS */
+#rss_icon_wrapper.px16 {
+		width: 16px;
+		height: 16px;
+		border-radius: 0.2em;
+		border-width: 0;
+		box-shadow: 0px 0px 0px #ffffff;
+}
+#rss_icon_main.outside.px16 {
+		width: 16px;
+		height: 16px;
+}
+.px16 #rss_icon_main.inside {
+		top: 2px;
+		left: 2px;
+}
+.px16 .outer_ring,.px16 .middle_ring {
+		border: 3px solid #fff;
+}
+.px16 .middle_ring {
+		position: absolute;
+		width: 110%;
+		height: 110%;
+		top: 5px;
+		right: 5px;
+		border-radius: 10.5em;
+}
+.px16 .circle {
+		width: 35%;
+		height: 35%;
+}
+
+
+#iphone {
+		width: 10em;
+		height: 16em;
+		background-color: currentColor;
+		border-radius: 0.8em;
+		display: block;
+		position: relative;
+		overflow: hidden;
+}
+#iphone span {
+		display: block;
+		clear: both;
+		margin-right: auto;
+		margin-left: auto;
+		background-color: var(--color-background);
+}
+#iphone .earpiece {
+		width: 16%;
+		height: 3%;
+		margin-top: 10%;
+}
+#iphone .screen {
+		width: 80%;
+		height: 65%;
+		margin-top: 10%;
+}
+#iphone .home {
+		width: 1.2em;
+		height: 1.2em;
+		margin-top: 9%;
+		border-radius: 1.2em;
+}
+
+#heart {
+		width: 18em;
+		height: 20em;
+		position: relative;
+		overflow: hidden;
+}
+#heart .circle {
+		width: 10em;
+		height: 10em;
+		background-color: #c50011;
+		border-radius: 10em;
+		display: block;
+		position: absolute;
+}
+#heart .circle.left {
+		left: 0;
+		top: 0;
+}
+#heart .circle.right {
+		right: 0;
+		top: 0;
+}
+#heart .point {
+		width: 13em;
+		height: 13em;
+		background-color: #c50011;
+	 transform:rotate(-45deg);
+		display: block;
+		position: absolute;
+		bottom: 33%;
+		left: 14%;
+		border-top-left-radius: 50px;
+		border-top-right-radius: 200px;
+		border-bottom-right-radius: 50px;
+		border-bottom-left-radius: 0px;
+}
+
+#heart_two {
+		width: 20em;
+		height: 20em;
+		position: relative;
+		overflow: hidden;
+}
+#heart_two span {
+		display: block;
+		position: absolute;
+}
+#heart_two span.heart_left {
+		width: 10em;
+		height: 16em;
+		background-color: #c50011;
+   transform:rotate(-45deg);
+		left: 2.85em;
+		bottom: 2.2em;
+		border-top-left-radius: 10em;
+		border-top-right-radius: 10em;
+		border-bottom-right-radius: 10em;
+		border-bottom-left-radius: 0;
+}
+#heart_two span.heart_right {
+		width: 10em;
+		height: 16em;
+		background-color: #c50011;
+   transform:rotate(45deg);
+		border-top-left-radius: 10em;
+		border-top-right-radius: 10em;
+		border-bottom-right-radius: 0;
+		border-bottom-left-radius: 10em;
+		left: 7.1em;
+		bottom: 2.2em;
+}
+#heart .circle {
+		width: 10em;
+		height: 10em;
+		background-color: #c50011;
+		border-radius: 10em;
+		display: block;
+		position: absolute;
+}
+#heart .circle.left {
+		left: 0;
+		top: 0;
+}
+#heart .circle.right {
+		right: 0;
+		top: 0;
+}
+#heart .point {
+		width: 13em;
+		height: 13em;
+		background-color: #c50011;
+   transform:rotate(-45deg);
+		display: block;
+		position: absolute;
+		bottom: 33%;
+		left: 14%;
+		border-top-left-radius: 50px;
+		border-top-right-radius: 200px;
+		border-bottom-right-radius: 50px;
+		border-bottom-left-radius: 0px;
+}
+
+#voice {
+		position: relative;
+		width: 13em;
+		height: 15em;
+}
+.mic {
+		width: 5em;
+		height: 10.5em;
+		position: absolute;
+		background-color: currentColor;
+		left: 4em;
+		border-radius: 3em;
+}
+#voice div.wrap {
+		overflow: hidden;
+		width: 9em;
+		height: 9em;
+		position: absolute;
+		bottom: 0;
+		left: 2em;
+}
+.shell {
+		width: 9em;
+    height: 12em;
+    position: absolute;
+    border: 1em solid currentColor;
+    border-radius: 5em;
+    bottom: 2.5em;
+    translate: -50% 0;
+    left: 50%;
+}
+.stem {
+		width: 1em;
+		height: 3em;
+		position: absolute;
+		background-color: currentColor;
+		left: 4em;
+		bottom: 0;
+}
+.base {
+		width: 5em;
+		height: 1em;
+		position: absolute;
+		background-color: currentColor;
+		left: 2em;
+		bottom: 0;
+}
+
+#block {
+		width: 15em;
+		height: 15em;
+		position: relative;
+		border: 2em solid currentColor;
+		border-radius: 50%;
+}
+#block span {
+		background-color:currentColor;
+		height: 100%;
+		width:2em;
+		margin:0 auto;
+		position:absolute;
+		top: 0;
+		left: 50%;
+    translate: -50% 0;
+	 transform:rotate(-45deg);
+	 transform-origin: 50% 50%;
+}
+
+#triangle {
+		border: 10em solid currentColor;
+		border-right-color: transparent;
+		border-top-color: transparent;
+		border-bottom-color: transparent;
+		height: 0.001em;
+		width: 0.001em;
+}
+
+#disc {
+		width: 13em;
+    height: 13em;
+    position: relative;
+    border: 4em solid currentColor;
+    border-radius: 50%;
+}
+#disc span {
+		width: 3em;
+		height: 3em;
+		position: absolute;
+		border-radius: 50%;
+		left: 50%;
+		top: 50%;
+		translate: -50% -50%;
+		border: 1em solid;
+	}
+/* @end */
+/* @group Target */
+#target {
+		width: 15em;
+		height: 15em;
+		position: relative;
+		border: 2em solid currentColor;
+		border-radius: 40em;
+}
+#target span {
+	position: absolute;
+	border-radius: 50%;
+	left: 50%;
+	top: 50%;
+	translate: -50% -50%;
+}
+#target span.inner {
+		width: 5em;
+		height: 5em;
+}
+#target span.outer {
+		width: 8em;
+		height: 8em;
+		border: 2em solid currentColor;
+		border-radius: 7em;
+}
+#can {
+		width: 15em;
+		height: 9em;
+		position: relative;
+		background-color: currentColor;
+		border-radius: 7em;
+}
+#can span {
+		width: 6em;
+		height: 6em;
+		position: absolute;
+		border-radius: 50%;
+		background-color: var(--color-background);
+		top: 50%;
+		left: 1.5em;
+		translate: 0 -50%;
+}
+#mini_target {
+		width: 9em;
+		height: 9em;
+		position: relative;
+		background-color: currentColor;
+		border-radius: 7em;
+}
+#mini_target span {
+		width: 6em;
+		height: 6em;
+		position: absolute;
+		border-radius: 50%;
+		background-color: currentColor;
+		border: 1.5em solid var(--color-background);
+		left: 50%;
+		top: 50%;
+		translate: -50% -50%;
+}
+#upright_can {
+		width: 9em;
+		height: 15em;
+		position: relative;
+		background-color: currentColor;
+		border-radius: 7em;
+}
+#upright_can span {
+		width: 6em;
+		height: 6em;
+		position: absolute;
+		border-radius: 50%;
+		background-color: var(--color-background);
+		left: 50%;
+		top: 1.5em;
+		translate: -50% 0;
+}
+#eye {
+		width: 15em;
+		height: 15em;
+		position: relative;
+		background-color: currentColor;
+		border-top-left-radius: 10em;
+		border-top-right-radius: 0;
+		border-bottom-right-radius: 10em;
+		border-bottom-left-radius: 0;
+	 transform:rotate(45deg);
+}
+#eye span.inner {
+		width: 50%;
+		height: 50%;
+		position: absolute;
+		border-radius: 50%;
+		background-color: var(--color-background);
+		left: 50%;
+		top: 50%;
+		translate: -50% -50%;
+}
+</style>
