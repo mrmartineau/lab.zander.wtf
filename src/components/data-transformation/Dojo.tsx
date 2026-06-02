@@ -8,7 +8,12 @@
 import Editor, { type OnMount } from '@monaco-editor/react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { type Difficulty, challenges } from './challenges'
-import { type RunResult, formatValue, runChallenge } from './evaluator'
+import {
+	type RunResult,
+	formatValuePretty,
+	inferType,
+	runChallenge,
+} from './evaluator'
 import { highlightJs } from './highlight'
 
 const STORAGE_KEY = 'dtd-progress-v1'
@@ -71,6 +76,7 @@ export default function Dojo() {
 	const [results, setResults] = useState<Record<string, RunResult>>({})
 	// Monaco's built-in light/dark theme, tracked to the OS colour scheme.
 	const [monacoTheme, setMonacoTheme] = useState<'vs' | 'vs-dark'>('vs-dark')
+	const [isEditorWide, setIsEditorWide] = useState(false)
 
 	// Hydrate from localStorage after mount so server and client first
 	// renders match.
@@ -182,7 +188,7 @@ export default function Dojo() {
 	const passCount = result?.results.filter((r) => r.passed).length ?? 0
 
 	return (
-		<div className="dtd">
+		<div className={`dtd${isEditorWide ? ' is-wide' : ''}`}>
 			<aside className="dtd-sidebar">
 				<div className="dtd-brand">
 					<h1 className="dtd-brand-title">Data Transformation Dojo</h1>
@@ -277,15 +283,34 @@ export default function Dojo() {
 						</p>
 					</section>
 
-					<div className="dtd-workbench">
+					<div
+						className={`dtd-workbench${isEditorWide ? ' is-wide' : ''}`}
+					>
 						<section className="dtd-editor-wrap">
 							<div className="dtd-panel-bar">
 								<span className="dtd-panel-name">
 									<i className="ph ph-code" /> solve.js
 								</span>
-								<span className="dtd-editor-kbd">
-									<kbd>⌘</kbd>
-									<kbd>↵</kbd> run
+								<span className="dtd-panel-bar-end">
+									<span className="dtd-editor-kbd">
+										<kbd>⌘</kbd>
+										<kbd>↵</kbd> run
+									</span>
+									<button
+										type="button"
+										className="dtd-icon-btn"
+										onClick={() => setIsEditorWide((w) => !w)}
+										title={isEditorWide ? 'Restore split' : 'Expand editor'}
+										aria-pressed={isEditorWide}
+									>
+										<i
+											className={
+												isEditorWide
+													? 'ph ph-arrows-in-simple'
+													: 'ph ph-arrows-out-simple'
+											}
+										/>
+									</button>
 								</span>
 							</div>
 							<div className="dtd-editor-area">
@@ -330,6 +355,20 @@ export default function Dojo() {
 								</span>
 							</div>
 							<div className="dtd-data-body">
+								<div className="dtd-data-case">
+									<span className="dtd-data-name">Type</span>
+									{challenge.tests[0].args.map((arg, i) => (
+										<pre
+											// biome-ignore lint/suspicious/noArrayIndexKey: fixed args
+											key={i}
+											className="dtd-pre"
+											// biome-ignore lint/security/noDangerouslySetInnerHtml: highlighter escapes its input
+											dangerouslySetInnerHTML={{
+												__html: highlightJs(inferType(arg)),
+											}}
+										/>
+									))}
+								</div>
 								{challenge.tests.map((test) => (
 									<div className="dtd-data-case" key={test.name}>
 										<span className="dtd-data-name">{test.name}</span>
@@ -340,7 +379,7 @@ export default function Dojo() {
 												className="dtd-pre"
 												// biome-ignore lint/security/noDangerouslySetInnerHtml: highlighter escapes its input
 												dangerouslySetInnerHTML={{
-													__html: highlightJs(formatValue(arg)),
+													__html: highlightJs(formatValuePretty(arg)),
 												}}
 											/>
 										))}
@@ -458,19 +497,48 @@ export default function Dojo() {
 													/>
 													<span className="dtd-test-name">{r.name}</span>
 												</div>
-												{!r.passed && (
+												{r.passed ? (
+													<div className="dtd-diff">
+														<div className="dtd-diff-col">
+															<span className="dtd-diff-label">Output</span>
+															<pre
+																className="dtd-pre"
+																// biome-ignore lint/security/noDangerouslySetInnerHtml: highlighter escapes its input
+																dangerouslySetInnerHTML={{
+																	__html: highlightJs(r.actual),
+																}}
+															/>
+														</div>
+													</div>
+												) : (
 													<div className="dtd-diff">
 														<div className="dtd-diff-col">
 															<span className="dtd-diff-label">
 																Expected
 															</span>
-															<pre className="dtd-pre">{r.expected}</pre>
+															<pre
+																className="dtd-pre"
+																// biome-ignore lint/security/noDangerouslySetInnerHtml: highlighter escapes its input
+																dangerouslySetInnerHTML={{
+																	__html: highlightJs(r.expected),
+																}}
+															/>
 														</div>
 														<div className="dtd-diff-col">
 															<span className="dtd-diff-label">
 																{r.errored ? 'Threw' : 'Your output'}
 															</span>
-															<pre className="dtd-pre">{r.actual}</pre>
+															{r.errored ? (
+																<pre className="dtd-pre">{r.actual}</pre>
+															) : (
+																<pre
+																	className="dtd-pre"
+																	// biome-ignore lint/security/noDangerouslySetInnerHtml: highlighter escapes its input
+																	dangerouslySetInnerHTML={{
+																		__html: highlightJs(r.actual),
+																	}}
+																/>
+															)}
 														</div>
 													</div>
 												)}

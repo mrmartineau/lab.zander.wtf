@@ -135,6 +135,99 @@ export function formatValue(value: unknown): string {
 	return String(value)
 }
 
+/**
+ * Pretty multi-line rendering. Falls back to single-line when the value fits
+ * within `width` (measured from the start of its current line). Containers
+ * that overflow break onto separate lines with `indent`-space steps.
+ */
+export function formatValuePretty(
+	value: unknown,
+	width = 60,
+	indent = 2,
+	level = 0,
+): string {
+	const flat = formatValue(value)
+	const pad = ' '.repeat(level * indent)
+	const inner = ' '.repeat((level + 1) * indent)
+
+	// Primitives, functions, empty containers — always one line.
+	if (flat.length + pad.length <= width) return flat
+	if (value === null || value === undefined) return flat
+	const t = typeof value
+	if (t !== 'object' || t === null) return flat
+
+	const formatChild = (v: unknown) =>
+		formatValuePretty(v, width, indent, level + 1)
+
+	if (value instanceof Map) {
+		if (value.size === 0) return flat
+		const lines = [...value.entries()].map(
+			([k, v]) => `${inner}${formatChild(k)} => ${formatChild(v)}`,
+		)
+		return `Map(${value.size}) {\n${lines.join(',\n')}\n${pad}}`
+	}
+	if (value instanceof Set) {
+		if (value.size === 0) return flat
+		const lines = [...value].map((v) => `${inner}${formatChild(v)}`)
+		return `Set(${value.size}) {\n${lines.join(',\n')}\n${pad}}`
+	}
+	if (Array.isArray(value)) {
+		if (value.length === 0) return flat
+		const lines = value.map((v) => `${inner}${formatChild(v)}`)
+		return `[\n${lines.join(',\n')}\n${pad}]`
+	}
+	const entries = Object.entries(value as Record<string, unknown>)
+	if (entries.length === 0) return flat
+	const lines = entries.map(([k, v]) => `${inner}${k}: ${formatChild(v)}`)
+	return `{\n${lines.join(',\n')}\n${pad}}`
+}
+
+/**
+ * Best-effort TypeScript-shape rendering for a runtime value. Used to give the
+ * learner a quick "what am I looking at" header above the sample data — not a
+ * full inference, just enough to read the shape at a glance.
+ */
+export function inferType(value: unknown, level = 0, width = 60): string {
+	if (value === null) return 'null'
+	if (value === undefined) return 'undefined'
+	const t = typeof value
+	if (t === 'string') return 'string'
+	if (t === 'number') return 'number'
+	if (t === 'boolean') return 'boolean'
+	if (t === 'bigint') return 'bigint'
+	if (t === 'function') return 'Function'
+	if (value instanceof Map) {
+		if (value.size === 0) return 'Map<unknown, unknown>'
+		const [k, v] = [...value.entries()][0]
+		return `Map<${inferType(k, level, width)}, ${inferType(v, level, width)}>`
+	}
+	if (value instanceof Set) {
+		if (value.size === 0) return 'Set<unknown>'
+		return `Set<${inferType([...value][0], level, width)}>`
+	}
+	if (Array.isArray(value)) {
+		if (value.length === 0) return 'unknown[]'
+		const el = inferType(value[0], level, width)
+		return el.includes('\n') ? `Array<${el}>` : `${el}[]`
+	}
+	if (t === 'object') {
+		const entries = Object.entries(value as Record<string, unknown>)
+		if (entries.length === 0) return '{}'
+		const flatParts = entries.map(
+			([k, v]) => `${k}: ${inferType(v, 0, width)}`,
+		)
+		const flat = `{ ${flatParts.join('; ')} }`
+		const pad = ' '.repeat(level * 2)
+		if (!flat.includes('\n') && flat.length + pad.length <= width) return flat
+		const inner = ' '.repeat((level + 1) * 2)
+		const lines = entries.map(
+			([k, v]) => `${inner}${k}: ${inferType(v, level + 1, width)}`,
+		)
+		return `{\n${lines.join('\n')}\n${pad}}`
+	}
+	return 'unknown'
+}
+
 export function runChallenge(challenge: Challenge, code: string): RunResult {
 	let userFn: (...args: unknown[]) => unknown
 	try {
@@ -163,15 +256,15 @@ export function runChallenge(challenge: Challenge, code: string): RunResult {
 			return {
 				name: test.name,
 				passed: deepEqual(expected, actual),
-				expected: formatValue(expected),
-				actual: formatValue(actual),
+				expected: formatValuePretty(expected),
+				actual: formatValuePretty(actual),
 				errored: false,
 			}
 		} catch (err) {
 			return {
 				name: test.name,
 				passed: false,
-				expected: formatValue(expected),
+				expected: formatValuePretty(expected),
 				actual: errMsg(err),
 				errored: true,
 			}
