@@ -11,9 +11,11 @@
     "build": "astro build",
     "deploy": "pnpm run build && wrangler deploy",
     "preview": "pnpm run build && wrangler dev",
-    "astro": "astro"
+    "astro": "astro",
+    "generate-types": "wrangler types"
   },
   "dependencies": {
+    "@astrojs/cloudflare": "^13.7.0",
     "@astrojs/react": "^5.0.5",
     "@monaco-editor/react": "^4.7.0",
     "@mrmartineau/zui": "^1.2.0",
@@ -24,6 +26,9 @@
   "devDependencies": {
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
-    "wrangler": "^4.101.0"
+    "wrangler": "^4.102.0"
+  },
+  "overrides": {
+    "vite": "^7"
   }
 }
