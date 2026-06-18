@@ -13,6 +13,7 @@ design.
 | :-------------------- | :------------------------------------------------------ |
 | `data-transformation` | A React "dojo" for practising data-transform challenges |
 | `drawing-app`         | A small in-browser drawing app                          |
+| `spotify-favourites`  | Browse most-explored Spotify artists & albums (ZUI)     |
 | `zui-components`      | A reference page showcasing ZUI components              |
 
 ## Project structure

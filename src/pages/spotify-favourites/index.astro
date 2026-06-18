@@ -1,0 +1,363 @@
+---
+import Viewer from '../../components/spotify-favourites/Viewer.tsx'
+import Layout from '../../layouts/Layout.astro'
+
+// Lab item metadata — read by the homepage listing.
+export const title = 'Spotify Favourites'
+export const description =
+	'Browse your most-explored Spotify artists and albums — ranked by album engagement rather than raw play count, with cover art, coverage bars, sorting and filtering.'
+export const date = '2026-06-18'
+export const status = 'live'
+export const tags = ['spotify', 'react', 'data-viz']
+---
+
+<Layout title="Spotify Favourites — lab.zander.wtf">
+	<Viewer client:load />
+</Layout>
+
+<style is:global>
+	.sf {
+		color: var(--color-text);
+		background: var(--color-background);
+		min-height: 100dvh;
+		font-size: var(--step-0);
+	}
+
+	/* ---- Header ----------------------------------------------------- */
+	.sf-header {
+		position: sticky;
+		inset-block-start: 0;
+		z-index: var(--z-1);
+		padding: var(--space-sm) var(--space-md);
+		background: color-mix(in oklch, var(--color-background) 88%, transparent);
+		backdrop-filter: blur(8px);
+		border-block-end: var(--border-style) 1px var(--color-border);
+	}
+	.sf-header-row,
+	.sf-chips {
+		max-width: 72rem;
+		margin-inline: auto;
+	}
+	.sf-header-row {
+		display: flex;
+		flex-wrap: wrap;
+		gap: var(--space-sm);
+		align-items: center;
+		justify-content: space-between;
+	}
+	.sf-title {
+		margin: 0;
+		font-size: var(--step-2);
+		line-height: 1.1;
+		letter-spacing: -0.01em;
+		display: flex;
+		align-items: center;
+		gap: var(--space-2xs);
+	}
+	.sf-title i {
+		color: var(--color-theme);
+	}
+	.sf-repo {
+		display: inline-flex;
+		align-items: center;
+		font-size: var(--step-1);
+		color: var(--color-text);
+		opacity: 0.7;
+		text-decoration: none;
+	}
+	.sf-repo i {
+		color: inherit;
+	}
+	.sf-repo:hover {
+		opacity: 1;
+	}
+	.sf-controls {
+		display: flex;
+		flex-wrap: wrap;
+		gap: var(--space-2xs);
+		align-items: center;
+	}
+	.sf-controls .zui-input {
+		min-width: 11rem;
+	}
+	.sf-chips {
+		display: flex;
+		flex-wrap: wrap;
+		gap: var(--space-2xs);
+		margin-block-start: var(--space-2xs);
+	}
+	.sf-chips b {
+		color: var(--color-text);
+		font-weight: 600;
+	}
+
+	.sf-main {
+		max-width: 72rem;
+		margin-inline: auto;
+		padding: var(--space-md);
+	}
+
+	/* ---- Info / instructions collapsible ---------------------------- */
+	.sf-info {
+		margin-block-end: var(--space-md);
+	}
+	.sf-info-trigger {
+		display: flex;
+		align-items: center;
+		gap: var(--space-2xs);
+		font-weight: 600;
+	}
+	.sf-info-trigger i {
+		color: var(--color-theme);
+	}
+	.sf-info-content {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-sm);
+		max-width: 60ch;
+		line-height: 1.6;
+		font-size: var(--step--1);
+	}
+	.sf-info-content p {
+		margin: 0;
+	}
+	.sf-info-content ol {
+		margin: 0;
+		padding-inline-start: 1.25em;
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-2xs);
+	}
+	.sf-info-content b {
+		color: var(--color-text);
+		font-weight: 600;
+	}
+
+	/* ---- Cover art / avatars (letter behind, image on top) ---------- */
+	.sf-cover {
+		position: relative;
+		display: inline-grid;
+		place-items: center;
+		overflow: hidden;
+		flex: none;
+		background: oklch(0.55 0.13 var(--h, 250));
+		color: #fff;
+		font-weight: 700;
+		text-transform: uppercase;
+		user-select: none;
+		line-height: 1;
+	}
+	.sf-cover img {
+		position: absolute;
+		inset: 0;
+		width: 100%;
+		height: 100%;
+		object-fit: cover;
+	}
+	.sf-cover-avatar {
+		inline-size: 2.9rem;
+		block-size: 2.9rem;
+		border-radius: var(--radius-full);
+		font-size: var(--step-0);
+	}
+	.sf-cover-thumb {
+		inline-size: 2.25rem;
+		block-size: 2.25rem;
+		border-radius: var(--radius-sm);
+		font-size: var(--step--1);
+	}
+	.sf-cover-art {
+		inline-size: 100%;
+		aspect-ratio: 1;
+		font-size: var(--step-6);
+	}
+
+	/* ---- Bars ------------------------------------------------------- */
+	.sf-track {
+		display: block;
+		block-size: 6px;
+		border-radius: var(--radius-full);
+		background: color-mix(in oklch, var(--color-border) 80%, transparent);
+		overflow: hidden;
+	}
+	.sf-fill {
+		display: block;
+		block-size: 100%;
+		border-radius: inherit;
+		background: linear-gradient(90deg, var(--color-theme), var(--color-accent));
+	}
+
+	/* ---- Artists view ----------------------------------------------- */
+	.sf-list {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-2xs);
+	}
+	.sf-artist {
+		background: var(--color-surface);
+		border: var(--border-style) 1px var(--color-border);
+		border-radius: var(--radius-lg);
+		overflow: hidden;
+	}
+	.sf-artist-summary {
+		list-style: none;
+		cursor: pointer;
+		display: grid;
+		grid-template-columns: 1.6rem 2.9rem 1fr auto;
+		gap: var(--space-2xs);
+		align-items: center;
+		padding: var(--space-2xs) var(--space-sm);
+	}
+	.sf-artist-summary::-webkit-details-marker {
+		display: none;
+	}
+	.sf-rank {
+		text-align: end;
+		font-variant-numeric: tabular-nums;
+		opacity: 0.5;
+		font-size: var(--step--1);
+	}
+	.sf-artist-name {
+		font-weight: 600;
+		font-size: var(--step-1);
+		min-width: 0;
+	}
+	.sf-artist-sub {
+		display: block;
+		font-weight: 400;
+		opacity: 0.6;
+		font-size: var(--step--1);
+		margin-block-start: 2px;
+	}
+	.sf-score {
+		text-align: end;
+	}
+	.sf-score-num {
+		font-variant-numeric: tabular-nums;
+		font-weight: 700;
+		color: var(--color-theme);
+	}
+	.sf-score-lbl {
+		display: block;
+		font-size: var(--step--2);
+		opacity: 0.5;
+	}
+	.sf-scorebar {
+		padding: 0 var(--space-sm) var(--space-2xs);
+	}
+	.sf-albums {
+		list-style: none;
+		margin: 0;
+		padding: var(--space-2xs) var(--space-sm) var(--space-sm);
+		border-block-start: var(--border-style) 1px var(--color-border);
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-3xs);
+	}
+	.sf-album-row {
+		display: grid;
+		grid-template-columns: 2.25rem 1fr auto;
+		gap: var(--space-2xs);
+		align-items: center;
+	}
+	.sf-album-name {
+		font-size: var(--step--1);
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+	.sf-album-detail {
+		font-size: var(--step--2);
+		opacity: 0.6;
+		text-align: end;
+		font-variant-numeric: tabular-nums;
+	}
+	.sf-album-bar {
+		grid-column: 1 / -1;
+	}
+
+	/* ---- Albums view ------------------------------------------------ */
+	.sf-grid {
+		display: grid;
+		grid-template-columns: repeat(auto-fill, minmax(10rem, 1fr));
+		gap: var(--space-md);
+	}
+	.sf-card {
+		background: var(--color-surface);
+		border: var(--border-style) 1px var(--color-border);
+		border-radius: var(--radius-lg);
+		overflow: hidden;
+	}
+	.sf-card-art {
+		position: relative;
+	}
+	.sf-card-rank {
+		position: absolute;
+		inset-block-start: var(--space-2xs);
+		inset-inline-start: var(--space-2xs);
+	}
+	.sf-card-body {
+		padding: var(--space-2xs) var(--space-sm) var(--space-sm);
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-3xs);
+	}
+	.sf-card-title {
+		font-weight: 600;
+		font-size: var(--step-0);
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+	.sf-card-artist {
+		display: flex;
+		align-items: center;
+		gap: var(--space-3xs);
+		opacity: 0.75;
+		font-size: var(--step--1);
+		min-width: 0;
+	}
+	.sf-card-artist .sf-cover-avatar {
+		inline-size: 1.25rem;
+		block-size: 1.25rem;
+		font-size: var(--step--3);
+	}
+	.sf-card-artist span {
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+	.sf-card-barwrap {
+		margin-block: var(--space-3xs);
+	}
+	.sf-card-meta {
+		display: flex;
+		justify-content: space-between;
+		font-size: var(--step--2);
+		opacity: 0.6;
+		font-variant-numeric: tabular-nums;
+	}
+
+	/* ---- Misc ------------------------------------------------------- */
+	.sf-more {
+		inline-size: 100%;
+		margin-block-start: var(--space-md);
+	}
+	.sf-empty {
+		opacity: 0.65;
+		text-align: center;
+		padding: var(--space-2xl);
+		line-height: 1.6;
+	}
+	.sf-empty code {
+		font-size: 0.9em;
+	}
+
+	@media (max-width: 40rem) {
+		.sf-controls,
+		.sf-controls .zui-select,
+		.sf-controls .zui-input {
+			inline-size: 100%;
+		}
+	}
+</style>
