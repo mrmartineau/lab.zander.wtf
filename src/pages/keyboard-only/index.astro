@@ -223,22 +223,30 @@ const videoId = 'aqz-KE-bpKQ'
 </Layout>
 
 <script>
+	// Keyboard-only spatial navigation: no mouse, no native focus order.
+	// Arrows move between [data-nav] items by on-screen position; Enter/Space
+	// activates; Tab cycles in DOM order; Escape leaves edit mode.
 	const stage = document.querySelector<HTMLElement>('.stage')
 	if (stage) {
+		// Live region label updated as the active item changes.
 		const statusText = stage.querySelector<HTMLElement>('.status-text')
+		// Currently-navigable items. Recomputed each call so hidden elements
+		// (offsetParent === null) are excluded and DOM changes are picked up.
 		const getItems = () =>
 			Array.from(stage.querySelectorAll<HTMLElement>('[data-nav]')).filter(
 				(el) => el.offsetParent !== null,
 			)
 
-		let active: HTMLElement | null = null
-		let editing = false
+		let active: HTMLElement | null = null // item carrying the focus ring
+		let editing = false // true while typing into a field
 
+		// Viewport-space centre point of an element, used for distance math.
 		const center = (el: HTMLElement) => {
 			const r = el.getBoundingClientRect()
 			return { x: r.left + r.width / 2, y: r.top + r.height / 2 }
 		}
 
+		// Update the status line with the active item's label, or a prompt.
 		const announce = (el: HTMLElement | null) => {
 			if (statusText) {
 				statusText.textContent =
@@ -246,6 +254,8 @@ const videoId = 'aqz-KE-bpKQ'
 			}
 		}
 
+		// Move the focus ring to `el`: swap the .is-active class, scroll it into
+		// view, and announce it. No-op for null so callers can pass items[x].
 		const setActive = (el: HTMLElement | null, scroll = true) => {
 			if (!el) return
 			active?.classList.remove('is-active')
@@ -256,8 +266,10 @@ const videoId = 'aqz-KE-bpKQ'
 		}
 
 		type Dir = 'left' | 'right' | 'up' | 'down'
+		// Spatial move: pick the best item lying in direction `dir` from active.
 		const move = (dir: Dir) => {
 			const items = getItems()
+			// No active item (or it vanished) — seed on the first one instead.
 			if (!active || !items.includes(active)) {
 				setActive(items[0] ?? null)
 				return
@@ -268,10 +280,12 @@ const videoId = 'aqz-KE-bpKQ'
 			for (const el of items) {
 				if (el === active) continue
 				const c = center(el)
-				const dx = c.x - cur.x
-				const dy = c.y - cur.y
-				let primary: number
-				let cross: number
+				const dx = c.x - cur.x // +right / -left
+				const dy = c.y - cur.y // +down / -up
+				let primary: number // distance along travel axis
+				let cross: number // sideways drift off the axis
+				// Skip items not in the travel direction (1px slop avoids ties);
+				// `primary` is forward distance, `cross` is perpendicular offset.
 				if (dir === 'right') {
 					if (dx <= 1) continue
 					primary = dx
@@ -299,6 +313,8 @@ const videoId = 'aqz-KE-bpKQ'
 			if (best) setActive(best)
 		}
 
+		// Linear move through items in DOM order, wrapping around the ends.
+		// delta +1 = next (Tab), -1 = previous (Shift+Tab).
 		const step = (delta: number) => {
 			const items = getItems()
 			if (items.length === 0) return
@@ -307,6 +323,8 @@ const videoId = 'aqz-KE-bpKQ'
 			setActive(items[next])
 		}
 
+		// Hand control to a real form field: arrows stop navigating and keys go
+		// to the input until Escape. Caret is placed at end of existing text.
 		const enterEdit = (el: HTMLElement) => {
 			editing = true
 			document.body.classList.add('edit-mode')
@@ -321,6 +339,7 @@ const videoId = 'aqz-KE-bpKQ'
 			}
 		}
 
+		// Leave edit mode and return arrow keys to navigation. No-op if not editing.
 		const exitEdit = () => {
 			if (!editing) return
 			editing = false
@@ -329,6 +348,8 @@ const videoId = 'aqz-KE-bpKQ'
 			;(active as HTMLElement | null)?.blur()
 		}
 
+		// Swap a [data-video] placeholder for an autoplaying YouTube iframe.
+		// The placeholder is removed, so clear `active` to avoid a dangling ref.
 		const playVideo = (el: HTMLElement) => {
 			const id = el.dataset.video
 			if (!id) return
@@ -344,15 +365,18 @@ const videoId = 'aqz-KE-bpKQ'
 			announce(null)
 		}
 
+		// Enter/Space handler — dispatch by element type to the right behaviour.
 		const activate = () => {
 			if (!active) return
 			const el = active
+			// Video placeholder: load the embed.
 			if (el.dataset.video !== undefined) {
 				playVideo(el)
 				return
 			}
 			const tag = el.tagName.toLowerCase()
 			if (el instanceof HTMLInputElement) {
+				// Checkbox/radio toggle in place (firing change); others edit.
 				if (el.type === 'checkbox') {
 					el.checked = !el.checked
 					el.dispatchEvent(new Event('change', { bubbles: true }))
@@ -366,6 +390,7 @@ const videoId = 'aqz-KE-bpKQ'
 				enterEdit(el)
 				return
 			}
+			// Textareas and selects also need typed/native input.
 			if (
 				el instanceof HTMLTextAreaElement ||
 				el instanceof HTMLSelectElement
@@ -373,12 +398,15 @@ const videoId = 'aqz-KE-bpKQ'
 				enterEdit(el)
 				return
 			}
+			// Buttons/links: toggle the zoom effect and trigger their click.
 			if (tag === 'button' || tag === 'a') {
 				el.classList.toggle('is-zoomed')
 				el.click()
 			}
 		}
 
+		// Central key router. While editing, only Escape is intercepted so the
+		// field receives all other keys; otherwise arrows/Tab/Enter drive nav.
 		window.addEventListener('keydown', (e) => {
 			if (editing) {
 				if (e.key === 'Escape') {
@@ -479,6 +507,8 @@ const videoId = 'aqz-KE-bpKQ'
 	}
 
 	.status {
+		position: sticky;
+		top: 0;
 		display: flex;
 		align-items: center;
 		gap: var(--space-2xs);
