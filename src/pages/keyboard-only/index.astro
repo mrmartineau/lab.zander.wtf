@@ -1,0 +1,607 @@
+---
+import Layout from '../../layouts/Layout.astro'
+import { Badge, Flex, Link, Text } from '@mrmartineau/zui/astro'
+
+export const title = 'Keyboard-only navigation'
+export const description =
+	'A cursorless page you drive entirely with the keyboard — arrow keys move a focus ring between fields, images and a video; Enter activates them.'
+export const date = '2026-06-23'
+export const status = 'live'
+export const tags = ['a11y', 'keyboard', 'demo']
+
+// A neutral, embeddable clip (Big Buck Bunny).
+const videoId = 'aqz-KE-bpKQ'
+---
+
+<Layout title="Keyboard-only navigation — lab.zander.wtf">
+	<main class="page">
+		<header class="flow">
+			<Link href="/">← All lab items</Link>
+			<Flex align="center" gap="sm">
+				<h1>Keyboard-only navigation</h1>
+				<Badge variant="fill" color="emerald">live</Badge>
+			</Flex>
+			<Text size="1">{description}</Text>
+			<p class="hint">
+				The mouse pointer is hidden inside the stage below and clicking does
+				nothing. Use the <kbd>arrow keys</kbd> to move the focus ring, <kbd
+					>Enter</kbd
+				> to activate the focused element, and <kbd>Esc</kbd> to leave a field
+				you're typing in. <kbd>Tab</kbd> / <kbd>Shift</kbd>+<kbd>Tab</kbd> step
+				through in order.
+			</p>
+		</header>
+
+		<!-- Everything inside .stage is cursorless + keyboard driven -->
+		<section class="stage" aria-label="Keyboard-only playground">
+			<div class="status" role="status" aria-live="polite">
+				<i class="ph ph-keyboard" aria-hidden="true"></i>
+				<span class="status-text">Press an arrow key to begin.</span>
+			</div>
+
+			<div class="grid">
+				<!-- Form column -->
+				<form
+					class="panel flow"
+					aria-label="Sample form"
+					onsubmit="return false"
+				>
+					<h2 class="panel-title">A little form</h2>
+
+					<div class="field">
+						<label class="zui-label" for="name">Name</label>
+						<input
+							class="zui-input"
+							id="name"
+							type="text"
+							placeholder="Ada Lovelace"
+							data-nav
+							data-label="Name field — Enter to type"
+						/>
+					</div>
+
+					<div class="field">
+						<label class="zui-label" for="email">Email</label>
+						<input
+							class="zui-input"
+							id="email"
+							type="email"
+							placeholder="hi@zander.wtf"
+							data-nav
+							data-label="Email field — Enter to type"
+						/>
+					</div>
+
+					<div class="field">
+						<label class="zui-label" for="flavour">Favourite flavour</label>
+						<select
+							class="zui-select"
+							id="flavour"
+							data-nav
+							data-label="Flavour menu — Enter, then arrows to choose"
+						>
+							<option>Vanilla</option>
+							<option>Chocolate</option>
+							<option>Strawberry</option>
+							<option>Pistachio</option>
+						</select>
+					</div>
+
+					<fieldset class="field group" aria-label="Plan">
+						<legend class="zui-label">Plan</legend>
+						<label class="zui-radio">
+							<input
+								type="radio"
+								name="plan"
+								value="free"
+								checked
+								data-nav
+								data-label="Plan: Free — Enter to select"
+							/>
+							Free
+						</label>
+						<label class="zui-radio">
+							<input
+								type="radio"
+								name="plan"
+								value="pro"
+								data-nav
+								data-label="Plan: Pro — Enter to select"
+							/>
+							Pro
+						</label>
+					</fieldset>
+
+					<label class="zui-checkbox field">
+						<input
+							type="checkbox"
+							data-nav
+							data-label="Newsletter checkbox — Enter to toggle"
+						/>
+						Send me the newsletter
+					</label>
+
+					<div class="field">
+						<label class="zui-label" for="message">Message</label>
+						<textarea
+							class="zui-textarea"
+							id="message"
+							rows="3"
+							placeholder="Say hello…"
+							data-nav
+							data-label="Message field — Enter to type"></textarea>
+					</div>
+
+					<button
+						class="zui-button"
+						type="submit"
+						data-nav
+						data-label="Submit button — Enter to send"
+					>
+						Submit
+					</button>
+				</form>
+
+				<!-- Media column -->
+				<div class="panel flow">
+					<h2 class="panel-title">Some media</h2>
+
+					<button
+						class="media-card"
+						type="button"
+						data-nav
+						data-label="Photo of a mountain — Enter to zoom"
+					>
+						<img
+							src="https://picsum.photos/seed/keyboard-lab-1/640/360"
+							alt="A randomly chosen landscape"
+							width="640"
+							height="360"
+							loading="lazy"
+						/>
+					</button>
+
+					<button
+						class="media-card"
+						type="button"
+						data-nav
+						data-label="Photo of a city — Enter to zoom"
+					>
+						<img
+							src="https://picsum.photos/seed/keyboard-lab-2/640/360"
+							alt="Another randomly chosen scene"
+							width="640"
+							height="360"
+							loading="lazy"
+						/>
+					</button>
+
+					<div class="video-wrap">
+						<button
+							class="video-facade"
+							type="button"
+							data-nav
+							data-video={videoId}
+							data-label="YouTube video — Enter to play"
+						>
+							<img
+								src={`https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`}
+								alt="Video thumbnail"
+								width="480"
+								height="360"
+								loading="lazy"
+							/>
+							<span class="play" aria-hidden="true">
+								<i class="ph ph-play"></i>
+							</span>
+						</button>
+					</div>
+				</div>
+			</div>
+
+			<div class="legend" aria-hidden="true">
+				<span><kbd>←</kbd><kbd>↑</kbd><kbd>↓</kbd><kbd>→</kbd> move</span>
+				<span><kbd>Enter</kbd> activate</span>
+				<span><kbd>Esc</kbd> leave field</span>
+				<span><kbd>Tab</kbd> next</span>
+			</div>
+		</section>
+	</main>
+</Layout>
+
+<script>
+	const stage = document.querySelector<HTMLElement>('.stage')
+	if (stage) {
+		const statusText = stage.querySelector<HTMLElement>('.status-text')
+		const getItems = () =>
+			Array.from(stage.querySelectorAll<HTMLElement>('[data-nav]')).filter(
+				(el) => el.offsetParent !== null,
+			)
+
+		let active: HTMLElement | null = null
+		let editing = false
+
+		const center = (el: HTMLElement) => {
+			const r = el.getBoundingClientRect()
+			return { x: r.left + r.width / 2, y: r.top + r.height / 2 }
+		}
+
+		const announce = (el: HTMLElement | null) => {
+			if (statusText) {
+				statusText.textContent =
+					el?.dataset.label ?? 'Press an arrow key to begin.'
+			}
+		}
+
+		const setActive = (el: HTMLElement | null, scroll = true) => {
+			if (!el) return
+			active?.classList.remove('is-active')
+			active = el
+			el.classList.add('is-active')
+			if (scroll) el.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+			announce(el)
+		}
+
+		type Dir = 'left' | 'right' | 'up' | 'down'
+		const move = (dir: Dir) => {
+			const items = getItems()
+			if (!active || !items.includes(active)) {
+				setActive(items[0] ?? null)
+				return
+			}
+			const cur = center(active)
+			let best: HTMLElement | null = null
+			let bestScore = Infinity
+			for (const el of items) {
+				if (el === active) continue
+				const c = center(el)
+				const dx = c.x - cur.x
+				const dy = c.y - cur.y
+				let primary: number
+				let cross: number
+				if (dir === 'right') {
+					if (dx <= 1) continue
+					primary = dx
+					cross = Math.abs(dy)
+				} else if (dir === 'left') {
+					if (dx >= -1) continue
+					primary = -dx
+					cross = Math.abs(dy)
+				} else if (dir === 'down') {
+					if (dy <= 1) continue
+					primary = dy
+					cross = Math.abs(dx)
+				} else {
+					if (dy >= -1) continue
+					primary = -dy
+					cross = Math.abs(dx)
+				}
+				// Prefer the closest item along the travel axis, penalise drift.
+				const score = primary + cross * 2
+				if (score < bestScore) {
+					bestScore = score
+					best = el
+				}
+			}
+			if (best) setActive(best)
+		}
+
+		const step = (delta: number) => {
+			const items = getItems()
+			if (items.length === 0) return
+			const idx = active ? items.indexOf(active) : -1
+			const next = (idx + delta + items.length) % items.length
+			setActive(items[next])
+		}
+
+		const enterEdit = (el: HTMLElement) => {
+			editing = true
+			document.body.classList.add('edit-mode')
+			el.classList.add('is-editing')
+			el.focus()
+			if (
+				el instanceof HTMLInputElement ||
+				el instanceof HTMLTextAreaElement
+			) {
+				const len = el.value.length
+				el.setSelectionRange?.(len, len)
+			}
+		}
+
+		const exitEdit = () => {
+			if (!editing) return
+			editing = false
+			document.body.classList.remove('edit-mode')
+			active?.classList.remove('is-editing')
+			;(active as HTMLElement | null)?.blur()
+		}
+
+		const playVideo = (el: HTMLElement) => {
+			const id = el.dataset.video
+			if (!id) return
+			const iframe = document.createElement('iframe')
+			iframe.src = `https://www.youtube-nocookie.com/embed/${id}?autoplay=1&rel=0`
+			iframe.title = 'YouTube video player'
+			iframe.allow =
+				'autoplay; encrypted-media; picture-in-picture; fullscreen'
+			iframe.setAttribute('allowfullscreen', '')
+			iframe.className = 'video-frame'
+			el.replaceWith(iframe)
+			active = null
+			announce(null)
+		}
+
+		const activate = () => {
+			if (!active) return
+			const el = active
+			if (el.dataset.video !== undefined) {
+				playVideo(el)
+				return
+			}
+			const tag = el.tagName.toLowerCase()
+			if (el instanceof HTMLInputElement) {
+				if (el.type === 'checkbox') {
+					el.checked = !el.checked
+					el.dispatchEvent(new Event('change', { bubbles: true }))
+					return
+				}
+				if (el.type === 'radio') {
+					el.checked = true
+					el.dispatchEvent(new Event('change', { bubbles: true }))
+					return
+				}
+				enterEdit(el)
+				return
+			}
+			if (
+				el instanceof HTMLTextAreaElement ||
+				el instanceof HTMLSelectElement
+			) {
+				enterEdit(el)
+				return
+			}
+			if (tag === 'button' || tag === 'a') {
+				el.classList.toggle('is-zoomed')
+				el.click()
+			}
+		}
+
+		window.addEventListener('keydown', (e) => {
+			if (editing) {
+				if (e.key === 'Escape') {
+					e.preventDefault()
+					exitEdit()
+				}
+				return
+			}
+			switch (e.key) {
+				case 'ArrowRight':
+					e.preventDefault()
+					move('right')
+					break
+				case 'ArrowLeft':
+					e.preventDefault()
+					move('left')
+					break
+				case 'ArrowUp':
+					e.preventDefault()
+					move('up')
+					break
+				case 'ArrowDown':
+					e.preventDefault()
+					move('down')
+					break
+				case 'Tab':
+					e.preventDefault()
+					step(e.shiftKey ? -1 : 1)
+					break
+				case 'Enter':
+				case ' ':
+					e.preventDefault()
+					activate()
+					break
+			}
+		})
+
+		// Seed the focus ring on the first item.
+		setActive(getItems()[0] ?? null, false)
+	}
+</script>
+
+<style>
+	.page {
+		max-width: 60rem;
+		margin-inline: auto;
+		padding: var(--space-xl) var(--space-md);
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-lg);
+	}
+	h1 {
+		margin: 0;
+		font-size: var(--step-4);
+	}
+	.hint {
+		max-width: 60ch;
+		font-size: var(--step--1);
+		line-height: 1.6;
+		opacity: 0.8;
+	}
+	kbd {
+		font: inherit;
+		font-size: 0.85em;
+		padding: 0.1em 0.45em;
+		border-radius: var(--radius-sm);
+		border: 1px solid var(--color-border);
+		background: var(--color-surface);
+		box-shadow: 0 1px 0 var(--color-border);
+		white-space: nowrap;
+	}
+
+	/* The cursorless, keyboard-only stage */
+	.stage {
+		cursor: none;
+		border: var(--border-style) 1px var(--color-border);
+		border-radius: var(--radius-lg);
+		padding: var(--space-md);
+		background: var(--color-surface);
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-md);
+	}
+	/* Mouse does nothing in here — keyboard only. */
+	.stage [data-nav] {
+		pointer-events: none;
+	}
+
+	.status {
+		display: flex;
+		align-items: center;
+		gap: var(--space-2xs);
+		font-size: var(--step--1);
+		padding: var(--space-2xs) var(--space-sm);
+		border-radius: var(--radius-md);
+		background: var(--color-background);
+		border: var(--border-style) 1px var(--color-border);
+		min-height: 2.5rem;
+	}
+	.status i {
+		font-size: var(--step-1);
+		opacity: 0.7;
+	}
+
+	.grid {
+		display: grid;
+		grid-template-columns: 1fr 1fr;
+		gap: var(--space-md);
+	}
+	@media (max-width: 48rem) {
+		.grid {
+			grid-template-columns: 1fr;
+		}
+	}
+
+	.panel {
+		background: var(--color-background);
+		border: var(--border-style) 1px var(--color-border);
+		border-radius: var(--radius-md);
+		padding: var(--space-md);
+	}
+	.panel-title {
+		margin: 0 0 var(--space-2xs);
+		font-size: var(--step-1);
+	}
+	.field {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-3xs);
+	}
+	.group {
+		border: none;
+		margin: 0;
+		padding: 0;
+		display: flex;
+		flex-direction: row;
+		gap: var(--space-md);
+		align-items: center;
+		flex-wrap: wrap;
+	}
+	.group legend {
+		float: left;
+		width: 100%;
+	}
+
+	/* Focus ring — the only "cursor" in the stage */
+	.stage [data-nav] {
+		border-radius: var(--radius-md);
+		transition:
+			box-shadow 120ms var(--ease),
+			outline-color 120ms var(--ease);
+		outline: 2px solid transparent;
+		outline-offset: 2px;
+	}
+	.stage .is-active {
+		outline-color: var(--color-accent, var(--color-primary));
+		box-shadow: 0 0 0 4px
+			color-mix(in srgb, var(--color-accent, var(--color-primary)) 25%, transparent);
+	}
+	.stage .is-editing {
+		outline-style: dashed;
+	}
+
+	/* Let the focused field show a real text caret while typing */
+	.edit-mode .stage .is-editing {
+		cursor: text;
+	}
+
+	.media-card {
+		display: block;
+		padding: 0;
+		border: none;
+		background: none;
+		line-height: 0;
+		overflow: hidden;
+		border-radius: var(--radius-md);
+	}
+	.media-card img,
+	.video-facade img,
+	.video-frame {
+		display: block;
+		width: 100%;
+		height: auto;
+		border-radius: var(--radius-md);
+	}
+	.media-card img {
+		transition: transform 200ms var(--ease);
+	}
+	.media-card.is-zoomed img {
+		transform: scale(1.05);
+	}
+
+	.video-wrap {
+		position: relative;
+	}
+	.video-facade {
+		position: relative;
+		display: block;
+		padding: 0;
+		border: none;
+		background: none;
+		width: 100%;
+		line-height: 0;
+		border-radius: var(--radius-md);
+		overflow: hidden;
+	}
+	.video-facade .play {
+		position: absolute;
+		inset: 0;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		color: #fff;
+		font-size: var(--step-5);
+		background: color-mix(in srgb, black 30%, transparent);
+	}
+	.video-frame {
+		aspect-ratio: 16 / 9;
+		width: 100%;
+		height: auto;
+		border: none;
+	}
+
+	.legend {
+		display: flex;
+		flex-wrap: wrap;
+		gap: var(--space-md);
+		justify-content: center;
+		font-size: var(--step--1);
+		opacity: 0.7;
+		padding-top: var(--space-2xs);
+		border-top: var(--border-style) 1px var(--color-border);
+	}
+	.legend span {
+		display: inline-flex;
+		align-items: center;
+		gap: var(--space-3xs);
+	}
+</style>
