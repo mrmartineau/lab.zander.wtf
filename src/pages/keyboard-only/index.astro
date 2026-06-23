@@ -22,13 +22,26 @@ const videoId = 'aqz-KE-bpKQ'
 				<Badge variant="fill" color="emerald">live</Badge>
 			</Flex>
 			<Text size="1">{description}</Text>
+			<p class="intro">
+				This is an experiment in driving an interface with <strong
+					>no mouse at all</strong
+				>. Inside the stage below the cursor is hidden on purpose
+				(<code>cursor: none</code>) and pointer events are switched off, so
+				there's nothing to point and click with — the only way around is the
+				keyboard. It's a small way to feel how the web works for people who
+				navigate this way every day, whether by preference or necessity, and a
+				reminder that everything should be reachable without a pointer.
+			</p>
 			<p class="hint">
-				The mouse pointer is hidden inside the stage below and clicking does
-				nothing. Use the <kbd>arrow keys</kbd> to move the focus ring, <kbd
-					>Enter</kbd
-				> to activate the focused element, and <kbd>Esc</kbd> to leave a field
-				you're typing in. <kbd>Tab</kbd> / <kbd>Shift</kbd>+<kbd>Tab</kbd> step
-				through in order.
+				<strong>How to play:</strong> the bright ring is your position. Use the
+				<kbd>arrow keys</kbd> to move it between the nearest fields, images and
+				the video, <kbd>Enter</kbd> to activate whatever it's on (type in a
+				field, toggle an option, zoom an image, play the video), and <kbd
+					>Esc</kbd
+				> to leave a field you're typing in. <kbd>Tab</kbd> / <kbd>Shift</kbd>+<kbd
+					>Tab</kbd
+				> step through everything in order. The line at the top of the stage
+				always tells you what's focused.
 			</p>
 		</header>
 
@@ -421,8 +434,19 @@ const videoId = 'aqz-KE-bpKQ'
 		margin: 0;
 		font-size: var(--step-4);
 	}
+	.intro {
+		max-width: 62ch;
+		line-height: 1.6;
+	}
+	.intro code {
+		font-size: 0.9em;
+		padding: 0.1em 0.35em;
+		border-radius: var(--radius-sm);
+		background: var(--color-surface);
+		border: 1px solid var(--color-border);
+	}
 	.hint {
-		max-width: 60ch;
+		max-width: 62ch;
 		font-size: var(--step--1);
 		line-height: 1.6;
 		opacity: 0.8;
