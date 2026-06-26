@@ -1,0 +1,1432 @@
+---
+import Layout from '../../layouts/Layout.astro'
+import { Badge, Flex, Link, Text } from '@mrmartineau/zui/astro'
+
+export const title = 'Keyboard-only navigation'
+export const description =
+	'A cursorless page you drive entirely with the keyboard — arrow keys move a focus ring between fields, images and a video; Enter activates them. Plus a retro, raspi-config-style terminal screen.'
+export const date = '2026-06-23'
+export const status = 'live'
+export const tags = ['a11y', 'keyboard', 'demo']
+
+// A neutral, embeddable clip (Big Buck Bunny).
+const videoId = 'aqz-KE-bpKQ'
+---
+
+<Layout title="Keyboard-only navigation — lab.zander.wtf">
+	<main class="page">
+		<header class="flow">
+			<Link href="/">← All lab items</Link>
+			<Flex align="center" gap="sm">
+				<h1>Keyboard-only navigation</h1>
+				<Badge variant="fill" color="emerald">live</Badge>
+			</Flex>
+			<Text size="1">{description}</Text>
+			<p class="intro">
+				This is an experiment in driving an interface with <strong
+					>no mouse at all</strong
+				>. Inside the stage below the cursor is hidden on purpose
+				(<code>cursor: none</code>) and pointer events are switched off, so
+				there's nothing to point and click with — the only way around is the
+				keyboard. It's a small way to feel how the web works for people who
+				navigate this way every day, whether by preference or necessity, and a
+				reminder that everything should be reachable without a pointer.
+			</p>
+			<p class="hint">
+				<strong>How to play:</strong> the bright ring is your position. Use the
+				<kbd>arrow keys</kbd> to move it between the nearest fields, images and
+				the video, <kbd>Enter</kbd> to activate whatever it's on (type in a
+				field, toggle an option, zoom an image, play the video), and <kbd
+					>Esc</kbd
+				> to leave a field you're typing in. <kbd>Tab</kbd> / <kbd>Shift</kbd>+<kbd
+					>Tab</kbd
+				> step through everything in order. The line at the top of the stage
+				always tells you what's focused.
+			</p>
+		</header>
+
+		<!-- Everything inside .stage is cursorless + keyboard driven -->
+		<section class="stage" aria-label="Keyboard-only playground">
+			<div class="status" role="status" aria-live="polite">
+				<i class="ph ph-keyboard" aria-hidden="true"></i>
+				<span class="status-text">Press an arrow key to begin.</span>
+			</div>
+
+			<div class="grid">
+				<!-- Form column -->
+				<form
+					class="panel flow"
+					aria-label="Sample form"
+					onsubmit="return false"
+				>
+					<h2 class="panel-title">A little form</h2>
+
+					<div class="field">
+						<label class="zui-label" for="name">Name</label>
+						<input
+							class="zui-input"
+							id="name"
+							type="text"
+							placeholder="Ada Lovelace"
+							data-nav
+							data-label="Name field — Enter to type"
+						/>
+					</div>
+
+					<div class="field">
+						<label class="zui-label" for="email">Email</label>
+						<input
+							class="zui-input"
+							id="email"
+							type="email"
+							placeholder="hi@zander.wtf"
+							data-nav
+							data-label="Email field — Enter to type"
+						/>
+					</div>
+
+					<div class="field">
+						<label class="zui-label" for="flavour">Favourite flavour</label>
+						<select
+							class="zui-select"
+							id="flavour"
+							data-nav
+							data-label="Flavour menu — Enter, then arrows to choose"
+						>
+							<option>Vanilla</option>
+							<option>Chocolate</option>
+							<option>Strawberry</option>
+							<option>Pistachio</option>
+						</select>
+					</div>
+
+					<fieldset class="field group" aria-label="Plan">
+						<legend class="zui-label">Plan</legend>
+						<label class="zui-radio">
+							<input
+								type="radio"
+								name="plan"
+								value="free"
+								checked
+								data-nav
+								data-label="Plan: Free — Enter to select"
+							/>
+							Free
+						</label>
+						<label class="zui-radio">
+							<input
+								type="radio"
+								name="plan"
+								value="pro"
+								data-nav
+								data-label="Plan: Pro — Enter to select"
+							/>
+							Pro
+						</label>
+					</fieldset>
+
+					<label class="zui-checkbox field">
+						<input
+							type="checkbox"
+							data-nav
+							data-label="Newsletter checkbox — Enter to toggle"
+						/>
+						Send me the newsletter
+					</label>
+
+					<div class="field">
+						<label class="zui-label" for="message">Message</label>
+						<textarea
+							class="zui-textarea"
+							id="message"
+							rows="3"
+							placeholder="Say hello…"
+							data-nav
+							data-label="Message field — Enter to type"></textarea>
+					</div>
+
+					<button
+						class="zui-button"
+						type="submit"
+						data-nav
+						data-label="Submit button — Enter to send"
+					>
+						Submit
+					</button>
+				</form>
+
+				<!-- Media column -->
+				<div class="panel flow">
+					<h2 class="panel-title">Some media</h2>
+
+					<button
+						class="media-card"
+						type="button"
+						data-nav
+						data-label="Photo of a mountain — Enter to zoom"
+					>
+						<img
+							src="https://picsum.photos/seed/keyboard-lab-1/640/360"
+							alt="A randomly chosen landscape"
+							width="640"
+							height="360"
+							loading="lazy"
+						/>
+					</button>
+
+					<button
+						class="media-card"
+						type="button"
+						data-nav
+						data-label="Photo of a city — Enter to zoom"
+					>
+						<img
+							src="https://picsum.photos/seed/keyboard-lab-2/640/360"
+							alt="Another randomly chosen scene"
+							width="640"
+							height="360"
+							loading="lazy"
+						/>
+					</button>
+
+					<div class="video-wrap">
+						<button
+							class="video-facade"
+							type="button"
+							data-nav
+							data-video={videoId}
+							data-label="YouTube video — Enter to play"
+						>
+							<img
+								src={`https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`}
+								alt="Video thumbnail"
+								width="480"
+								height="360"
+								loading="lazy"
+							/>
+							<span class="play" aria-hidden="true">
+								<i class="ph ph-play"></i>
+							</span>
+						</button>
+					</div>
+				</div>
+			</div>
+
+			<div class="legend" aria-hidden="true">
+				<span><kbd>←</kbd><kbd>↑</kbd><kbd>↓</kbd><kbd>→</kbd> move</span>
+				<span><kbd>Enter</kbd> activate</span>
+				<span><kbd>Esc</kbd> leave field</span>
+				<span><kbd>Tab</kbd> next</span>
+			</div>
+		</section>
+
+		<!-- A second example: a retro, keyboard-only terminal config screen -->
+		<div class="flow term-intro">
+			<h2>An old-school terminal UI</h2>
+			<p class="intro">
+				A different flavour of the same idea. This is a recreation of a <code
+					>whiptail</code
+				>/<code>dialog</code> text UI in the style of <strong>raspi-config</strong
+				> — the very basic blue-and-grey configuration tool you get on a fresh
+				Raspberry Pi. No mouse, no rounded corners, no gradients: just a grey box
+				on a blue screen drawn in a monospace font. Tools like this have always
+				been keyboard-only, which makes it a natural fit here.
+			</p>
+			<p class="hint">
+				<strong>How to play:</strong> <kbd>↑</kbd>/<kbd>↓</kbd> move the highlight
+				bar through the menu, <kbd>Tab</kbd> jumps to the <code>&lt;Select&gt;</code
+				>/<code>&lt;Finish&gt;</code> buttons (then <kbd>←</kbd>/<kbd>→</kbd> move between
+				them), <kbd>Enter</kbd> chooses, and <kbd>Esc</kbd> backs out of a screen.
+				Whichever example is in view is the one the keyboard is driving.
+			</p>
+		</div>
+
+		<section class="stage term-stage" aria-label="Retro terminal config screen">
+			<div class="term-bar" role="status" aria-live="polite">
+				<i class="ph ph-terminal-window" aria-hidden="true"></i>
+				<span class="term-bar-text"
+					>↑/↓ choose · Tab for buttons · Enter select · Esc back</span
+				>
+			</div>
+			<div class="crt">
+				<div class="term-screen"><!-- rendered by the script below --></div>
+			</div>
+			<div class="term-keys" aria-hidden="true">
+				<span><b>↑↓</b> choose</span>
+				<span><b>Tab</b> buttons</span>
+				<span><b>←→</b> button</span>
+				<span><b>Enter</b> select</span>
+				<span><b>Esc</b> back</span>
+			</div>
+		</section>
+	</main>
+</Layout>
+
+<script>
+	// Keyboard-only spatial navigation: no mouse, no native focus order.
+	// Arrows move between [data-nav] items by on-screen position; Enter/Space
+	// activates; Tab cycles in DOM order; Escape leaves edit mode.
+	const stage = document.querySelector<HTMLElement>('.stage')
+	if (stage) {
+		// Live region label updated as the active item changes.
+		const statusText = stage.querySelector<HTMLElement>('.status-text')
+		// Currently-navigable items. Recomputed each call so hidden elements
+		// (offsetParent === null) are excluded and DOM changes are picked up.
+		const getItems = () =>
+			Array.from(stage.querySelectorAll<HTMLElement>('[data-nav]')).filter(
+				(el) => el.offsetParent !== null,
+			)
+
+		let active: HTMLElement | null = null // item carrying the focus ring
+		let editing = false // true while typing into a field
+
+		// Viewport-space centre point of an element, used for distance math.
+		const center = (el: HTMLElement) => {
+			const r = el.getBoundingClientRect()
+			return { x: r.left + r.width / 2, y: r.top + r.height / 2 }
+		}
+
+		// Update the status line with the active item's label, or a prompt.
+		const announce = (el: HTMLElement | null) => {
+			if (statusText) {
+				statusText.textContent =
+					el?.dataset.label ?? 'Press an arrow key to begin.'
+			}
+		}
+
+		// Move the focus ring to `el`: swap the .is-active class, scroll it into
+		// view, and announce it. No-op for null so callers can pass items[x].
+		const setActive = (el: HTMLElement | null, scroll = true) => {
+			if (!el) return
+			active?.classList.remove('is-active')
+			active = el
+			el.classList.add('is-active')
+			if (scroll) el.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+			announce(el)
+		}
+
+		type Dir = 'left' | 'right' | 'up' | 'down'
+		// Spatial move: pick the best item lying in direction `dir` from active.
+		const move = (dir: Dir) => {
+			const items = getItems()
+			// No active item (or it vanished) — seed on the first one instead.
+			if (!active || !items.includes(active)) {
+				setActive(items[0] ?? null)
+				return
+			}
+			const cur = center(active)
+			let best: HTMLElement | null = null
+			let bestScore = Infinity
+			for (const el of items) {
+				if (el === active) continue
+				const c = center(el)
+				const dx = c.x - cur.x // +right / -left
+				const dy = c.y - cur.y // +down / -up
+				let primary: number // distance along travel axis
+				let cross: number // sideways drift off the axis
+				// Skip items not in the travel direction (1px slop avoids ties);
+				// `primary` is forward distance, `cross` is perpendicular offset.
+				if (dir === 'right') {
+					if (dx <= 1) continue
+					primary = dx
+					cross = Math.abs(dy)
+				} else if (dir === 'left') {
+					if (dx >= -1) continue
+					primary = -dx
+					cross = Math.abs(dy)
+				} else if (dir === 'down') {
+					if (dy <= 1) continue
+					primary = dy
+					cross = Math.abs(dx)
+				} else {
+					if (dy >= -1) continue
+					primary = -dy
+					cross = Math.abs(dx)
+				}
+				// Prefer the closest item along the travel axis, penalise drift.
+				const score = primary + cross * 2
+				if (score < bestScore) {
+					bestScore = score
+					best = el
+				}
+			}
+			if (best) setActive(best)
+		}
+
+		// Linear move through items in DOM order, wrapping around the ends.
+		// delta +1 = next (Tab), -1 = previous (Shift+Tab).
+		const step = (delta: number) => {
+			const items = getItems()
+			if (items.length === 0) return
+			const idx = active ? items.indexOf(active) : -1
+			const next = (idx + delta + items.length) % items.length
+			setActive(items[next])
+		}
+
+		// Hand control to a real form field: arrows stop navigating and keys go
+		// to the input until Escape. Caret is placed at end of existing text.
+		const enterEdit = (el: HTMLElement) => {
+			editing = true
+			document.body.classList.add('edit-mode')
+			el.classList.add('is-editing')
+			el.focus()
+			if (
+				el instanceof HTMLInputElement ||
+				el instanceof HTMLTextAreaElement
+			) {
+				const len = el.value.length
+				el.setSelectionRange?.(len, len)
+			}
+		}
+
+		// Leave edit mode and return arrow keys to navigation. No-op if not editing.
+		const exitEdit = () => {
+			if (!editing) return
+			editing = false
+			document.body.classList.remove('edit-mode')
+			active?.classList.remove('is-editing')
+			;(active as HTMLElement | null)?.blur()
+		}
+
+		// Swap a [data-video] placeholder for an autoplaying YouTube iframe.
+		// The placeholder is removed, so clear `active` to avoid a dangling ref.
+		const playVideo = (el: HTMLElement) => {
+			const id = el.dataset.video
+			if (!id) return
+			const iframe = document.createElement('iframe')
+			iframe.src = `https://www.youtube-nocookie.com/embed/${id}?autoplay=1&rel=0`
+			iframe.title = 'YouTube video player'
+			iframe.allow =
+				'autoplay; encrypted-media; picture-in-picture; fullscreen'
+			iframe.setAttribute('allowfullscreen', '')
+			iframe.className = 'video-frame'
+			el.replaceWith(iframe)
+			active = null
+			announce(null)
+		}
+
+		// Enter/Space handler — dispatch by element type to the right behaviour.
+		const activate = () => {
+			if (!active) return
+			const el = active
+			// Video placeholder: load the embed.
+			if (el.dataset.video !== undefined) {
+				playVideo(el)
+				return
+			}
+			const tag = el.tagName.toLowerCase()
+			if (el instanceof HTMLInputElement) {
+				// Checkbox/radio toggle in place (firing change); others edit.
+				if (el.type === 'checkbox') {
+					el.checked = !el.checked
+					el.dispatchEvent(new Event('change', { bubbles: true }))
+					return
+				}
+				if (el.type === 'radio') {
+					el.checked = true
+					el.dispatchEvent(new Event('change', { bubbles: true }))
+					return
+				}
+				enterEdit(el)
+				return
+			}
+			// Textareas and selects also need typed/native input.
+			if (
+				el instanceof HTMLTextAreaElement ||
+				el instanceof HTMLSelectElement
+			) {
+				enterEdit(el)
+				return
+			}
+			// Buttons/links: toggle the zoom effect and trigger their click.
+			if (tag === 'button' || tag === 'a') {
+				el.classList.toggle('is-zoomed')
+				el.click()
+			}
+		}
+
+		// Central key router. While editing, only Escape is intercepted so the
+		// field receives all other keys; otherwise arrows/Tab/Enter drive nav.
+		window.addEventListener('keydown', (e) => {
+			// Two keyboard-driven examples share this page; only act when this
+			// stage is the one currently in view (see the controller script).
+			const isLive = (window as any).__isLive
+			if (isLive && !isLive(stage)) return
+			if (editing) {
+				if (e.key === 'Escape') {
+					e.preventDefault()
+					exitEdit()
+				}
+				return
+			}
+			switch (e.key) {
+				case 'ArrowRight':
+					e.preventDefault()
+					move('right')
+					break
+				case 'ArrowLeft':
+					e.preventDefault()
+					move('left')
+					break
+				case 'ArrowUp':
+					e.preventDefault()
+					move('up')
+					break
+				case 'ArrowDown':
+					e.preventDefault()
+					move('down')
+					break
+				case 'Tab':
+					e.preventDefault()
+					step(e.shiftKey ? -1 : 1)
+					break
+				case 'Enter':
+				case ' ':
+					e.preventDefault()
+					activate()
+					break
+			}
+		})
+
+		// Seed the focus ring on the first item.
+		setActive(getItems()[0] ?? null, false)
+	}
+</script>
+
+<script>
+	// Stage controller. Two keyboard-driven examples share one page, so only the
+	// one you're actually looking at should answer the arrow keys. Whichever
+	// .stage is most visible becomes "live"; the others dim and ignore input.
+	const liveStages = Array.from(
+		document.querySelectorAll<HTMLElement>('.stage'),
+	)
+	if (liveStages.length) {
+		let live: HTMLElement = liveStages[0]
+		live.classList.add('is-live')
+		document.body.classList.add('has-live')
+		if (liveStages.length > 1) {
+			// Track each stage's visible fraction; pick the most-visible one, with a
+			// little hysteresis so a near-tie doesn't flicker the live stage.
+			const ratios = new Map<Element, number>()
+			const io = new IntersectionObserver(
+				(entries) => {
+					for (const en of entries)
+						ratios.set(en.target, en.intersectionRatio)
+					let best = live
+					let bestRatio = ratios.get(live) ?? 0
+					for (const s of liveStages) {
+						const r = ratios.get(s) ?? 0
+						if (r > bestRatio + 0.15) {
+							best = s
+							bestRatio = r
+						}
+					}
+					if (best !== live) {
+						live.classList.remove('is-live')
+						live = best
+						live.classList.add('is-live')
+					}
+				},
+				{ threshold: [0, 0.25, 0.5, 0.75, 1] },
+			)
+			liveStages.forEach((s) => io.observe(s))
+		}
+	}
+	// Shared with each stage's key handler: is this the live one?
+	;(window as any).__isLive = (el: Element) => el.classList.contains('is-live')
+</script>
+
+<script>
+	// ── Retro terminal example ───────────────────────────────────────────────
+	// A recreation of a whiptail / "dialog" TUI in the style of raspi-config: a
+	// blue full-screen config tool with a grey dialog box, driven only by the
+	// keyboard — ↑/↓ choose a row, Tab hops to the buttons, ←/→ move between
+	// them, Enter selects and Esc goes back. That's exactly how these tools work
+	// on a real Pi, where there's no mouse at all.
+	const term = document.querySelector<HTMLElement>('.term-stage')
+	if (term) {
+		const screenEl = term.querySelector<HTMLElement>('.term-screen')!
+		const barEl = term.querySelector<HTMLElement>('.term-bar-text')!
+
+		// ── Live config state ────────────────────────────────────────────────
+		// Mutable values the screens read and write, so toggling SSH or picking a
+		// timezone actually sticks while you poke around.
+		const RPI = 'Raspberry Pi Software Configuration Tool (raspi-config)'
+		const ifaces = [
+			{ name: 'SSH', on: false },
+			{ name: 'VNC', on: false },
+			{ name: 'SPI', on: false },
+			{ name: 'I2C', on: false },
+			{ name: 'Serial Port', on: false },
+		]
+		const choice = { audio: 0, boot: 0, tz: 0 } // selected index per radio list
+		let hostname = 'raspberrypi'
+		let note = '' // transient line shown under a menu after an action
+
+		// A screen is a menu (rows + buttons), a message (text + Back) or an input
+		// (a typeable field + Ok/Cancel). `items` is a function so a screen can
+		// reflect the mutable state above every time it's drawn.
+		type Screen = {
+			title: string
+			blurb: string
+			kind: 'menu' | 'message' | 'input'
+			items?: () => { label: string; hint: string; sub?: boolean }[]
+			body?: string
+			value?: string
+			buttons: string[]
+			onSelect?: (i: number) => void
+			onAccept?: (v: string) => void
+		}
+
+		const message = (body: string, blurb = ''): Screen => ({
+			title: 'raspi-config',
+			blurb,
+			kind: 'message',
+			body,
+			buttons: ['Back'],
+		})
+
+		// A single-select list (radio): picking a row stores its index and marks
+		// it with a • so the current choice is always visible.
+		const radio = (
+			blurb: string,
+			options: string[],
+			get: () => number,
+			set: (i: number) => void,
+		): Screen => ({
+			title: RPI,
+			blurb,
+			kind: 'menu',
+			items: () =>
+				options.map((o, i) => ({
+					label: `(${i === get() ? '•' : ' '}) ${o}`,
+					hint: '',
+				})),
+			buttons: ['Select', 'Back'],
+			onSelect: (i) => {
+				set(i)
+				note = `Selected: ${options[i]}.`
+				render()
+			},
+		})
+
+		const IFACE: Screen = {
+			title: 'Raspberry Pi Software Configuration Tool (raspi-config)',
+			blurb: 'Interface Options',
+			kind: 'menu',
+			items: () =>
+				ifaces.map((o, i) => ({
+					label: `P${i + 1} ${o.name}`,
+					hint: o.on ? 'Enabled' : 'Disabled',
+				})),
+			buttons: ['Select', 'Back'],
+			onSelect: (i) => {
+				ifaces[i].on = !ifaces[i].on
+				note = `${ifaces[i].name} is now ${ifaces[i].on ? 'enabled' : 'disabled'}.`
+				render()
+			},
+		}
+
+		// Radio sub-screens reached from System / Localisation.
+		const AUDIO_LABELS = ['Auto', 'HDMI', '3.5mm jack']
+		const BOOT_LABELS = [
+			'Console',
+			'Console Autologin',
+			'Desktop',
+			'Desktop Autologin',
+		]
+		const TZ_LABELS = [
+			'Europe/London',
+			'Europe/Paris',
+			'America/New_York',
+			'Asia/Tokyo',
+			'UTC',
+		]
+
+		const AUDIO = radio(
+			'Choose the audio output',
+			['Auto', 'Force HDMI', 'Force 3.5mm (headphone jack)'],
+			() => choice.audio,
+			(i) => (choice.audio = i),
+		)
+		const BOOT = radio(
+			'Boot / Auto Login — choose how the Pi starts',
+			BOOT_LABELS,
+			() => choice.boot,
+			(i) => (choice.boot = i),
+		)
+		const TIMEZONE = radio(
+			'Configure the time zone',
+			TZ_LABELS,
+			() => choice.tz,
+			(i) => (choice.tz = i),
+		)
+
+		// A typeable field — set the hostname by actually typing it.
+		const HOSTNAME = (): Screen => ({
+			title: RPI,
+			blurb: 'Set hostname',
+			kind: 'input',
+			body: 'Please enter a hostname (letters, digits and hyphens):',
+			value: hostname,
+			buttons: ['Ok', 'Cancel'],
+			onAccept: (v) => {
+				const clean = v.replace(/[^a-zA-Z0-9-]/g, '')
+				hostname = clean || hostname
+				back()
+				note = `Hostname set to "${hostname}".`
+				render()
+			},
+		})
+
+		const SYSTEM: Screen = {
+			title: RPI,
+			blurb: 'System Options',
+			kind: 'menu',
+			items: () => [
+				{ label: 'S1 Wireless LAN', hint: 'Enter SSID and passphrase' },
+				{ label: 'S2 Audio', hint: AUDIO_LABELS[choice.audio], sub: true },
+				{ label: 'S3 Hostname', hint: hostname, sub: true },
+				{
+					label: 'S4 Boot / Auto Login',
+					hint: BOOT_LABELS[choice.boot],
+					sub: true,
+				},
+				{ label: 'S5 Password', hint: 'Change password for current user' },
+			],
+			buttons: ['Select', 'Back'],
+			onSelect: (i) => {
+				if (i === 1) go(AUDIO)
+				else if (i === 2) go(HOSTNAME())
+				else if (i === 3) go(BOOT)
+				else
+					go(
+						message(
+							'This option would open here.\n\n(Recreation — Audio, Hostname and Boot / Auto Login actually do something.)',
+						),
+					)
+			},
+		}
+
+		const LOCAL: Screen = {
+			title: RPI,
+			blurb: 'Localisation Options',
+			kind: 'menu',
+			items: () => [
+				{ label: 'L1 Locale', hint: 'Configure language and character set' },
+				{ label: 'L2 Timezone', hint: TZ_LABELS[choice.tz], sub: true },
+				{ label: 'L3 Keyboard', hint: 'Set the keyboard layout' },
+				{ label: 'L4 WLAN Country', hint: 'Set the legal wireless channels' },
+			],
+			buttons: ['Select', 'Back'],
+			onSelect: (i) => {
+				if (i === 1) go(TIMEZONE)
+				else
+					go(
+						message(
+							'This option would open here.\n\n(Recreation — only Timezone does something in here.)',
+						),
+					)
+			},
+		}
+
+		const ABOUT = message(
+			'This tool (raspi-config) provides a straightforward way of doing ' +
+				'initial configuration of the Raspberry Pi. Although it can be run ' +
+				'at any time, some of the options may have difficulties if you have ' +
+				'heavily customised your installation.\n\n(This is a keyboard-only ' +
+				'recreation for lab.zander.wtf — nothing here touches a real Pi.)',
+			'About raspi-config',
+		)
+
+		const MAIN: Screen = {
+			title: 'Raspberry Pi Software Configuration Tool (raspi-config)',
+			blurb: 'Setup Options',
+			kind: 'menu',
+			items: () => [
+				{
+					label: '1 System Options',
+					hint: 'Configure system settings',
+					sub: true,
+				},
+				{
+					label: '2 Interface Options',
+					hint: 'Configure connections to peripherals',
+					sub: true,
+				},
+				{
+					label: '3 Performance Options',
+					hint: 'Configure performance settings',
+				},
+				{
+					label: '4 Localisation Options',
+					hint: 'Configure language and regional settings',
+					sub: true,
+				},
+				{ label: '5 Update', hint: 'Update this tool to the latest version' },
+				{
+					label: '6 About raspi-config',
+					hint: 'Information about this configuration tool',
+				},
+			],
+			buttons: ['Select', 'Finish'],
+			onSelect: (i) => {
+				if (i === 0) go(SYSTEM)
+				else if (i === 1) go(IFACE)
+				else if (i === 3) go(LOCAL)
+				else if (i === 5) go(ABOUT)
+				else
+					go(
+						message(
+							`"${MAIN.items!()[i].label.replace(/^\d+\s/, '')}" would open here.\n\nThis is a recreation, so the menus that do something are System, Interface, Localisation and About.`,
+						),
+					)
+			},
+		}
+
+		// Screen stack: the last entry is what's on screen. `zone`/`row`/`btn`
+		// track where the highlight is.
+		const stack: Screen[] = [MAIN]
+		let zone: 'list' | 'buttons' = 'list'
+		let row = 0 // highlighted menu row
+		let btn = 0 // highlighted button
+
+		const current = () => stack[stack.length - 1]
+
+		const go = (s: Screen) => {
+			stack.push(s)
+			zone = s.kind === 'message' ? 'buttons' : 'list'
+			row = 0
+			btn = 0
+			note = ''
+			render()
+		}
+		const back = () => {
+			if (stack.length > 1) stack.pop()
+			zone = current().kind === 'message' ? 'buttons' : 'list'
+			row = 0
+			btn = 0
+			note = ''
+			render()
+		}
+
+		const esc = (t: string) =>
+			t.replace(
+				/[&<>]/g,
+				(c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' })[c]!,
+			)
+
+		// Rebuild the screen's DOM from scratch on every change. Cheap, and keeps
+		// "what's highlighted" in a single place.
+		function render() {
+			const s = current()
+			const items = s.items ? s.items() : []
+			const rows = items
+				.map((it, i) => {
+					const sel = zone === 'list' && i === row ? ' is-sel' : ''
+					return `<div class="term-row${sel}"><span class="lbl">${esc(it.label)}</span><span class="hint">${esc(it.hint)}</span><span class="term-arrow" aria-hidden="true">${it.sub ? '▸' : ''}</span></div>`
+				})
+				.join('')
+			const buttons = s.buttons
+				.map((b, i) => {
+					// Focused button while on the button row; otherwise mark the
+					// primary button as the default so you can see what Enter presses
+					// from the list too.
+					let cls = ''
+					if (zone === 'buttons' && i === btn) cls = ' is-sel'
+					else if (zone === 'list' && i === 0) cls = ' is-default'
+					return `<span class="term-btn${cls}">&lt;${esc(b)}&gt;</span>`
+				})
+				.join('')
+			const main =
+				s.kind === 'menu'
+					? `<div class="term-list">${rows}</div>`
+					: s.kind === 'input'
+						? `<div class="term-prompt">${esc(s.body ?? '')}</div><div class="term-field">${esc(s.value ?? '')}<span class="caret" aria-hidden="true">█</span></div>`
+						: `<pre class="term-body">${esc(s.body ?? '')}</pre>`
+			screenEl.innerHTML = `
+				<div class="term-window">
+					<div class="term-title">${esc(s.title)}</div>
+					${s.blurb ? `<div class="term-blurb">${esc(s.blurb)}</div>` : ''}
+					${main}
+					${note ? `<div class="term-note">* ${esc(note)}</div>` : ''}
+					<div class="term-buttons">${buttons}</div>
+				</div>`
+			// Mirror the position into the live-region help bar.
+			barEl.textContent =
+				s.kind === 'input'
+					? 'Type a hostname, then Enter to accept (Esc to cancel)'
+					: zone === 'list'
+						? `${items[row]?.label ?? ''} — Enter to ${s.buttons[0].toLowerCase()}, Tab for buttons`
+						: `<${s.buttons[btn]}> — Enter to activate`
+		}
+
+		// Activate whatever is highlighted: a button directly, or — from the list —
+		// the primary button (Select/Ok) acting on the current row.
+		const activate = () => {
+			const s = current()
+			const label = zone === 'buttons' ? s.buttons[btn] : s.buttons[0]
+			if (label === 'Back') {
+				back()
+				return
+			}
+			if (label === 'Finish') {
+				go(
+					message(
+						'raspi-config would now close.\n\n(Demo only — nothing on a real Pi was changed.)',
+					),
+				)
+				return
+			}
+			s.onSelect?.(row)
+		}
+
+		window.addEventListener('keydown', (e) => {
+			// Only respond when this example is the one in view.
+			const isLive = (window as any).__isLive
+			if (isLive && !isLive(term)) return
+			const s = current()
+			const items = s.items ? s.items() : []
+			// Typeable input screen: keys edit the field directly.
+			if (s.kind === 'input') {
+				if (e.key === 'Enter') {
+					e.preventDefault()
+					s.onAccept?.(s.value ?? '')
+				} else if (e.key === 'Escape') {
+					e.preventDefault()
+					back()
+				} else if (e.key === 'Backspace') {
+					e.preventDefault()
+					s.value = (s.value ?? '').slice(0, -1)
+					render()
+				} else if (e.key === 'Tab') {
+					e.preventDefault()
+				} else if (
+					e.key.length === 1 &&
+					!e.ctrlKey &&
+					!e.metaKey &&
+					!e.altKey &&
+					/[a-zA-Z0-9-]/.test(e.key)
+				) {
+					e.preventDefault()
+					s.value = (s.value ?? '') + e.key
+					render()
+				}
+				return
+			}
+			switch (e.key) {
+				case 'ArrowDown':
+					e.preventDefault()
+					if (zone === 'list') row = Math.min(row + 1, items.length - 1)
+					render()
+					break
+				case 'ArrowUp':
+					e.preventDefault()
+					if (zone === 'list') row = Math.max(row - 1, 0)
+					render()
+					break
+				case 'ArrowRight':
+					e.preventDefault()
+					if (zone === 'buttons')
+						btn = Math.min(btn + 1, s.buttons.length - 1)
+					render()
+					break
+				case 'ArrowLeft':
+					e.preventDefault()
+					if (zone === 'buttons') btn = Math.max(btn - 1, 0)
+					render()
+					break
+				case 'Tab':
+					e.preventDefault()
+					// Menus let you hop between the list and the button row.
+					if (s.kind === 'menu') {
+						zone = zone === 'list' ? 'buttons' : 'list'
+						if (zone === 'buttons') btn = 0
+						render()
+					}
+					break
+				case 'Enter':
+				case ' ':
+					e.preventDefault()
+					activate()
+					break
+				case 'Escape':
+					e.preventDefault()
+					back()
+					break
+			}
+		})
+
+		render()
+	}
+</script>
+
+<style>
+	.page {
+		max-width: 60rem;
+		margin-inline: auto;
+		padding: var(--space-xl) var(--space-md);
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-lg);
+	}
+	h1 {
+		margin: 0;
+		font-size: var(--step-4);
+	}
+	.intro {
+		max-width: 62ch;
+		line-height: 1.6;
+	}
+	.intro code {
+		font-size: 0.9em;
+		padding: 0.1em 0.35em;
+		border-radius: var(--radius-sm);
+		background: var(--color-surface);
+		border: 1px solid var(--color-border);
+	}
+	.hint {
+		max-width: 62ch;
+		font-size: var(--step--1);
+		line-height: 1.6;
+		opacity: 0.8;
+	}
+	kbd {
+		font: inherit;
+		font-size: 0.85em;
+		padding: 0.1em 0.45em;
+		border-radius: var(--radius-sm);
+		border: 1px solid var(--color-border);
+		background: var(--color-surface);
+		box-shadow: 0 1px 0 var(--color-border);
+		white-space: nowrap;
+	}
+
+	/* The cursorless, keyboard-only stage */
+	.stage {
+		cursor: none;
+		border: var(--border-style) 1px var(--color-border);
+		border-radius: var(--radius-lg);
+		padding: var(--space-md);
+		background: var(--color-surface);
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-md);
+	}
+	/* Mouse does nothing in here — keyboard only. */
+	.stage [data-nav] {
+		pointer-events: none;
+	}
+
+	.status {
+		position: sticky;
+		top: 0;
+		display: flex;
+		align-items: center;
+		gap: var(--space-2xs);
+		font-size: var(--step--1);
+		padding: var(--space-2xs) var(--space-sm);
+		border-radius: var(--radius-md);
+		background: var(--color-background);
+		border: var(--border-style) 1px var(--color-border);
+		min-height: 2.5rem;
+	}
+	.status i {
+		font-size: var(--step-1);
+		opacity: 0.7;
+	}
+
+	.grid {
+		display: grid;
+		grid-template-columns: 1fr 1fr;
+		gap: var(--space-md);
+	}
+	@media (max-width: 48rem) {
+		.grid {
+			grid-template-columns: 1fr;
+		}
+	}
+
+	.panel {
+		background: var(--color-background);
+		border: var(--border-style) 1px var(--color-border);
+		border-radius: var(--radius-md);
+		padding: var(--space-md);
+	}
+	.panel-title {
+		margin: 0 0 var(--space-2xs);
+		font-size: var(--step-1);
+	}
+	.field {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-3xs);
+	}
+	.group {
+		border: none;
+		margin: 0;
+		padding: 0;
+		display: flex;
+		flex-direction: row;
+		gap: var(--space-md);
+		align-items: center;
+		flex-wrap: wrap;
+	}
+	.group legend {
+		float: left;
+		width: 100%;
+	}
+
+	/* Focus ring — the only "cursor" in the stage */
+	.stage [data-nav] {
+		border-radius: var(--radius-md);
+		transition:
+			box-shadow 120ms var(--ease),
+			outline-color 120ms var(--ease);
+		outline: 2px solid transparent;
+		outline-offset: 2px;
+	}
+	.stage .is-active {
+		outline-color: var(--color-accent, var(--color-primary));
+		box-shadow: 0 0 0 4px
+			color-mix(in srgb, var(--color-accent, var(--color-primary)) 25%, transparent);
+	}
+	.stage .is-editing {
+		outline-style: dashed;
+	}
+
+	/* Let the focused field show a real text caret while typing */
+	.edit-mode .stage .is-editing {
+		cursor: text;
+	}
+
+	.media-card {
+		display: block;
+		padding: 0;
+		border: none;
+		background: none;
+		line-height: 0;
+		overflow: hidden;
+		border-radius: var(--radius-md);
+	}
+	.media-card img,
+	.video-facade img,
+	.video-frame {
+		display: block;
+		width: 100%;
+		height: auto;
+		border-radius: var(--radius-md);
+	}
+	.media-card img {
+		transition: transform 200ms var(--ease);
+	}
+	.media-card.is-zoomed img {
+		transform: scale(1.05);
+	}
+
+	.video-wrap {
+		position: relative;
+	}
+	.video-facade {
+		position: relative;
+		display: block;
+		padding: 0;
+		border: none;
+		background: none;
+		width: 100%;
+		line-height: 0;
+		border-radius: var(--radius-md);
+		overflow: hidden;
+	}
+	.video-facade .play {
+		position: absolute;
+		inset: 0;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		color: #fff;
+		font-size: var(--step-5);
+		background: color-mix(in srgb, black 30%, transparent);
+	}
+	.video-frame {
+		aspect-ratio: 16 / 9;
+		width: 100%;
+		height: auto;
+		border: none;
+	}
+
+	.legend {
+		display: flex;
+		flex-wrap: wrap;
+		gap: var(--space-md);
+		justify-content: center;
+		font-size: var(--step--1);
+		opacity: 0.7;
+		padding-top: var(--space-2xs);
+		border-top: var(--border-style) 1px var(--color-border);
+	}
+	.legend span {
+		display: inline-flex;
+		align-items: center;
+		gap: var(--space-3xs);
+	}
+
+	/* ── Live-stage focus: dim whichever example isn't being driven ─────────── */
+	.stage {
+		transition: opacity 250ms var(--ease);
+	}
+	body.has-live .stage:not(.is-live) {
+		opacity: 0.45;
+	}
+
+	/* ── Retro terminal example (raspi-config / whiptail look) ──────────────── */
+	.term-intro h2 {
+		margin: 0 0 var(--space-2xs);
+		font-size: var(--step-2);
+	}
+	.term-intro code {
+		font-size: 0.9em;
+		padding: 0.1em 0.35em;
+		border-radius: var(--radius-sm);
+		background: var(--color-surface);
+		border: 1px solid var(--color-border);
+	}
+
+	.term-stage {
+		/* a fixed retro palette, deliberately independent of the site theme */
+		--t-blue: #0000a8;
+		--t-face: #b8b8b8;
+		--t-hi: #ededed;
+		--t-lo: #6d6d6d;
+		--t-sel: #0000a8;
+		--t-red: #a80000;
+		font-family: ui-monospace, 'SF Mono', SFMono-Regular, Menlo, Consolas,
+			monospace;
+		border: 1px solid #000;
+		border-radius: 0;
+		background: #050505;
+		padding: 0;
+		gap: 0;
+		overflow: hidden;
+	}
+
+	/* amber-on-black help/status line at the top */
+	.term-bar {
+		display: flex;
+		align-items: center;
+		gap: var(--space-2xs);
+		font-size: var(--step--1);
+		padding: var(--space-2xs) var(--space-sm);
+		background: #000;
+		color: #ffb000;
+		min-height: 2.25rem;
+	}
+	.term-bar i {
+		font-size: var(--step-1);
+		opacity: 0.8;
+	}
+
+	/* the blue "screen" the dialog sits on */
+	.crt {
+		background: var(--t-blue);
+		color: #fff;
+		padding: clamp(1.25rem, 5vw, 3.5rem) clamp(1rem, 5vw, 3rem);
+		min-height: 24rem;
+		display: flex;
+		align-items: flex-start;
+		justify-content: center;
+		font-size: clamp(0.78rem, 0.6rem + 0.6vw, 0.95rem);
+		line-height: 1.45;
+		position: relative;
+		text-shadow: 0 0 2px rgba(255, 255, 255, 0.15);
+	}
+	/* faint scanlines for the CRT feel */
+	.crt::after {
+		content: '';
+		position: absolute;
+		inset: 0;
+		pointer-events: none;
+		background: repeating-linear-gradient(
+			to bottom,
+			rgba(0, 0, 0, 0.12) 0,
+			rgba(0, 0, 0, 0.12) 1px,
+			transparent 1px,
+			transparent 3px
+		);
+		mix-blend-mode: multiply;
+	}
+	@media (prefers-reduced-motion: reduce) {
+		.crt::after {
+			display: none;
+		}
+	}
+
+	/* the grey dialog box, with a chunky bevel + drop shadow */
+	/* The dialog box, menu rows, buttons and input field are injected by the
+	   terminal script at runtime, so Astro's scoped selectors never match them.
+	   Their styles live in the is:global block below (namespaced under
+	   .term-stage). Everything here targets real template elements. */
+
+	.term-keys {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 1.25rem;
+		justify-content: center;
+		font-size: var(--step--1);
+		color: #9a9a9a;
+		background: #000;
+		padding: var(--space-2xs) var(--space-sm);
+	}
+	.term-keys b {
+		color: #fff;
+		font-weight: 600;
+	}
+
+	/* mouse does nothing in here either — keyboard only */
+	.term-stage .crt,
+	.term-stage .term-screen {
+		pointer-events: none;
+	}
+</style>
+
+<style is:global>
+	/* These elements are injected by the terminal script at runtime, so Astro's
+	   scoped styles can't reach them. The rules stay global but are namespaced
+	   under .term-stage so they can't leak elsewhere. The --t-* custom props are
+	   declared on .term-stage in the scoped block above and inherit down here. */
+	.term-stage .term-window {
+		width: min(100%, 42rem);
+		background: var(--t-face);
+		color: #000;
+		border-top: 2px solid var(--t-hi);
+		border-left: 2px solid var(--t-hi);
+		border-right: 2px solid var(--t-lo);
+		border-bottom: 2px solid var(--t-lo);
+		box-shadow: 5px 3px 0 rgba(0, 0, 0, 0.45);
+		border-radius: 0;
+		padding: 0.85rem 1rem 1rem;
+		position: relative;
+	}
+	.term-stage .term-title {
+		text-align: center;
+		color: var(--t-red);
+		font-weight: 700;
+		margin-bottom: 0.6rem;
+	}
+	.term-stage .term-blurb {
+		margin-bottom: 0.5rem;
+	}
+
+	.term-stage .term-list {
+		margin: 0.25rem 0 0.6rem;
+	}
+	.term-stage .term-row {
+		display: flex;
+		align-items: baseline;
+		justify-content: space-between;
+		gap: 3ch;
+		padding: 0.05rem 0.4rem;
+		white-space: nowrap;
+	}
+	.term-stage .term-row .lbl {
+		flex: 0 0 auto;
+	}
+	/* descriptions pushed to the far right edge and dimmed */
+	.term-stage .term-row .hint {
+		margin-left: auto;
+		text-align: right;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		opacity: 0.55;
+	}
+	.term-stage .term-row.is-sel {
+		background: var(--t-sel);
+		color: #fff;
+	}
+	.term-stage .term-row.is-sel .hint {
+		opacity: 0.8;
+	}
+	/* disclosure chevron marking rows that open another screen; a constant
+	   width column keeps the descriptions aligned whether or not it's shown */
+	.term-stage .term-arrow {
+		flex: 0 0 1.5ch;
+		margin-left: 1ch;
+		text-align: right;
+		font-weight: 700;
+	}
+
+	.term-stage .term-body {
+		font: inherit;
+		white-space: pre-wrap;
+		margin: 0.25rem 0 0.6rem;
+	}
+	.term-stage .term-note {
+		margin: 0 0 0.5rem;
+		padding-left: 0.4rem;
+		color: var(--t-red);
+	}
+
+	/* typeable input field (Set hostname) */
+	.term-stage .term-prompt {
+		margin: 0.25rem 0 0.35rem;
+	}
+	.term-stage .term-field {
+		background: #fff;
+		color: #000;
+		/* sunken field — opposite bevel to the raised buttons */
+		border-top: 2px solid var(--t-lo);
+		border-left: 2px solid var(--t-lo);
+		border-right: 2px solid var(--t-hi);
+		border-bottom: 2px solid var(--t-hi);
+		padding: 0.1rem 0.4rem;
+		margin: 0 0 0.6rem;
+		min-height: 1.5em;
+		white-space: pre-wrap;
+		word-break: break-all;
+	}
+	.term-stage .term-field .caret {
+		animation: term-blink 1s steps(1) infinite;
+	}
+	@keyframes term-blink {
+		50% {
+			opacity: 0;
+		}
+	}
+	@media (prefers-reduced-motion: reduce) {
+		.term-stage .term-field .caret {
+			animation: none;
+		}
+	}
+
+	.term-stage .term-buttons {
+		display: flex;
+		gap: 3ch;
+		justify-content: center;
+		margin-top: 0.5rem;
+	}
+	.term-stage .term-btn {
+		display: inline-block;
+		padding: 0.05rem 0.7rem;
+		background: var(--t-face);
+		color: #000;
+		/* raised bevel so it reads as a button even at rest */
+		border-top: 2px solid var(--t-hi);
+		border-left: 2px solid var(--t-hi);
+		border-right: 2px solid var(--t-lo);
+		border-bottom: 2px solid var(--t-lo);
+	}
+	/* focused button: inverted + pressed-in bevel */
+	.term-stage .term-btn.is-sel {
+		background: var(--t-sel);
+		color: #fff;
+		border-top-color: var(--t-lo);
+		border-left-color: var(--t-lo);
+		border-right-color: var(--t-hi);
+		border-bottom-color: var(--t-hi);
+	}
+	/* the default action while the list has focus — what Enter will press */
+	.term-stage .term-btn.is-default {
+		outline: 2px solid var(--t-red);
+		outline-offset: 1px;
+	}
+</style>
