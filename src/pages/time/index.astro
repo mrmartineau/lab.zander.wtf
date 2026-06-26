@@ -1,0 +1,77 @@
+---
+import Layout from '../../layouts/Layout.astro'
+import { Badge, Flex, Link, Text } from '@mrmartineau/zui/astro'
+import Clock from '../../components/Clock.astro'
+
+export const title = 'The 24-hour clock'
+export const description =
+	'A draggable clock for learning how 24-hour time maps onto the 12-hour face — drag the hands, watch the sky shift from night to day, and test yourself in quiz mode.'
+export const date = '2026-06-26'
+export const status = 'live'
+export const tags = ['svg', 'time', 'learning', 'interactive']
+---
+
+<Layout title="The 24-hour clock — lab.zander.wtf" lockZoom>
+	<main class="page">
+		<header class="flow">
+			<Link href="/">← All lab items</Link>
+			<Flex align="center" gap="sm">
+				<h1>The 24-hour clock</h1>
+				<Badge variant="fill" color="emerald">live</Badge>
+			</Flex>
+			<Text size="1">{description}</Text>
+			<p class="intro">
+				A little learning toy for the jump between the 12-hour clock we read and
+				the 24-hour clock we write. The <strong>inner ring</strong> is hours
+				1–12, the <strong>outer ring</strong> is 13–24, and the
+				<strong>outer minute marks</strong> count in fives. Drag either hand and the
+				sky behind the face slides from night through day to match the time.
+			</p>
+			<p class="hint">
+				<strong>How to play:</strong> grab a hand and drag it around the face, tap
+				<kbd>AM / PM</kbd> to flip between morning and afternoon, and dial the
+				difficulty up to hide the helper numbers. Hit <kbd>Quiz me</kbd> to be given
+				a time to set yourself. There's also a <Link href="/time/play"
+					>full-screen version</Link
+				> made for kids.
+			</p>
+		</header>
+
+		<Clock />
+	</main>
+</Layout>
+
+<style>
+	.page {
+		max-width: 60rem;
+		margin-inline: auto;
+		padding: var(--space-xl) var(--space-md);
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-lg);
+	}
+	h1 {
+		margin: 0;
+		font-size: var(--step-4);
+	}
+	.intro {
+		max-width: 62ch;
+		line-height: 1.6;
+	}
+	.hint {
+		max-width: 62ch;
+		font-size: var(--step--1);
+		line-height: 1.6;
+		opacity: 0.8;
+	}
+	kbd {
+		font: inherit;
+		font-size: 0.85em;
+		padding: 0.1em 0.45em;
+		border-radius: var(--radius-sm);
+		border: 1px solid var(--color-border);
+		background: var(--color-surface);
+		box-shadow: 0 1px 0 var(--color-border);
+		white-space: nowrap;
+	}
+</style>

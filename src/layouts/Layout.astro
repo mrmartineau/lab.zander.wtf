@@ -3,9 +3,14 @@ import '@mrmartineau/zui/css'
 
 interface Props {
 	title?: string
+	/** Disable pinch / double-tap zoom — for game-like, app-like pages. */
+	lockZoom?: boolean
 }
 
-const { title = 'lab.zander.wtf' } = Astro.props
+const { title = 'lab.zander.wtf', lockZoom = false } = Astro.props
+const viewport = lockZoom
+	? 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no'
+	: 'width=device-width, initial-scale=1'
 ---
 
 <!doctype html>
@@ -13,7 +18,21 @@ const { title = 'lab.zander.wtf' } = Astro.props
 	<head>
 		<meta charset="utf-8" />
 <link rel="icon" type="image/svg+xml" href="https://zander.wtf/favicon.svg" />
-		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<meta name="viewport" content={viewport} />
+		{
+			/* iOS Safari ignores the viewport flags above, so block its pinch
+			   gestures directly; `touch-action` (below) kills double-tap zoom. */
+			lockZoom && (
+				<script is:inline>
+					document.addEventListener('gesturestart', (e) =>
+						e.preventDefault(),
+					)
+					document.addEventListener('gesturechange', (e) =>
+						e.preventDefault(),
+					)
+				</script>
+			)
+		}
 		<meta name="generator" content={Astro.generator} />
 		<!-- Phosphor Icons — ZUI components reference `ph ph-*` classes -->
 		<link
@@ -22,7 +41,7 @@ const { title = 'lab.zander.wtf' } = Astro.props
 		/>
 		<title>{title}</title>
 	</head>
-	<body>
+	<body class:list={[{ 'lock-zoom': lockZoom }]}>
 		<slot />
 	</body>
 </html>
@@ -31,5 +50,9 @@ const { title = 'lab.zander.wtf' } = Astro.props
 	body {
 		margin: 0;
 		min-height: 100dvh;
+	}
+	/* Disable the double-tap-to-zoom gesture on zoom-locked pages. */
+	body.lock-zoom {
+		touch-action: manipulation;
 	}
 </style>

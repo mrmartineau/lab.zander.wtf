@@ -1,0 +1,881 @@
+---
+/**
+ * The 24-hour clock — a draggable learning toy.
+ *
+ * Self-contained: markup, styles and behaviour all live here, scoped to each
+ * `.clock-app` instance (queries are rooted, not global ids), so the component
+ * can be dropped onto any page — even more than once.
+ *
+ * Props:
+ *   fullscreen  Lay the widget out to fill its container (immersive, larger).
+ *   class       Extra class names for the root element.
+ */
+interface Props {
+	fullscreen?: boolean
+	class?: string
+}
+const { fullscreen = false, class: className = '' } = Astro.props
+---
+
+<section
+	class:list={['clock-app', 'lvl-easy', { 'is-fullscreen': fullscreen }, className]}
+	aria-label="24-hour clock"
+>
+	<!-- Difficulty -->
+	<div class="levels" role="group" aria-label="Difficulty">
+		<button data-level="easy" type="button" aria-pressed="true">
+			Easy<span class="tag">all numbers</span>
+		</button>
+		<button data-level="medium" type="button" aria-pressed="false">
+			Medium<span class="tag">12 + 24h</span>
+		</button>
+		<button data-level="hard" type="button" aria-pressed="false">
+			Hard<span class="tag">12h only</span>
+		</button>
+	</div>
+
+	<!-- Animated scene: sky + readout + clock face -->
+	<div class="stage c-stage">
+		<div class="sky" aria-hidden="true">
+			<div class="orb sun c-sun"></div>
+			<div class="orb moon c-moon"></div>
+		</div>
+
+		<!-- Quiz prompt (top of the scene, only while quizzing) -->
+		<div class="quiz-prompt c-quizPrompt">
+			<span class="qp-label"
+				>Set the clock to <strong class="c-target">—</strong></span
+			>
+			<button class="qp-check c-check" type="button">Check</button>
+			<button class="qp-stop c-quizStop" type="button" aria-label="Stop quiz">
+				✖
+			</button>
+		</div>
+
+		<div class="readout">
+			<button class="corner quiz c-quiz" type="button">🎯 Quiz</button>
+			<button class="corner ampm c-ampm" type="button">☀️ AM</button>
+			<div class="big c-d24">15:00</div>
+			<div class="twelve c-d12">3:00 in the afternoon</div>
+			<div class="moment c-moment">Afternoon</div>
+		</div>
+
+		<div class="clock-card">
+			<svg class="c-svg" viewBox="0 0 300 300">
+				<g class="c-ticks"></g>
+				<g class="c-minNums"></g>
+				<g class="c-outer"></g>
+				<g class="c-inner"></g>
+				<line
+					class="hand c-hourHand"
+					x1="150"
+					y1="150"
+					x2="150"
+					y2="92"
+					stroke-width="10"></line>
+				<line class="hand-hit c-hourHit" x1="150" y1="150" x2="150" y2="92"></line>
+				<line
+					class="hand c-minHand"
+					x1="150"
+					y1="150"
+					x2="150"
+					y2="60"
+					stroke-width="6"></line>
+				<line class="hand-hit c-minHit" x1="150" y1="150" x2="150" y2="60"></line>
+				<circle cx="150" cy="150" r="9" class="pivot"></circle>
+				<circle cx="150" cy="150" r="4" class="pivot-dot"></circle>
+			</svg>
+			<!-- Quiz result, overlaid on the face so it's always in view -->
+			<div class="toast c-toast" role="status" aria-live="polite"></div>
+		</div>
+	</div>
+
+	<div class="legend">
+		<span><i class="dot in"></i>Hours 1–12</span>
+		<span class="leg-out"><i class="dot out"></i>Hours 13–24</span>
+		<span class="leg-min"><i class="dot min"></i>Minutes</span>
+	</div>
+
+</section>
+
+<script>
+	const TWO_PI = Math.PI * 2
+	const SVGNS = 'http://www.w3.org/2000/svg'
+
+	// Lay out a ring of <text> labels around the face.
+	function place(
+		group: Element,
+		count: number,
+		radius: number,
+		cls: string,
+		labelFn: (i: number) => string | number,
+	) {
+		for (let i = 0; i < count; i++) {
+			const ang = (i / count) * TWO_PI - Math.PI / 2
+			const x = 150 + Math.cos(ang) * radius,
+				y = 150 + Math.sin(ang) * radius
+			const t = document.createElementNS(SVGNS, 'text')
+			t.setAttribute('x', String(x))
+			t.setAttribute('y', String(y))
+			t.setAttribute('class', cls)
+			t.textContent = String(labelFn(i))
+			group.appendChild(t)
+		}
+	}
+
+	function partOfDay(h: number) {
+		if (h < 5) return 'Night'
+		if (h < 8) return 'Early morning'
+		if (h < 12) return 'Morning'
+		if (h < 13) return 'Midday'
+		if (h < 17) return 'Afternoon'
+		if (h < 21) return 'Evening'
+		return 'Night'
+	}
+	function spokenHalf(h: number) {
+		if (h < 12) return 'in the morning'
+		if (h < 17) return 'in the afternoon'
+		if (h < 21) return 'in the evening'
+		return 'at night'
+	}
+
+	const skyStops: [number, string, string][] = [
+		[0, '#10173a', '#221a44'],
+		[5, '#3a2b5e', '#c66b6b'],
+		[7, '#6aa6e0', '#ffd9a0'],
+		[10, '#56a8ef', '#bfe4ff'],
+		[13, '#3f97f0', '#aee0ff'],
+		[17, '#4a78d6', '#ffcaa0'],
+		[19, '#5a4a9a', '#ff9a6b'],
+		[21, '#241c52', '#4a3a78'],
+		[24, '#10173a', '#221a44'],
+	]
+	const lerp = (a: number, b: number, t: number) => a + (b - a) * t
+	function hexLerp(c1: string, c2: string, t: number) {
+		const p = (h: string): [number, number, number] => [
+			parseInt(h.slice(1, 3), 16),
+			parseInt(h.slice(3, 5), 16),
+			parseInt(h.slice(5, 7), 16),
+		]
+		const [r1, g1, b1] = p(c1),
+			[r2, g2, b2] = p(c2)
+		return `rgb(${Math.round(lerp(r1, r2, t))},${Math.round(
+			lerp(g1, g2, t),
+		)},${Math.round(lerp(b1, b2, t))})`
+	}
+
+	// Wire up a single clock instance. All DOM lookups are rooted at `app` so
+	// multiple clocks on one page stay independent.
+	function setupClock(app: HTMLElement) {
+		const q = (sel: string): any => app.querySelector(sel)
+		const svg = q('.c-svg') as SVGSVGElement
+		const stage = q('.c-stage')
+		const inner = q('.c-inner'),
+			outer = q('.c-outer'),
+			minNums = q('.c-minNums'),
+			ticks = q('.c-ticks')
+		const hourHand = q('.c-hourHand'),
+			hourHit = q('.c-hourHit'),
+			minHand = q('.c-minHand'),
+			minHit = q('.c-minHit')
+		const d24 = q('.c-d24'),
+			d12 = q('.c-d12'),
+			moment = q('.c-moment'),
+			ampm = q('.c-ampm'),
+			sun = q('.c-sun'),
+			moon = q('.c-moon')
+		const quizBtn = q('.c-quiz'),
+			quizStop = q('.c-quizStop'),
+			targetEl = q('.c-target'),
+			checkBtn = q('.c-check'),
+			toast = q('.c-toast')
+
+		let hours = 15,
+			minutes = 0,
+			level = 'easy'
+
+		place(inner, 12, 68, 'num-in', (i) => (i === 0 ? 12 : i))
+		place(outer, 12, 100, 'num-out', (i) => (i === 0 ? '24/0' : i + 12))
+		place(minNums, 12, 124, 'num-min', (i) => String(i * 5).padStart(2, '0'))
+		for (let i = 0; i < 60; i++) {
+			const ang = (i / 60) * TWO_PI - Math.PI / 2,
+				r = 139
+			const c = document.createElementNS(SVGNS, 'circle')
+			c.setAttribute('cx', String(150 + Math.cos(ang) * r))
+			c.setAttribute('cy', String(150 + Math.sin(ang) * r))
+			c.setAttribute('r', String(i % 5 === 0 ? 2.4 : 1.1))
+			c.setAttribute('class', 'tick')
+			ticks.appendChild(c)
+		}
+
+		function setHand(line: any, hit: any, deg: number, len: number) {
+			const a = ((deg - 90) * Math.PI) / 180,
+				x = 150 + Math.cos(a) * len,
+				y = 150 + Math.sin(a) * len
+			for (const el of [line, hit]) {
+				el.setAttribute('x2', String(x))
+				el.setAttribute('y2', String(y))
+			}
+		}
+
+		let prevLit: any[] = []
+		function highlight(h12: number, h24: number) {
+			prevLit.forEach((el) => {
+				el.classList.remove('lit')
+				el.style.color = ''
+			})
+			prevLit = []
+			const inEl = inner.children[h12 % 12]
+			const outEl = outer.children[h24 % 12]
+			if (inEl) {
+				inEl.classList.add('lit')
+				inEl.style.color = 'var(--clock-inner)'
+				prevLit.push(inEl)
+			}
+			if (h24 >= 12 && outEl) {
+				outEl.classList.add('lit')
+				outEl.style.color = 'var(--clock-outer)'
+				prevLit.push(outEl)
+			}
+		}
+
+		function paintSky() {
+			const h = hours + minutes / 60
+			let i = 0
+			while (i < skyStops.length - 1 && h >= skyStops[i + 1][0]) i++
+			const [h0, t0, b0] = skyStops[i],
+				[h1, t1, b1] = skyStops[i + 1],
+				t = (h - h0) / (h1 - h0)
+			stage.style.background = `linear-gradient(180deg, ${hexLerp(
+				t0,
+				t1,
+				t,
+			)}, ${hexLerp(b0, b1, t)})`
+			// Arc the orb across the scene: p=0 at the left horizon, 1 at the right.
+			const rect = stage.getBoundingClientRect()
+			const arc = (s: number, e: number) => {
+				const p = (h - s) / (e - s),
+					ang = Math.PI - p * Math.PI,
+					rx = rect.width * 0.4,
+					ry = rect.height * 0.42
+				return {
+					cx: Math.cos(ang) * rx,
+					cy: -Math.sin(ang) * ry,
+					vis: p >= 0 && p <= 1,
+				}
+			}
+			const sunPos = arc(6, 18),
+				moonPos = h < 6 ? arc(-6, 6) : arc(18, 30)
+			sun.style.transform = `translate(${sunPos.cx}px,${sunPos.cy}px)`
+			sun.style.opacity = sunPos.vis ? '1' : '0'
+			moon.style.transform = `translate(${moonPos.cx}px,${moonPos.cy}px)`
+			moon.style.opacity = sunPos.vis ? '0' : '1'
+		}
+
+		function render() {
+			setHand(hourHand, hourHit, ((hours % 12) + minutes / 60) * 30, 56)
+			setHand(minHand, minHit, minutes * 6, 90)
+			const hh = String(hours).padStart(2, '0'),
+				mm = String(minutes).padStart(2, '0')
+			d24.textContent = `${hh}:${mm}`
+			let h12 = hours % 12
+			if (h12 === 0) h12 = 12
+			d12.textContent = `${h12}:${mm} ${spokenHalf(hours)}`
+			moment.textContent = partOfDay(hours)
+			if (hours < 12) {
+				ampm.textContent = '☀️ AM'
+				ampm.classList.remove('pm')
+			} else {
+				ampm.textContent = '🌙 PM'
+				ampm.classList.add('pm')
+			}
+			paintSky()
+			highlight(h12, hours)
+		}
+
+		// --- Dragging the hands -------------------------------------------------
+		function angleFromEvent(e: PointerEvent) {
+			const r = svg.getBoundingClientRect()
+			const x = ((e.clientX - r.left) / r.width) * 300 - 150,
+				y = ((e.clientY - r.top) / r.height) * 300 - 150
+			let deg = (Math.atan2(y, x) * 180) / Math.PI + 90
+			if (deg < 0) deg += 360
+			return deg
+		}
+		let dragging: 'hour' | 'min' | null = null,
+			lastAngle = 0,
+			dragTotal = 0
+		const startDrag = (which: 'hour' | 'min') => (e: PointerEvent) => {
+			e.preventDefault()
+			dragging = which
+			lastAngle = angleFromEvent(e)
+			dragTotal = hours * 60 + minutes
+			;(which === 'hour' ? hourHand : minHand).classList.add('dragging')
+		}
+		function onMove(e: PointerEvent) {
+			if (!dragging) return
+			e.preventDefault()
+			const deg = angleFromEvent(e)
+			let delta = deg - lastAngle
+			if (delta > 180) delta -= 360
+			else if (delta < -180) delta += 360
+			lastAngle = deg
+			// hour hand: 720 min/turn (12h) → 2 min/deg. minute hand: 1/6 min/deg
+			dragTotal += delta * (dragging === 'hour' ? 2 : 1 / 6)
+			const norm = ((Math.round(dragTotal) % 1440) + 1440) % 1440
+			hours = Math.floor(norm / 60)
+			minutes = norm % 60
+			render()
+		}
+		function endDrag() {
+			if (dragging)
+				(dragging === 'hour' ? hourHand : minHand).classList.remove('dragging')
+			dragging = null
+		}
+		hourHit.addEventListener('pointerdown', startDrag('hour'))
+		minHit.addEventListener('pointerdown', startDrag('min'))
+		window.addEventListener('pointermove', onMove, { passive: false })
+		window.addEventListener('pointerup', endDrag)
+
+		ampm.addEventListener('click', () => {
+			hours = hours < 12 ? hours + 12 : hours - 12
+			render()
+		})
+
+		// --- Difficulty ---------------------------------------------------------
+		function setLevel(l: string) {
+			level = l
+			app.classList.remove('lvl-easy', 'lvl-medium', 'lvl-hard')
+			app.classList.add('lvl-' + l)
+			app.querySelectorAll<HTMLElement>('[data-level]').forEach((b) =>
+				b.setAttribute('aria-pressed', String(b.dataset.level === l)),
+			)
+		}
+		app.querySelectorAll<HTMLElement>('[data-level]').forEach((b) =>
+			b.addEventListener('click', () => setLevel(b.dataset.level!)),
+		)
+
+		// --- Quiz ---------------------------------------------------------------
+		let quizMode = false
+		let target: { h: number; m: number } | null = null
+		let toastTimer = 0
+		// Result is shown as a toast over the face, so it's always in view.
+		function showToast(msg: string, cls: string) {
+			clearTimeout(toastTimer)
+			toast.textContent = msg
+			toast.className = `toast c-toast ${cls} show`
+		}
+		function hideToast() {
+			toast.classList.remove('show')
+		}
+		function newQuestion() {
+			const h = Math.floor(Math.random() * 24)
+			const m =
+				level === 'easy'
+					? [0, 15, 30, 45][Math.floor(Math.random() * 4)]
+					: [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55][
+							Math.floor(Math.random() * 12)
+						]
+			target = { h, m }
+			targetEl.textContent = `${String(h).padStart(2, '0')}:${String(m).padStart(
+				2,
+				'0',
+			)}`
+			hideToast()
+		}
+		function setQuiz(on: boolean) {
+			quizMode = on
+			app.classList.toggle('is-quiz', on)
+			if (on) newQuestion()
+			else hideToast()
+		}
+		quizBtn.addEventListener('click', () => setQuiz(true))
+		quizStop.addEventListener('click', () => setQuiz(false))
+		checkBtn.addEventListener('click', () => {
+			if (!target) return
+			if (hours === target.h && minutes === target.m) {
+				showToast('🎉 Perfect!', 'win')
+				toastTimer = window.setTimeout(newQuestion, 1500)
+			} else {
+				let h12 = target.h % 12
+				if (h12 === 0) h12 = 12
+				showToast(
+					target.h < 12
+						? '🌙 → ☀️ That one is a morning time. Try again!'
+						: `Almost! ${target.h} is ${h12} o'clock + 12. Try again!`,
+					'miss',
+				)
+				toastTimer = window.setTimeout(hideToast, 2600)
+			}
+		})
+
+		setLevel('easy')
+		render()
+		window.addEventListener('resize', paintSky)
+
+		// Deep link: /time/play#quiz drops straight into quiz mode.
+		if (location.hash === '#quiz') quizBtn.click()
+	}
+
+	document
+		.querySelectorAll<HTMLElement>('.clock-app')
+		.forEach((app) => setupClock(app))
+</script>
+
+<!--
+	Styles are global (not Astro-scoped) because the SVG numbers, ticks and
+	highlight states are created/toggled in JS at runtime and never receive
+	Astro's scope attribute. Everything is namespaced under `.clock-app`.
+-->
+<style is:global>
+	.clock-app {
+		--clock-inner: var(--color-amber-500); /* hours 1–12 */
+		--clock-outer: var(--color-indigo-500); /* hours 13–24 */
+		--clock-mins: var(--color-cyan-600); /* minutes */
+		--clock-ink: var(--color-gray-900);
+		--clock-face: #fffdf7;
+
+		width: 100%;
+		max-width: 28rem;
+		margin-inline: auto;
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: var(--space-sm);
+		font-family: var(--font-body);
+		color: var(--clock-ink);
+	}
+	.clock-app *,
+	.clock-app *::before,
+	.clock-app *::after {
+		box-sizing: border-box;
+	}
+
+	/* Difficulty segmented control */
+	.clock-app .levels {
+		display: flex;
+		width: 100%;
+		gap: var(--space-3xs);
+		padding: var(--space-3xs);
+		background: var(--color-surface);
+		border: var(--border-style) 1px var(--color-border);
+		border-radius: var(--radius-lg);
+	}
+	.clock-app .levels button {
+		flex: 1;
+		border: none;
+		background: transparent;
+		color: var(--color-text);
+		font: inherit;
+		font-weight: var(--font-weight-6);
+		line-height: 1.2;
+		padding: var(--space-2xs) var(--space-3xs);
+		border-radius: var(--radius-md);
+		cursor: pointer;
+		transition:
+			background-color 150ms var(--ease),
+			color 150ms var(--ease),
+			box-shadow 150ms var(--ease);
+	}
+	.clock-app .levels button .tag {
+		display: block;
+		font-size: var(--step--2);
+		font-weight: var(--font-weight-4);
+		opacity: 0.7;
+		margin-top: 2px;
+	}
+	.clock-app .levels button[aria-pressed='true'] {
+		background: var(--color-background);
+		color: var(--color-text);
+		box-shadow: var(--shadow-sm);
+	}
+	.clock-app .levels button:focus-visible {
+		outline: 2px solid var(--color-accent);
+		outline-offset: 2px;
+	}
+
+	/* The animated scene: sky gradient + sun/moon + readout + face */
+	.clock-app .stage {
+		position: relative;
+		width: 100%;
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: var(--space-sm);
+		padding: var(--space-md) var(--space-md) var(--space-md);
+		border-radius: var(--radius-2xl);
+		overflow: hidden;
+		background: linear-gradient(180deg, #1a2350, #3a4a8c);
+		transition: background 1.2s ease;
+		box-shadow: var(--shadow-lg);
+	}
+	.clock-app .sky {
+		position: absolute;
+		inset: 0;
+		z-index: 0;
+		pointer-events: none;
+		overflow: hidden;
+	}
+	.clock-app .orb {
+		position: absolute;
+		width: 74px;
+		height: 74px;
+		border-radius: 50%;
+		left: 50%;
+		top: 50%;
+		margin: -37px;
+		transition:
+			transform 1.1s cubic-bezier(0.3, 0.7, 0.3, 1),
+			opacity 0.9s;
+		will-change: transform;
+	}
+	.clock-app .sun {
+		background: radial-gradient(circle at 38% 35%, #fff3b0, #ffd23f 55%, #ffac1c);
+		box-shadow: 0 0 60px 18px rgba(255, 200, 70, 0.5);
+	}
+	.clock-app .moon {
+		background: radial-gradient(circle at 38% 35%, #fff, #dfe6ff 60%, #aeb9f0);
+		box-shadow: 0 0 44px 10px rgba(190, 205, 255, 0.35);
+	}
+
+	.clock-app .readout {
+		position: relative;
+		z-index: 1;
+		width: 100%;
+		text-align: center;
+		/* Top padding leaves room for the corner pills. */
+		padding: 2rem var(--space-md) var(--space-2xs);
+		border-radius: var(--radius-xl);
+		background: color-mix(in srgb, white 92%, transparent);
+		backdrop-filter: blur(6px);
+		box-shadow: var(--shadow-md);
+	}
+	.clock-app .big {
+		font-family: var(--font-display, var(--font-body));
+		font-weight: var(--font-weight-8);
+		font-size: clamp(2.1rem, 11vw, 3rem);
+		line-height: 1.05;
+		color: var(--clock-outer);
+		font-variant-numeric: tabular-nums;
+	}
+	.clock-app .twelve {
+		font-weight: var(--font-weight-7);
+		font-size: clamp(1rem, 4.5vw, 1.25rem);
+		color: var(--clock-inner);
+		margin-top: 2px;
+	}
+	.clock-app .moment {
+		font-weight: var(--font-weight-7);
+		font-size: var(--step--1);
+		color: color-mix(in srgb, var(--clock-ink) 60%, transparent);
+		margin-top: 3px;
+		text-transform: uppercase;
+		letter-spacing: 0.12em;
+	}
+
+	.clock-app .clock-card {
+		position: relative;
+		z-index: 1;
+		width: min(80%, 300px);
+		aspect-ratio: 1;
+		border-radius: 50%;
+		background: var(--clock-face);
+		box-shadow:
+			0 18px 50px rgba(10, 16, 40, 0.35),
+			inset 0 0 0 8px #fff;
+		touch-action: none;
+	}
+	.clock-app svg {
+		width: 100%;
+		height: 100%;
+		display: block;
+		overflow: visible;
+	}
+	.clock-app svg text {
+		user-select: none;
+		-webkit-touch-callout: none;
+	}
+	.clock-app .num-out {
+		font-family: var(--font-display, var(--font-body));
+		font-weight: var(--font-weight-7);
+		fill: var(--clock-outer);
+		font-size: 14px;
+		text-anchor: middle;
+		dominant-baseline: central;
+	}
+	.clock-app .num-in {
+		font-family: var(--font-display, var(--font-body));
+		font-weight: var(--font-weight-8);
+		fill: var(--clock-inner);
+		font-size: 25px;
+		text-anchor: middle;
+		dominant-baseline: central;
+	}
+	.clock-app .num-min {
+		font-weight: var(--font-weight-7);
+		fill: var(--clock-mins);
+		font-size: 10.5px;
+		text-anchor: middle;
+		dominant-baseline: central;
+	}
+	.clock-app .hand {
+		stroke-linecap: round;
+		cursor: grab;
+	}
+	.clock-app .c-hourHand {
+		stroke: var(--clock-inner);
+	}
+	.clock-app .c-minHand {
+		stroke: var(--clock-outer);
+	}
+	.clock-app .hand.dragging {
+		cursor: grabbing;
+	}
+	.clock-app .hand-hit {
+		stroke: transparent;
+		stroke-width: 46;
+		cursor: grab;
+		fill: none;
+	}
+	.clock-app .pivot {
+		fill: var(--clock-ink);
+	}
+	.clock-app .pivot-dot {
+		fill: #fff;
+	}
+	.clock-app .lit {
+		filter: drop-shadow(0 0 6px currentColor);
+	}
+	.clock-app circle.tick {
+		fill: rgba(27, 36, 64, 0.16);
+	}
+
+	/* Layer visibility per difficulty */
+	.clock-app .c-outer,
+	.clock-app .c-minNums,
+	.clock-app .leg-out,
+	.clock-app .leg-min {
+		transition: opacity 0.25s;
+	}
+	.clock-app.lvl-medium .c-minNums,
+	.clock-app.lvl-medium .leg-min {
+		display: none;
+	}
+	.clock-app.lvl-hard .c-minNums,
+	.clock-app.lvl-hard .leg-min,
+	.clock-app.lvl-hard .c-outer,
+	.clock-app.lvl-hard .leg-out {
+		display: none;
+	}
+	.clock-app.lvl-hard .c-d24,
+	.clock-app.lvl-hard .c-d12 {
+		display: none;
+	}
+
+	.clock-app .legend {
+		display: flex;
+		flex-wrap: wrap;
+		gap: var(--space-sm);
+		justify-content: center;
+		font-weight: var(--font-weight-6);
+		font-size: var(--step--1);
+		color: var(--color-text);
+	}
+	.clock-app .legend span {
+		display: inline-flex;
+		align-items: center;
+		gap: var(--space-3xs);
+	}
+	.clock-app .dot {
+		width: 12px;
+		height: 12px;
+		border-radius: 50%;
+	}
+	.clock-app .dot.in {
+		background: var(--clock-inner);
+	}
+	.clock-app .dot.out {
+		background: var(--clock-outer);
+	}
+	.clock-app .dot.min {
+		background: var(--clock-mins);
+	}
+
+	/* Small corner pills tucked into the readout */
+	.clock-app .corner {
+		position: absolute;
+		top: var(--space-3xs);
+		z-index: 2;
+		font: inherit;
+		font-weight: var(--font-weight-7);
+		font-size: var(--step--1);
+		line-height: 1;
+		color: #fff;
+		border: none;
+		border-radius: var(--radius-full);
+		padding: 5px 10px;
+		cursor: pointer;
+		box-shadow: var(--shadow-sm);
+		transition:
+			transform 80ms var(--ease),
+			filter 120ms var(--ease);
+	}
+	.clock-app .corner:hover {
+		filter: brightness(1.05);
+	}
+	.clock-app .corner:active {
+		transform: translateY(1px);
+	}
+	.clock-app .corner:focus-visible {
+		outline: 2px solid var(--color-accent);
+		outline-offset: 2px;
+	}
+	.clock-app .ampm {
+		right: var(--space-3xs);
+		background: var(--clock-outer);
+	}
+	.clock-app .ampm.pm {
+		background: var(--color-indigo-800);
+	}
+	.clock-app .quiz {
+		left: var(--space-3xs);
+		background: var(--clock-inner);
+	}
+	.clock-app.is-quiz .quiz {
+		display: none;
+	}
+
+	/* Quiz prompt banner — sits at the top of the scene while quizzing */
+	.clock-app .quiz-prompt {
+		position: relative;
+		z-index: 1;
+		width: 100%;
+		display: none;
+		align-items: center;
+		justify-content: center;
+		gap: var(--space-sm);
+		flex-wrap: wrap;
+		padding: var(--space-2xs) var(--space-sm);
+		border-radius: var(--radius-lg);
+		background: color-mix(in srgb, white 92%, transparent);
+		backdrop-filter: blur(6px);
+		box-shadow: var(--shadow-sm);
+	}
+	.clock-app.is-quiz .quiz-prompt {
+		display: flex;
+	}
+	.clock-app .qp-label {
+		font-weight: var(--font-weight-6);
+		font-size: var(--step-0);
+		color: var(--clock-ink);
+	}
+	.clock-app .qp-label strong {
+		font-family: var(--font-display, var(--font-body));
+		font-weight: var(--font-weight-8);
+		font-size: var(--step-2);
+		color: var(--clock-outer);
+		font-variant-numeric: tabular-nums;
+	}
+	.clock-app .qp-check {
+		font: inherit;
+		font-weight: var(--font-weight-7);
+		color: #fff;
+		background: var(--color-emerald-600);
+		border: none;
+		border-radius: var(--radius-md);
+		padding: var(--space-2xs) var(--space-md);
+		cursor: pointer;
+		box-shadow: var(--shadow-sm);
+		transition:
+			filter 120ms var(--ease),
+			transform 80ms var(--ease);
+	}
+	.clock-app .qp-check:hover {
+		filter: brightness(1.05);
+	}
+	.clock-app .qp-check:active {
+		transform: translateY(1px);
+	}
+	.clock-app .qp-check:focus-visible {
+		outline: 2px solid var(--color-accent);
+		outline-offset: 2px;
+	}
+	.clock-app .qp-stop {
+		font: inherit;
+		font-weight: var(--font-weight-7);
+		line-height: 1;
+		color: var(--color-text);
+		background: var(--color-surface);
+		border: var(--border-style) 1px var(--color-border);
+		border-radius: var(--radius-md);
+		padding: var(--space-2xs) var(--space-sm);
+		cursor: pointer;
+		transition:
+			filter 120ms var(--ease),
+			transform 80ms var(--ease);
+	}
+	.clock-app .qp-stop:hover {
+		filter: brightness(1.05);
+	}
+	.clock-app .qp-stop:active {
+		transform: translateY(1px);
+	}
+	.clock-app .qp-stop:focus-visible {
+		outline: 2px solid var(--color-accent);
+		outline-offset: 2px;
+	}
+
+	/* Quiz result toast — centred over the clock face, always in view */
+	.clock-app .toast {
+		position: absolute;
+		left: 50%;
+		top: 50%;
+		transform: translate(-50%, -50%) scale(0.9);
+		z-index: 4;
+		pointer-events: none;
+		width: max-content;
+		max-width: 88%;
+		text-align: center;
+		padding: var(--space-sm) var(--space-md);
+		border-radius: var(--radius-lg);
+		font-weight: var(--font-weight-7);
+		font-size: var(--step-0);
+		line-height: 1.35;
+		color: #fff;
+		box-shadow: var(--shadow-lg);
+		opacity: 0;
+		transition:
+			opacity 0.2s var(--ease),
+			transform 0.2s var(--ease);
+	}
+	.clock-app .toast.show {
+		opacity: 1;
+		transform: translate(-50%, -50%) scale(1);
+	}
+	.clock-app .toast.win {
+		background: var(--color-emerald-600);
+	}
+	.clock-app .toast.miss {
+		background: color-mix(in srgb, var(--color-error, #e0563f) 92%, black);
+	}
+
+	/* Fullscreen / immersive variant — larger, but keeps every control on
+	   screen across aspect ratios (the page centres the column vertically). */
+	.clock-app.is-fullscreen {
+		max-width: 34rem;
+	}
+	.clock-app.is-fullscreen .clock-card {
+		width: min(80%, 420px, 46vh);
+	}
+	.clock-app.is-fullscreen .big {
+		font-size: clamp(3rem, 11vw, 4.5rem);
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.clock-app .stage,
+		.clock-app .orb,
+		.clock-app button.act {
+			transition: none !important;
+		}
+	}
+</style>

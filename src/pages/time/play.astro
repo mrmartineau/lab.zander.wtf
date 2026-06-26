@@ -1,0 +1,50 @@
+---
+import Layout from '../../layouts/Layout.astro'
+import Clock from '../../components/Clock.astro'
+---
+
+<Layout title="The 24-hour clock — play" lockZoom>
+	<main class="fs-page">
+		<h1 class="fs-title">The 24-hour clock</h1>
+		<Clock fullscreen />
+		<a class="fs-back" href="/time">← about this clock</a>
+	</main>
+</Layout>
+
+<style>
+	.fs-page {
+		min-height: 100dvh;
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		/* `safe` centres when it fits, but falls back to top-aligned + scroll
+		   instead of clipping the controls on short/landscape screens. */
+		justify-content: safe center;
+		gap: var(--space-sm);
+		padding: var(--space-md) var(--space-md) var(--space-lg);
+		background: radial-gradient(
+			120% 80% at 50% 0%,
+			#26336b 0%,
+			#141a38 70%,
+			#0d1228 100%
+		);
+	}
+	.fs-title {
+		margin: 0;
+		font-family: var(--font-display, var(--font-body));
+		font-size: var(--step-2);
+		font-weight: var(--font-weight-8);
+		color: #fff;
+		text-align: center;
+		opacity: 0.92;
+	}
+	.fs-back {
+		font-size: var(--step--1);
+		color: #fff;
+		opacity: 0.6;
+		text-decoration: none;
+	}
+	.fs-back:hover {
+		opacity: 1;
+	}
+</style>
