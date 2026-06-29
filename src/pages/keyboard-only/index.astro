@@ -32,7 +32,7 @@ const videoId = 'aqz-KE-bpKQ'
 				navigate this way every day, whether by preference or necessity, and a
 				reminder that everything should be reachable without a pointer.
 			</p>
-			<p class="hint">
+			<p class="hint kbd-only">
 				<strong>How to play:</strong> the bright ring is your position. Use the
 				<kbd>arrow keys</kbd> to move it between the nearest fields, images and
 				the video, <kbd>Enter</kbd> to activate whatever it's on (type in a
@@ -42,6 +42,13 @@ const videoId = 'aqz-KE-bpKQ'
 					>Tab</kbd
 				> step through everything in order. The line at the top of the stage
 				always tells you what's focused.
+			</p>
+			<p class="hint touch-only">
+				<strong>How to play:</strong> you're on a touch screen, which has no arrow
+				keys — so here the keyboard-only rule is relaxed and the cursor comes back.
+				Just <strong>tap</strong> any field, button, image or the video to use it
+				directly. The line at the top of the stage still names whatever you last
+				touched.
 			</p>
 		</header>
 
@@ -212,7 +219,7 @@ const videoId = 'aqz-KE-bpKQ'
 				</div>
 			</div>
 
-			<div class="legend" aria-hidden="true">
+			<div class="legend kbd-only" aria-hidden="true">
 				<span><kbd>←</kbd><kbd>↑</kbd><kbd>↓</kbd><kbd>→</kbd> move</span>
 				<span><kbd>Enter</kbd> activate</span>
 				<span><kbd>Esc</kbd> leave field</span>
@@ -232,12 +239,18 @@ const videoId = 'aqz-KE-bpKQ'
 				on a blue screen drawn in a monospace font. Tools like this have always
 				been keyboard-only, which makes it a natural fit here.
 			</p>
-			<p class="hint">
+			<p class="hint kbd-only">
 				<strong>How to play:</strong> <kbd>↑</kbd>/<kbd>↓</kbd> move the highlight
 				bar through the menu, <kbd>Tab</kbd> jumps to the <code>&lt;Select&gt;</code
 				>/<code>&lt;Finish&gt;</code> buttons (then <kbd>←</kbd>/<kbd>→</kbd> move between
 				them), <kbd>Enter</kbd> chooses, and <kbd>Esc</kbd> backs out of a screen.
 				Whichever example is in view is the one the keyboard is driving.
+			</p>
+			<p class="hint touch-only">
+				<strong>How to play:</strong> on a touch screen this becomes tap-driven —
+				<strong>tap</strong> a menu row to choose it (rows marked <code>▸</code> open
+				another screen), and tap a <code>&lt;button&gt;</code> at the bottom (like
+				<code>&lt;Select&gt;</code> or <code>&lt;Back&gt;</code>) to activate it.
 			</p>
 		</div>
 
@@ -251,7 +264,7 @@ const videoId = 'aqz-KE-bpKQ'
 			<div class="crt">
 				<div class="term-screen"><!-- rendered by the script below --></div>
 			</div>
-			<div class="term-keys" aria-hidden="true">
+			<div class="term-keys kbd-only" aria-hidden="true">
 				<span><b>↑↓</b> choose</span>
 				<span><b>Tab</b> buttons</span>
 				<span><b>←→</b> button</span>
@@ -268,6 +281,14 @@ const videoId = 'aqz-KE-bpKQ'
 	// activates; Tab cycles in DOM order; Escape leaves edit mode.
 	const stage = document.querySelector<HTMLElement>('.stage')
 	if (stage) {
+		// On touch devices there are no arrow keys, so the keyboard-only rule is
+		// relaxed: pointer events are turned back on (see CSS) and taps drive the
+		// stage directly. The body class lets the CSS — and the other scripts on
+		// this page — agree on which mode we're in.
+		const isTouch = window.matchMedia(
+			'(hover: none) and (pointer: coarse)',
+		).matches
+		document.body.classList.toggle('is-touch', isTouch)
 		// Live region label updated as the active item changes.
 		const statusText = stage.querySelector<HTMLElement>('.status-text')
 		// Currently-navigable items. Recomputed each call so hidden elements
@@ -286,12 +307,16 @@ const videoId = 'aqz-KE-bpKQ'
 			return { x: r.left + r.width / 2, y: r.top + r.height / 2 }
 		}
 
-		// Update the status line with the active item's label, or a prompt.
+		// Update the status line with the active item's label, or a prompt. The
+		// baked-in labels end in a keyboard verb ("… — Enter to type"); on touch
+		// that's misleading, so drop it and just name the thing.
 		const announce = (el: HTMLElement | null) => {
-			if (statusText) {
-				statusText.textContent =
-					el?.dataset.label ?? 'Press an arrow key to begin.'
-			}
+			if (!statusText) return
+			let text =
+				el?.dataset.label ??
+				(isTouch ? 'Tap anything to use it.' : 'Press an arrow key to begin.')
+			if (isTouch && el && text.includes(' — ')) text = text.split(' — ')[0]
+			statusText.textContent = text
 		}
 
 		// Move the focus ring to `el`: swap the .is-active class, scroll it into
@@ -488,8 +513,32 @@ const videoId = 'aqz-KE-bpKQ'
 			}
 		})
 
-		// Seed the focus ring on the first item.
-		setActive(getItems()[0] ?? null, false)
+		// Keep the focus ring + status line in sync with real focus, so tapping a
+		// field on touch (or any native focus change) lights up the right item.
+		stage.addEventListener('focusin', (e) => {
+			const el = (e.target as HTMLElement).closest<HTMLElement>('[data-nav]')
+			if (el) setActive(el, false)
+		})
+
+		// Touch: native taps already focus fields and toggle checkboxes/radios,
+		// but the image zoom and the video facade are custom behaviours, so wire
+		// those up on tap too.
+		stage.addEventListener('click', (e) => {
+			if (!isTouch) return
+			const el = (e.target as HTMLElement).closest<HTMLElement>('[data-nav]')
+			if (!el) return
+			setActive(el, false)
+			if (el.dataset.video !== undefined) {
+				playVideo(el)
+				return
+			}
+			if (el.classList.contains('media-card')) el.classList.toggle('is-zoomed')
+		})
+
+		// Seed the focus ring on the first item — but on touch leave nothing
+		// pre-focused and just prompt the user to tap instead.
+		if (isTouch) announce(null)
+		else setActive(getItems()[0] ?? null, false)
 	}
 </script>
 
@@ -545,6 +594,12 @@ const videoId = 'aqz-KE-bpKQ'
 	// on a real Pi, where there's no mouse at all.
 	const term = document.querySelector<HTMLElement>('.term-stage')
 	if (term) {
+		// Touch devices have no arrow keys, so this example becomes tap-driven:
+		// tap a row to choose it, tap a <button> to activate it (see the click
+		// handler and the CSS overrides further down).
+		const isTouch = window.matchMedia(
+			'(hover: none) and (pointer: coarse)',
+		).matches
 		const screenEl = term.querySelector<HTMLElement>('.term-screen')!
 		const barEl = term.querySelector<HTMLElement>('.term-bar-text')!
 
@@ -824,7 +879,7 @@ const videoId = 'aqz-KE-bpKQ'
 			const rows = items
 				.map((it, i) => {
 					const sel = zone === 'list' && i === row ? ' is-sel' : ''
-					return `<div class="term-row${sel}"><span class="lbl">${esc(it.label)}</span><span class="hint">${esc(it.hint)}</span><span class="term-arrow" aria-hidden="true">${it.sub ? '▸' : ''}</span></div>`
+					return `<div class="term-row${sel}" data-i="${i}"><span class="lbl">${esc(it.label)}</span><span class="hint">${esc(it.hint)}</span><span class="term-arrow" aria-hidden="true">${it.sub ? '▸' : ''}</span></div>`
 				})
 				.join('')
 			const buttons = s.buttons
@@ -835,14 +890,20 @@ const videoId = 'aqz-KE-bpKQ'
 					let cls = ''
 					if (zone === 'buttons' && i === btn) cls = ' is-sel'
 					else if (zone === 'list' && i === 0) cls = ' is-default'
-					return `<span class="term-btn${cls}">&lt;${esc(b)}&gt;</span>`
+					return `<span class="term-btn${cls}" data-i="${i}">&lt;${esc(b)}&gt;</span>`
 				})
 				.join('')
+			// On touch the fake "field" (a div with a block caret) can't summon the
+			// soft keyboard, so render a real <input> instead; its value is mirrored
+			// back into s.value by a listener set just after innerHTML below.
+			const inputField = isTouch
+				? `<input class="term-input" type="text" value="${esc(s.value ?? '').replace(/"/g, '&quot;')}" aria-label="${esc(s.blurb)}" autocapitalize="off" autocomplete="off" spellcheck="false" />`
+				: `<div class="term-field">${esc(s.value ?? '')}<span class="caret" aria-hidden="true">█</span></div>`
 			const main =
 				s.kind === 'menu'
 					? `<div class="term-list">${rows}</div>`
 					: s.kind === 'input'
-						? `<div class="term-prompt">${esc(s.body ?? '')}</div><div class="term-field">${esc(s.value ?? '')}<span class="caret" aria-hidden="true">█</span></div>`
+						? `<div class="term-prompt">${esc(s.body ?? '')}</div>${inputField}`
 						: `<pre class="term-body">${esc(s.body ?? '')}</pre>`
 			screenEl.innerHTML = `
 				<div class="term-window">
@@ -853,12 +914,30 @@ const videoId = 'aqz-KE-bpKQ'
 					<div class="term-buttons">${buttons}</div>
 				</div>`
 			// Mirror the position into the live-region help bar.
-			barEl.textContent =
-				s.kind === 'input'
+			barEl.textContent = isTouch
+				? s.kind === 'input'
+					? 'Type a hostname, then tap <Ok> (or <Cancel>)'
+					: s.kind === 'menu'
+						? 'Tap a row to choose · tap a <button> below'
+						: 'Tap <Back> to return'
+				: s.kind === 'input'
 					? 'Type a hostname, then Enter to accept (Esc to cancel)'
 					: zone === 'list'
 						? `${items[row]?.label ?? ''} — Enter to ${s.buttons[0].toLowerCase()}, Tab for buttons`
 						: `<${s.buttons[btn]}> — Enter to activate`
+			// Touch: focus the real input and keep s.value in sync as the user types.
+			// (We don't re-render on input, so the field keeps focus.)
+			if (isTouch && s.kind === 'input') {
+				const inp = screenEl.querySelector<HTMLInputElement>('.term-input')
+				if (inp) {
+					inp.addEventListener('input', () => {
+						s.value = inp.value
+					})
+					inp.focus()
+					const len = inp.value.length
+					inp.setSelectionRange?.(len, len)
+				}
+			}
 		}
 
 		// Activate whatever is highlighted: a button directly, or — from the list —
@@ -895,6 +974,8 @@ const videoId = 'aqz-KE-bpKQ'
 				} else if (e.key === 'Escape') {
 					e.preventDefault()
 					back()
+				} else if (isTouch) {
+					// the real <input> handles typing/backspace natively on touch
 				} else if (e.key === 'Backspace') {
 					e.preventDefault()
 					s.value = (s.value ?? '').slice(0, -1)
@@ -957,6 +1038,35 @@ const videoId = 'aqz-KE-bpKQ'
 			}
 		})
 
+		// Touch: tap a row to choose + act on it, or tap a <button> to activate it.
+		// Rows and buttons carry their index via data-i (set in render()).
+		screenEl.addEventListener('click', (e) => {
+			if (!isTouch) return
+			const s = current()
+			const target = e.target as HTMLElement
+			const btnEl = target.closest<HTMLElement>('.term-btn')
+			if (btnEl) {
+				const i = Number(btnEl.dataset.i)
+				// On an input screen the buttons are Ok/Cancel; elsewhere they drive
+				// the normal activate() path.
+				if (s.kind === 'input') {
+					if (s.buttons[i] === 'Cancel') back()
+					else s.onAccept?.(s.value ?? '')
+					return
+				}
+				zone = 'buttons'
+				btn = i
+				activate()
+				return
+			}
+			const rowEl = target.closest<HTMLElement>('.term-row')
+			if (rowEl && s.kind === 'menu') {
+				zone = 'list'
+				row = Number(rowEl.dataset.i)
+				activate()
+			}
+		})
+
 		render()
 	}
 </script>
@@ -1016,6 +1126,27 @@ const videoId = 'aqz-KE-bpKQ'
 	/* Mouse does nothing in here — keyboard only. */
 	.stage [data-nav] {
 		pointer-events: none;
+	}
+
+	/* Show the right instructions/legends for the active input method. The
+	   body gets .is-touch from the scripts when there's no fine pointer. */
+	.touch-only {
+		display: none;
+	}
+	body.is-touch .kbd-only {
+		display: none;
+	}
+	body.is-touch .touch-only {
+		display: block;
+	}
+
+	/* Touch has no arrow keys, so relax the keyboard-only rule: put the cursor
+	   back and let taps reach the controls. */
+	body.is-touch .stage {
+		cursor: auto;
+	}
+	body.is-touch .stage [data-nav] {
+		pointer-events: auto;
 	}
 
 	.status {
@@ -1287,6 +1418,11 @@ const videoId = 'aqz-KE-bpKQ'
 	.term-stage .term-screen {
 		pointer-events: none;
 	}
+	/* …unless we're on touch, where taps drive the menu */
+	body.is-touch .term-stage .crt,
+	body.is-touch .term-stage .term-screen {
+		pointer-events: auto;
+	}
 </style>
 
 <style is:global>
@@ -1396,6 +1532,23 @@ const videoId = 'aqz-KE-bpKQ'
 		.term-stage .term-field .caret {
 			animation: none;
 		}
+	}
+
+	/* real, focusable field used on touch so the soft keyboard can type */
+	.term-stage .term-input {
+		font: inherit;
+		width: 100%;
+		background: #fff;
+		color: #000;
+		/* sunken bevel, matching the fake .term-field it replaces */
+		border-top: 2px solid var(--t-lo);
+		border-left: 2px solid var(--t-lo);
+		border-right: 2px solid var(--t-hi);
+		border-bottom: 2px solid var(--t-hi);
+		border-radius: 0;
+		padding: 0.1rem 0.4rem;
+		margin: 0 0 0.6rem;
+		outline: none;
 	}
 
 	.term-stage .term-buttons {
