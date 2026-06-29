@@ -48,7 +48,7 @@ const { fullscreen = false, class: className = '' } = Astro.props
 			>
 			<button class="qp-check c-check" type="button">Check</button>
 			<button class="qp-stop c-quizStop" type="button" aria-label="Stop quiz">
-				✖
+				✕
 			</button>
 		</div>
 
@@ -197,6 +197,27 @@ const { fullscreen = false, class: className = '' } = Astro.props
 		place(inner, 12, 68, 'num-in', (i) => (i === 0 ? 12 : i))
 		place(outer, 12, 100, 'num-out', (i) => (i === 0 ? '24/0' : i + 12))
 		place(minNums, 12, 124, 'num-min', (i) => String(i * 5).padStart(2, '0'))
+
+		// Per-level ring radii: with fewer rings shown, push the survivors to
+		// the outer edge so the face never looks cramped in the middle.
+		//   easy   minutes(124) · 13–24(100) · 1–12(68)
+		//   medium 13–24(124)   · 1–12(100)            (minutes hidden)
+		//   hard   1–12(124)                           (only 1–12 shown)
+		const ringRadii: Record<string, { inner: number; outer: number }> = {
+			easy: { inner: 68, outer: 100 },
+			medium: { inner: 100, outer: 124 },
+			hard: { inner: 124, outer: 124 },
+		}
+		// Re-place a ring's labels around the same angles at a new radius.
+		function setRingRadius(group: Element, radius: number) {
+			const count = group.children.length
+			for (let i = 0; i < count; i++) {
+				const ang = (i / count) * TWO_PI - Math.PI / 2
+				const el = group.children[i] as SVGTextElement
+				el.setAttribute('x', String(150 + Math.cos(ang) * radius))
+				el.setAttribute('y', String(150 + Math.sin(ang) * radius))
+			}
+		}
 		for (let i = 0; i < 60; i++) {
 			const ang = (i / 60) * TWO_PI - Math.PI / 2,
 				r = 139
@@ -350,6 +371,9 @@ const { fullscreen = false, class: className = '' } = Astro.props
 			app.querySelectorAll<HTMLElement>('[data-level]').forEach((b) =>
 				b.setAttribute('aria-pressed', String(b.dataset.level === l)),
 			)
+			const r = ringRadii[l] ?? ringRadii.easy
+			setRingRadius(inner, r.inner)
+			setRingRadius(outer, r.outer)
 		}
 		app.querySelectorAll<HTMLElement>('[data-level]').forEach((b) =>
 			b.addEventListener('click', () => setLevel(b.dataset.level!)),
@@ -800,25 +824,35 @@ const { fullscreen = false, class: className = '' } = Astro.props
 		outline: 2px solid var(--color-accent);
 		outline-offset: 2px;
 	}
+	/* Close button — a small round icon pinned to the prompt's top-right
+	   corner so it never steals layout space from the label + Check button. */
 	.clock-app .qp-stop {
+		position: absolute;
+		top: -10px;
+		right: -10px;
+		display: grid;
+		place-items: center;
+		width: 20px;
+		height: 20px;
+		padding: 0;
 		font: inherit;
-		font-weight: var(--font-weight-7);
+		font-size: 12px;
+		font-weight: var(--font-weight-6);
 		line-height: 1;
-		color: var(--color-text);
-		background: var(--color-surface);
-		border: var(--border-style) 1px var(--color-border);
-		border-radius: var(--radius-md);
-		padding: var(--space-2xs) var(--space-sm);
+		color: var(--color-background);
+		background: color-mix(in srgb, white 92%, transparent);
+		border: 0;
+		border-radius: var(--radius-full);
 		cursor: pointer;
 		transition:
 			filter 120ms var(--ease),
 			transform 80ms var(--ease);
 	}
 	.clock-app .qp-stop:hover {
-		filter: brightness(1.05);
+		filter: brightness(0.7);
 	}
 	.clock-app .qp-stop:active {
-		transform: translateY(1px);
+		transform: scale(0.92);
 	}
 	.clock-app .qp-stop:focus-visible {
 		outline: 2px solid var(--color-accent);
