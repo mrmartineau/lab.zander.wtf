@@ -14,6 +14,7 @@ design.
 | `data-transformation` | A React "dojo" for practising data-transform challenges |
 | `drawing-app`         | A small in-browser drawing app                          |
 | `keyboard-only`       | A cursorless page navigated entirely with the keyboard  |
+| `procedural-page`     | An endless page that generates itself as you scroll — seeded randomness, no AI |
 | `spotify-favourites`  | Browse most-explored Spotify artists & albums (ZUI)     |
 | `zui-components`      | A reference page showcasing ZUI components              |
 

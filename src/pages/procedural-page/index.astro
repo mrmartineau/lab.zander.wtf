@@ -1,0 +1,805 @@
+---
+import Layout from '../../layouts/Layout.astro'
+import { Badge, Flex, Link, Text } from '@mrmartineau/zui/astro'
+
+export const title = 'Procedural page'
+export const description =
+	'An endless web page that invents itself as you scroll — layout, colour, type and copy all come from a seeded random generator. No AI, no server: same seed, same page, every time.'
+export const date = '2026-07-14'
+export const status = 'live'
+export const tags = ['generative', 'procedural', 'scroll', 'demo']
+---
+
+<Layout title="Procedural page — lab.zander.wtf">
+	<main>
+		<header class="page flow">
+			<Link href="/">← All lab items</Link>
+			<Flex align="center" gap="sm">
+				<h1>Procedural page</h1>
+				<Badge variant="fill" color="emerald">live</Badge>
+			</Flex>
+			<Text size="1">{description}</Text>
+			<p class="intro">
+				This page has no end and no author. Every section below — the layout it
+				picks, the colours, the typeface, even the words — is <strong
+					>procedurally generated</strong
+				> from a single seed, the way Minecraft generates terrain. Nothing is
+				fetched and no AI is involved: it's a seeded random number generator
+				feeding a grammar of layout patterns and word banks, entirely in your
+				browser.
+			</p>
+			<p class="intro">
+				<strong>Scroll position is the generator's input.</strong> Sections only
+				come into existence as you approach them, and every ~4 sections the page
+				crosses into a new <em>biome</em> — a depth band with its own palette,
+				type and mood. Because each section is derived from
+				<code>hash(seed + index)</code>, the page is deterministic: reload, or
+				send the link to someone, and the exact same infinite page regenerates.
+				Hit <strong>reroll</strong> in the corner for a different universe.
+			</p>
+		</header>
+
+		<!-- The generated world. Everything inside is injected at runtime. -->
+		<div id="world" aria-label="Procedurally generated sections"></div>
+
+		<!-- When this sentinel nears the viewport, more page is generated. -->
+		<div id="sentinel" aria-hidden="true"></div>
+
+		<!-- Fixed HUD: where you are, and controls for the seed. -->
+		<aside class="hud" aria-label="Generator controls">
+			<div class="hud-row">
+				<i class="ph ph-planet" aria-hidden="true"></i>
+				<span class="hud-biome" data-biome>—</span>
+			</div>
+			<div class="hud-row hud-meta">
+				<span
+					>seed <code data-seed>—</code> · <span data-count>0</span> sections ·
+					<span data-depth>0</span>m</span
+				>
+			</div>
+			<div class="hud-row hud-actions">
+				<button class="zui-button" data-size="sm" data-reroll>
+					<i class="ph ph-dice-five" aria-hidden="true"></i> Reroll
+				</button>
+				<button class="zui-button" data-size="sm" data-variant="ghost" data-copy>
+					<i class="ph ph-link" aria-hidden="true"></i> Copy link
+				</button>
+			</div>
+		</aside>
+	</main>
+</Layout>
+
+<script>
+	// ── Seeded randomness ──────────────────────────────────────────────────────
+	// xmur3 hashes a string into a 32-bit int; mulberry32 turns that into a fast
+	// deterministic PRNG. Every section derives its own PRNG from
+	// `seed + kind + index`, so generation is chunked like game terrain: section
+	// 41 is identical whether you scrolled there slowly or jumped straight down.
+	const xmur3 = (str: string) => {
+		let h = 1779033703 ^ str.length
+		for (let i = 0; i < str.length; i++) {
+			h = Math.imul(h ^ str.charCodeAt(i), 3432918353)
+			h = (h << 13) | (h >>> 19)
+		}
+		return () => {
+			h = Math.imul(h ^ (h >>> 16), 2246822507)
+			h = Math.imul(h ^ (h >>> 13), 3266489909)
+			return (h ^= h >>> 16) >>> 0
+		}
+	}
+	const mulberry32 = (a: number) => () => {
+		a |= 0
+		a = (a + 0x6d2b79f5) | 0
+		let t = Math.imul(a ^ (a >>> 15), 1 | a)
+		t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t
+		return ((t ^ (t >>> 14)) >>> 0) / 4294967296
+	}
+
+	type Rng = () => number
+	const rngFor = (key: string): Rng => mulberry32(xmur3(seed + '/' + key)())
+	const pick = <T,>(rng: Rng, arr: readonly T[]): T =>
+		arr[Math.floor(rng() * arr.length)]
+	const int = (rng: Rng, min: number, max: number) =>
+		min + Math.floor(rng() * (max - min + 1))
+	const chance = (rng: Rng, p: number) => rng() < p
+
+	// ── Seed ───────────────────────────────────────────────────────────────────
+	// The seed lives in the URL so a generated page is shareable. Sanitised
+	// because it's user input that ends up displayed in the HUD.
+	const params = new URLSearchParams(location.search)
+	let seed = (params.get('seed') ?? '')
+		.replace(/[^a-zA-Z0-9-]/g, '')
+		.slice(0, 24)
+	if (!seed) {
+		seed = Math.random().toString(36).slice(2, 8)
+		const url = new URL(location.href)
+		url.searchParams.set('seed', seed)
+		history.replaceState(null, '', url)
+	}
+
+	// ── Word banks + grammar ───────────────────────────────────────────────────
+	// Procedural copy without AI: templates filled from small word banks. The
+	// point isn't meaning — it's that structure + tone can be generated the same
+	// way as layout.
+	const NOUNS = [
+		'signal', 'archive', 'lattice', 'tide', 'engine', 'garden', 'memory',
+		'satellite', 'protocol', 'shoreline', 'pattern', 'frequency', 'machine',
+		'horizon', 'manuscript', 'current', 'constellation', 'workshop', 'antenna',
+		'harbour', 'ledger', 'greenhouse', 'switchboard', 'meridian',
+	] as const
+	const ADJS = [
+		'quiet', 'recursive', 'luminous', 'forgotten', 'synthetic', 'patient',
+		'feral', 'modular', 'hollow', 'tidal', 'magnetic', 'unfinished',
+		'borrowed', 'analogue', 'weightless', 'stubborn', 'migratory', 'gilded',
+	] as const
+	const VERBS = [
+		'hums', 'drifts', 'unfolds', 'repeats', 'dissolves', 'waits', 'flickers',
+		'accumulates', 'resurfaces', 'sharpens', 'wanders', 'settles',
+	] as const
+	const PLACES = [
+		'beneath the floorboards', 'at the edge of the map', 'between broadcasts',
+		'in the margins', 'after the tide goes out', 'behind the static',
+		'under a different name', 'past the last streetlight',
+	] as const
+	const FIRST = ['Ada', 'Wren', 'Ivo', 'Sable', 'Juno', 'Kit', 'Mara', 'Otis', 'Vera', 'Ezra'] as const
+	const LAST = ['Marlow', 'Vega', 'Ossian', 'Ferrier', 'Quill', 'Ashby', 'Larkspur', 'Vance', 'Holloway', 'Bell'] as const
+	const ICONS = [
+		'ph-planet', 'ph-cube', 'ph-radio', 'ph-flask', 'ph-anchor', 'ph-atom',
+		'ph-feather', 'ph-compass', 'ph-lightbulb', 'ph-shooting-star',
+		'ph-waves', 'ph-plant', 'ph-magnet', 'ph-key', 'ph-bird', 'ph-moon',
+	] as const
+
+	const cap = (s: string) => s[0].toUpperCase() + s.slice(1)
+	const titleCase = (s: string) => s.split(' ').map(cap).join(' ')
+
+	const makeTitle = (rng: Rng) =>
+		pick(rng, [
+			() => `The ${cap(pick(rng, ADJS))} ${cap(pick(rng, NOUNS))}`,
+			() => `${cap(pick(rng, NOUNS))} & ${cap(pick(rng, NOUNS))}`,
+			() => `On ${cap(pick(rng, ADJS))} ${cap(pick(rng, NOUNS))}s`,
+			() => `A Field Guide to the ${cap(pick(rng, NOUNS))}`,
+		])()
+
+	const sentence = (rng: Rng) =>
+		pick(rng, [
+			() =>
+				`The ${pick(rng, ADJS)} ${pick(rng, NOUNS)} ${pick(rng, VERBS)} ${pick(rng, PLACES)}.`,
+			() =>
+				`Every ${pick(rng, NOUNS)} remembers the ${pick(rng, NOUNS)} it used to be.`,
+			() =>
+				`Somewhere ${pick(rng, PLACES)}, a ${pick(rng, ADJS)} ${pick(rng, NOUNS)} ${pick(rng, VERBS)}.`,
+			() =>
+				`Nobody maintains the ${pick(rng, NOUNS)} any more, and yet it ${pick(rng, VERBS)}.`,
+			() =>
+				`We measured the ${pick(rng, NOUNS)} twice; it was ${pick(rng, ADJS)} both times.`,
+			() =>
+				`If you fold the ${pick(rng, NOUNS)} carefully enough, it becomes a ${pick(rng, NOUNS)}.`,
+		])()
+
+	const paragraph = (rng: Rng) =>
+		Array.from({ length: int(rng, 2, 4) }, () => sentence(rng)).join(' ')
+
+	// ── Biomes ─────────────────────────────────────────────────────────────────
+	// Depth bands: every BIOME_SPAN sections the generator drifts into a new
+	// palette / typeface / mood, so scrolling deeper genuinely changes what gets
+	// made — not just how much of it exists.
+	const BIOME_SPAN = 4
+	const HUE_WORDS: [number, string][] = [
+		[15, 'Crimson'], [40, 'Ember'], [65, 'Amber'], [95, 'Moss'],
+		[150, 'Verdant'], [185, 'Teal'], [215, 'Cerulean'], [250, 'Cobalt'],
+		[285, 'Violet'], [320, 'Orchid'], [345, 'Rose'], [361, 'Crimson'],
+	]
+	const BIOME_NOUNS = [
+		'Shallows', 'Strata', 'Meridian', 'Archive', 'Terraces', 'Hollows',
+		'Expanse', 'Reef', 'Foundry', 'Orchard', 'Static', 'Commons',
+	] as const
+	const FONTS = [
+		`Georgia, 'Times New Roman', serif`,
+		`system-ui, -apple-system, sans-serif`,
+		`ui-monospace, 'SF Mono', Menlo, Consolas, monospace`,
+	] as const
+
+	type Biome = {
+		index: number
+		name: string
+		hue: number
+		hue2: number
+		dark: boolean
+		font: string
+		round: boolean
+	}
+	const biomeCache = new Map<number, Biome>()
+	const biomeFor = (bi: number): Biome => {
+		let b = biomeCache.get(bi)
+		if (b) return b
+		const rng = rngFor('biome:' + bi)
+		const hue = int(rng, 0, 359)
+		b = {
+			index: bi,
+			name: `The ${HUE_WORDS.find(([max]) => hue < max)![1]} ${pick(rng, BIOME_NOUNS)}`,
+			hue,
+			hue2: (hue + int(rng, 100, 200)) % 360,
+			dark: chance(rng, 0.45),
+			font: pick(rng, FONTS),
+			round: chance(rng, 0.5),
+		}
+		biomeCache.set(bi, b)
+		return b
+	}
+
+	// WCAG relative luminance of an hsl() colour, so accent lightness can be
+	// tuned numerically — a fixed lightness reads fine on some hues and drops
+	// under 2:1 on others (blues especially).
+	const hslLum = (h: number, s: number, l: number) => {
+		s /= 100
+		l /= 100
+		const f = (n: number) => {
+			const k = (n + h / 30) % 12
+			const v = l - s * Math.min(l, 1 - l) * Math.max(-1, Math.min(k - 3, 9 - k, 1))
+			return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4
+		}
+		return 0.2126 * f(0) + 0.7152 * f(8) + 0.0722 * f(4)
+	}
+	const contrast = (l1: number, l2: number) =>
+		(Math.max(l1, l2) + 0.05) / (Math.min(l1, l2) + 0.05)
+
+	// Per-section palette: the biome fixes hue + light/dark; the section jitters
+	// lightness so neighbouring sections in one biome read as shades, not clones.
+	const palette = (rng: Rng, b: Biome) => {
+		const l = b.dark ? int(rng, 10, 22) : int(rng, 88, 97)
+		const s = b.dark ? int(rng, 18, 45) : int(rng, 25, 65)
+		const bgLum = hslLum(b.hue, s, l)
+		// Walk the accent's lightness toward the background's opposite pole until
+		// it clears WCAG AA (4.5:1) — deterministic, so still seed-stable.
+		let al = b.dark ? 60 : 50
+		while (
+			contrast(hslLum(b.hue2, 80, al), bgLum) < 4.5 &&
+			(b.dark ? al < 97 : al > 3)
+		)
+			al += b.dark ? 2 : -2
+		return {
+			bg: `hsl(${b.hue} ${s}% ${l}%)`,
+			fg: b.dark ? `hsl(${b.hue} 25% 92%)` : `hsl(${b.hue} 35% 14%)`,
+			ac: `hsl(${b.hue2} 80% ${al}%)`,
+			soft: b.dark
+				? `hsl(${b.hue} ${s}% ${l + 7}%)`
+				: `hsl(${b.hue} ${s}% ${l - 6}%)`,
+		}
+	}
+
+	// ── Generative SVG art ─────────────────────────────────────────────────────
+	// Stand-ins for imagery: four little algorithms (scatter, ridges, grid,
+	// rings) drawn as inline SVG in the biome's colours.
+	const svgArt = (rng: Rng, b: Biome, w = 800, h = 420) => {
+		const hue = (spread: number) => (b.hue + int(rng, -spread, spread) + 360) % 360
+		const col = (l: number, s = 60) => `hsl(${hue(40)} ${s}% ${l}%)`
+		const base = b.dark ? int(rng, 12, 20) : int(rng, 85, 94)
+		let inner = ''
+		const kind = pick(rng, ['scatter', 'ridges', 'grid', 'rings'] as const)
+		if (kind === 'scatter') {
+			for (let i = 0, n = int(rng, 14, 34); i < n; i++)
+				inner += `<circle cx="${int(rng, 0, w)}" cy="${int(rng, 0, h)}" r="${int(rng, 4, 60)}" fill="${col(b.dark ? int(rng, 35, 70) : int(rng, 25, 65))}" opacity="${(0.25 + rng() * 0.6).toFixed(2)}"/>`
+		} else if (kind === 'ridges') {
+			for (let r = 0, n = int(rng, 3, 5); r < n; r++) {
+				const baseY = (h / (n + 1)) * (r + 1)
+				let pts = `0,${h} `
+				for (let x = 0; x <= w; x += 40)
+					pts += `${x},${(baseY + (rng() - 0.5) * 90).toFixed(0)} `
+				pts += `${w},${h}`
+				inner += `<polygon points="${pts}" fill="${col(b.dark ? 20 + r * 12 : 75 - r * 12)}" opacity="0.85"/>`
+			}
+		} else if (kind === 'grid') {
+			const cell = int(rng, 40, 70)
+			for (let y = cell / 2; y < h; y += cell)
+				for (let x = cell / 2; x < w; x += cell) {
+					if (chance(rng, 0.25)) continue
+					const r = int(rng, 4, cell / 2 - 4)
+					inner += chance(rng, 0.5)
+						? `<circle cx="${x}" cy="${y}" r="${r}" fill="${col(b.dark ? 55 : 40)}" opacity="0.8"/>`
+						: `<rect x="${x - r}" y="${y - r}" width="${r * 2}" height="${r * 2}" fill="${col(b.dark ? 45 : 55)}" opacity="0.8"/>`
+				}
+		} else {
+			const cx = int(rng, w * 0.25, w * 0.75)
+			const cy = int(rng, h * 0.25, h * 0.75)
+			for (let r = int(rng, 20, 40); r < w; r += int(rng, 18, 42))
+				inner += `<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${col(b.dark ? 60 : 35)}" stroke-width="${int(rng, 2, 8)}" opacity="0.7"/>`
+		}
+		return `<svg viewBox="0 0 ${w} ${h}" role="img" aria-label="Generated artwork" preserveAspectRatio="xMidYMid slice"><rect width="${w}" height="${h}" fill="hsl(${b.hue} 30% ${base}%)"/>${inner}</svg>`
+	}
+
+	// ── Section archetypes ─────────────────────────────────────────────────────
+	// The layout grammar: each archetype returns inner HTML for one section.
+	// All text comes from the word banks above, so nothing here needs escaping.
+	const archetypes = {
+		hero(rng: Rng, b: Biome) {
+			const align = pick(rng, ['start', 'center', 'end'] as const)
+			return `<div class="sec-inner hero" style="text-align:${align}">
+				<p class="kicker">${sentence(rng)}</p>
+				<h2 class="huge${chance(rng, 0.35) ? ' outline' : ''}">${makeTitle(rng)}</h2>
+				<p class="sub">${sentence(rng)}</p>
+			</div>`
+		},
+		prose(rng: Rng, b: Biome) {
+			const cols = chance(rng, 0.35)
+			const paras = Array.from({ length: int(rng, 2, 3) }, () => `<p>${paragraph(rng)}</p>`).join('')
+			// "copy", not "prose" — ZUI ships a .prose utility that would recolour it
+			return `<div class="sec-inner narrow">
+				<h2>${makeTitle(rng)}</h2>
+				<div class="copy${cols ? ' cols' : ''}${chance(rng, 0.4) ? ' dropcap' : ''}">${paras}</div>
+			</div>`
+		},
+		cards(rng: Rng, b: Biome) {
+			const n = int(rng, 2, 6)
+			const cards = Array.from({ length: n }, () =>
+				`<div class="card">
+					<i class="ph ${pick(rng, ICONS)}" aria-hidden="true"></i>
+					<h3>${titleCase(pick(rng, ADJS) + ' ' + pick(rng, NOUNS))}</h3>
+					<p>${sentence(rng)}</p>
+				</div>`,
+			).join('')
+			return `<div class="sec-inner">
+				<h2>${makeTitle(rng)}</h2>
+				<div class="cards" style="--n:${Math.min(n, 3)}">${cards}</div>
+			</div>`
+		},
+		quote(rng: Rng) {
+			return `<div class="sec-inner narrow">
+				<blockquote class="bigquote">
+					<p>“${sentence(rng)}”</p>
+					<cite>— ${pick(rng, FIRST)} ${pick(rng, LAST)}, <em>${makeTitle(rng)}</em></cite>
+				</blockquote>
+			</div>`
+		},
+		stats(rng: Rng) {
+			const stat = () => {
+				const v = pick(rng, [
+					() => `${int(rng, 3, 97)}%`,
+					() => int(rng, 1000, 90000).toLocaleString('en-GB'),
+					() => `${(rng() * 9 + 0.5).toFixed(1)}k`,
+					() => `${int(rng, 2, 400)}`,
+				] as const)()
+				return `<div class="stat"><span class="num">${v}</span><span class="lbl">${pick(rng, ADJS)} ${pick(rng, NOUNS)}s</span></div>`
+			}
+			return `<div class="sec-inner">
+				<div class="stats">${Array.from({ length: int(rng, 3, 4) }, stat).join('')}</div>
+			</div>`
+		},
+		art(rng: Rng, b: Biome) {
+			return `<div class="sec-inner">
+				<figure class="art">
+					${svgArt(rng, b)}
+					<figcaption>Fig. ${int(rng, 1, 99)} — ${sentence(rng)}</figcaption>
+				</figure>
+			</div>`
+		},
+		gallery(rng: Rng, b: Biome) {
+			const tiles = Array.from(
+				{ length: int(rng, 4, 8) },
+				() => `<div class="tile">${svgArt(rng, b, 300, 220)}</div>`,
+			).join('')
+			return `<div class="sec-inner">
+				<h2>${makeTitle(rng)}</h2>
+				<div class="gallery">${tiles}</div>
+			</div>`
+		},
+		timeline(rng: Rng) {
+			let year = 1860 + int(rng, 0, 130)
+			const rows = Array.from({ length: int(rng, 3, 5) }, () => {
+				const r = `<div class="tl-row"><span class="tl-year">${year}</span><p>${sentence(rng)}</p></div>`
+				year += int(rng, 2, 28)
+				return r
+			}).join('')
+			return `<div class="sec-inner narrow">
+				<h2>${makeTitle(rng)}</h2>
+				<div class="timeline">${rows}</div>
+			</div>`
+		},
+		marquee(rng: Rng) {
+			const phrase = `${makeTitle(rng)} · `.toUpperCase()
+			return `<div class="marquee" aria-hidden="true"><span>${phrase.repeat(10)}</span></div>
+				<p class="visually-hidden">${phrase}</p>`
+		},
+	} as const
+	type Kind = keyof typeof archetypes
+
+	// Weighted layout choice — prose-ish sections dominate, oddities are rarer,
+	// and an occasional mid-scroll hero opens a new "chapter".
+	const WEIGHTS: [Kind, number][] = [
+		['prose', 3], ['cards', 2], ['art', 2], ['gallery', 1.5], ['quote', 1.5],
+		['stats', 1.5], ['timeline', 1], ['marquee', 1], ['hero', 0.7],
+	]
+	const TOTAL_W = WEIGHTS.reduce((t, [, w]) => t + w, 0)
+	const pickKind = (rng: Rng): Kind => {
+		let roll = rng() * TOTAL_W
+		for (const [kind, w] of WEIGHTS) if ((roll -= w) < 0) return kind
+		return 'prose'
+	}
+
+	// ── Section builder ────────────────────────────────────────────────────────
+	const world = document.getElementById('world')!
+	let built = 0
+
+	const renderSection = (i: number): HTMLElement => {
+		const rng = rngFor('sec:' + i)
+		const biome = biomeFor(Math.floor(i / BIOME_SPAN))
+		const pal = palette(rng, biome)
+		const el = document.createElement('section')
+		el.dataset.biome = biome.name
+		el.style.cssText = `--bg:${pal.bg};--fg:${pal.fg};--ac:${pal.ac};--soft:${pal.soft};--ff:${biome.font};--r:${biome.round ? '1rem' : '0'}`
+
+		// Biome boundaries get an announcement band instead of a normal section;
+		// the very first section is always a hero so the page opens with a title.
+		if (i > 0 && i % BIOME_SPAN === 0) {
+			el.className = 'sec sec-divider'
+			el.innerHTML = `<div class="sec-inner divider">
+				<span class="depth">▼ section ${i}</span>
+				<h2>${biome.name}</h2>
+				<span class="depth">you are entering a new biome</span>
+			</div>`
+			return el
+		}
+		const kind: Kind = i === 0 ? 'hero' : pickKind(rng)
+		el.className = `sec sec-${kind}`
+		el.innerHTML = archetypes[kind](rng, biome)
+		return el
+	}
+
+	const buildNext = (n: number) => {
+		const frag = document.createDocumentFragment()
+		for (let k = 0; k < n; k++) frag.append(renderSection(built++))
+		world.append(frag)
+		countEl.textContent = String(built)
+	}
+
+	// ── Scroll wiring ──────────────────────────────────────────────────────────
+	// A sentinel below the world triggers generation just-in-time: whenever it
+	// comes within two viewports, a few more sections are built, which pushes it
+	// back down. No scroll-event maths needed for the infinite part.
+	const seedEl = document.querySelector('[data-seed]')!
+	const countEl = document.querySelector('[data-count]')!
+	const depthEl = document.querySelector('[data-depth]')!
+	const biomeEl = document.querySelector<HTMLElement>('[data-biome]')!
+	seedEl.textContent = seed
+
+	buildNext(4)
+	new IntersectionObserver(
+		(entries) => entries.some((e) => e.isIntersecting) && buildNext(3),
+		{ rootMargin: '200% 0px' },
+	).observe(document.getElementById('sentinel')!)
+
+	// The HUD does read raw scroll position: depth in "metres" (100px = 1m) and
+	// the biome of whatever section is at mid-viewport. rAF-throttled.
+	let ticking = false
+	const updateHud = () => {
+		ticking = false
+		depthEl.textContent = String(Math.round(scrollY / 100))
+		const mid = document
+			.elementsFromPoint(innerWidth / 2, innerHeight / 2)
+			.find((el) => el instanceof HTMLElement && el.dataset.biome) as
+			| HTMLElement
+			| undefined
+		if (mid) biomeEl.textContent = mid.dataset.biome!
+	}
+	addEventListener(
+		'scroll',
+		() => {
+			if (!ticking) {
+				ticking = true
+				requestAnimationFrame(updateHud)
+			}
+		},
+		{ passive: true },
+	)
+	updateHud()
+
+	// ── HUD controls ───────────────────────────────────────────────────────────
+	document.querySelector('[data-reroll]')?.addEventListener('click', () => {
+		const url = new URL(location.href)
+		url.searchParams.set('seed', Math.random().toString(36).slice(2, 8))
+		location.href = url.toString()
+	})
+	const copyBtn = document.querySelector<HTMLButtonElement>('[data-copy]')
+	copyBtn?.addEventListener('click', async () => {
+		await navigator.clipboard.writeText(location.href)
+		const label = copyBtn.innerHTML
+		copyBtn.innerHTML = `<i class="ph ph-check" aria-hidden="true"></i> Copied`
+		setTimeout(() => (copyBtn.innerHTML = label), 1500)
+	})
+</script>
+
+<style>
+	.page {
+		max-width: 60rem;
+		margin-inline: auto;
+		padding: var(--space-xl) var(--space-md) var(--space-lg);
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-sm);
+	}
+	h1 {
+		margin: 0;
+		font-size: var(--step-4);
+	}
+	.intro {
+		max-width: 62ch;
+		line-height: 1.6;
+	}
+	.intro code {
+		font-size: 0.9em;
+		padding: 0.1em 0.35em;
+		border-radius: var(--radius-sm);
+		background: var(--color-surface);
+		border: 1px solid var(--color-border);
+	}
+
+	#sentinel {
+		height: 1px;
+	}
+
+	/* Fixed HUD — the only site-themed UI once you're inside the world. */
+	.hud {
+		position: fixed;
+		right: var(--space-sm);
+		bottom: var(--space-sm);
+		z-index: var(--z-sticky, 10);
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-3xs);
+		padding: var(--space-2xs) var(--space-sm);
+		background: var(--color-background);
+		border: var(--border-style) 1px var(--color-border);
+		border-radius: var(--radius-md);
+		box-shadow: var(--shadow-md);
+		font-size: var(--step--1);
+		max-width: min(20rem, calc(100vw - 2 * var(--space-sm)));
+	}
+	.hud-row {
+		display: flex;
+		align-items: center;
+		gap: var(--space-2xs);
+	}
+	.hud-biome {
+		font-weight: 600;
+	}
+	.hud-meta {
+		font-size: var(--step--2);
+		opacity: 0.75;
+	}
+	.hud-meta code {
+		font-size: 1em;
+	}
+	.hud-actions {
+		padding-top: var(--space-3xs);
+	}
+</style>
+
+<style is:global>
+	/* Everything in #world is injected at runtime, so Astro's scoped styles
+	   can't reach it — these rules are global but namespaced under #world.
+	   The generated world deliberately ignores the site theme (like the
+	   term-stage on the keyboard-only page): its colours, radii and fonts are
+	   the generator's output, delivered via the --bg/--fg/--ac/--soft/--ff/--r
+	   custom props each section carries. */
+	#world .sec {
+		background: var(--bg);
+		color: var(--fg);
+		font-family: var(--ff);
+		padding: clamp(3rem, 9vw, 6.5rem) clamp(1rem, 6vw, 4rem);
+		/* Off-screen sections skip layout/paint — the page is infinite. */
+		content-visibility: auto;
+		contain-intrinsic-size: auto 640px;
+	}
+	#world .sec-inner {
+		max-width: 68rem;
+		margin-inline: auto;
+	}
+	#world .sec-inner.narrow {
+		max-width: 44rem;
+	}
+	#world h2 {
+		margin: 0 0 1.25rem;
+		font-size: clamp(1.6rem, 1rem + 2.5vw, 2.6rem);
+		line-height: 1.1;
+	}
+	#world p {
+		line-height: 1.65;
+		margin: 0 0 1em;
+	}
+
+	/* hero */
+	#world .hero .kicker {
+		text-transform: uppercase;
+		letter-spacing: 0.2em;
+		font-size: 0.8rem;
+		opacity: 0.7;
+	}
+	#world .hero .huge {
+		font-size: clamp(2.6rem, 1.2rem + 7vw, 6.5rem);
+		margin: 0.2em 0;
+		line-height: 1;
+		letter-spacing: -0.02em;
+	}
+	#world .hero .huge.outline {
+		color: transparent;
+		-webkit-text-stroke: 2px var(--ac);
+	}
+	#world .hero .sub {
+		max-width: 48ch;
+		margin-inline: auto;
+		opacity: 0.85;
+	}
+	#world .hero[style*='text-align:start'] .sub,
+	#world .hero[style*='text-align:end'] .sub {
+		margin-inline: 0;
+	}
+	#world .hero[style*='text-align:end'] .sub {
+		margin-inline-start: auto;
+	}
+
+	/* prose */
+	#world .copy.cols {
+		columns: 2 22rem;
+		column-gap: 2.5rem;
+	}
+	#world .copy.dropcap > p:first-child::first-letter {
+		float: left;
+		font-size: 3.4em;
+		line-height: 0.85;
+		padding-right: 0.12em;
+		font-weight: 700;
+		color: var(--ac);
+	}
+
+	/* cards */
+	#world .cards {
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+		gap: 1rem;
+	}
+	#world .card {
+		background: var(--soft);
+		border-radius: var(--r);
+		padding: 1.25rem;
+		border-left: 4px solid var(--ac);
+	}
+	#world .card i {
+		font-size: 1.8rem;
+		color: var(--ac);
+	}
+	#world .card h3 {
+		margin: 0.5rem 0 0.35rem;
+		font-size: 1.05rem;
+	}
+	#world .card p {
+		margin: 0;
+		font-size: 0.9rem;
+		opacity: 0.85;
+	}
+
+	/* quote */
+	#world .bigquote {
+		margin: 0;
+		border-left: 6px solid var(--ac);
+		padding-left: 1.5rem;
+	}
+	#world .bigquote p {
+		font-size: clamp(1.4rem, 1rem + 2vw, 2.2rem);
+		line-height: 1.3;
+		font-style: italic;
+	}
+	#world .bigquote cite {
+		font-style: normal;
+		opacity: 0.7;
+	}
+
+	/* stats */
+	#world .stats {
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+		gap: 1.5rem;
+		text-align: center;
+	}
+	#world .stat .num {
+		display: block;
+		font-size: clamp(2.2rem, 1rem + 4vw, 4rem);
+		font-weight: 700;
+		color: var(--ac);
+		line-height: 1;
+	}
+	#world .stat .lbl {
+		display: block;
+		margin-top: 0.4rem;
+		opacity: 0.75;
+		text-transform: capitalize;
+	}
+
+	/* art + gallery */
+	#world .art {
+		margin: 0;
+	}
+	#world .art svg,
+	#world .tile svg {
+		display: block;
+		width: 100%;
+		height: auto;
+		border-radius: var(--r);
+	}
+	#world .art figcaption {
+		margin-top: 0.6rem;
+		font-size: 0.85rem;
+		opacity: 0.7;
+	}
+	#world .gallery {
+		display: grid;
+		grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr));
+		gap: 0.75rem;
+	}
+
+	/* timeline */
+	#world .tl-row {
+		display: grid;
+		grid-template-columns: 5rem 1fr;
+		gap: 1rem;
+		padding: 0.85rem 0;
+		border-top: 1px solid var(--soft);
+	}
+	#world .tl-year {
+		font-weight: 700;
+		color: var(--ac);
+	}
+	#world .tl-row p {
+		margin: 0;
+	}
+
+	/* marquee */
+	#world .sec-marquee {
+		padding-block: 1.4rem;
+		overflow: hidden;
+	}
+	#world .marquee {
+		white-space: nowrap;
+		font-size: clamp(1.2rem, 1rem + 1.5vw, 2rem);
+		font-weight: 700;
+		letter-spacing: 0.05em;
+		color: var(--ac);
+	}
+	#world .marquee span {
+		display: inline-block;
+		animation: world-marquee 40s linear infinite;
+	}
+	@keyframes world-marquee {
+		to {
+			transform: translateX(-50%);
+		}
+	}
+	@media (prefers-reduced-motion: reduce) {
+		#world .marquee span {
+			animation: none;
+		}
+	}
+
+	/* biome divider */
+	#world .sec-divider {
+		padding-block: clamp(2rem, 6vw, 4rem);
+		text-align: center;
+		border-block: 4px double var(--ac);
+	}
+	#world .divider h2 {
+		margin: 0.3em 0;
+		font-size: clamp(1.8rem, 1rem + 3.5vw, 3.2rem);
+	}
+	#world .divider .depth {
+		text-transform: uppercase;
+		letter-spacing: 0.25em;
+		font-size: 0.75rem;
+		opacity: 0.65;
+	}
+
+	#world .visually-hidden {
+		position: absolute;
+		width: 1px;
+		height: 1px;
+		overflow: hidden;
+		clip-path: inset(50%);
+	}
+</style>
