@@ -1,0 +1,868 @@
+---
+import Layout from '../../layouts/Layout.astro'
+import { Badge, Flex, Link, Text } from '@mrmartineau/zui/astro'
+
+export const title = 'Wiki trail'
+export const description =
+	'An endless page made of real Wikipedia articles. Follow any in-article link and the next article renders below; the one you left freezes into a lightweight card, leaving a scrollable trail of your whole rabbit hole.'
+export const date = '2026-07-16'
+export const status = 'live'
+export const tags = ['wikipedia', 'navigation', 'rabbit-hole', 'api']
+---
+
+<Layout title="Wiki trail — lab.zander.wtf">
+	<main>
+		<header class="page flow">
+			<Link href="/">← All lab items</Link>
+			<Flex align="center" gap="sm">
+				<h1>Wiki trail</h1>
+				<Badge variant="fill" color="emerald">live</Badge>
+			</Flex>
+			<Text size="1">{description}</Text>
+			<p class="intro">
+				A sibling of the <a href="/procedural-page">procedural page</a>, but
+				built from <strong>real content</strong>: live Wikipedia articles,
+				fetched from the Wikimedia REST API as you explore. Pick a starting
+				point below, then click any link <em>inside</em> the article. Instead
+				of navigating away, the next article appears <strong>below</strong> —
+				and the page you left <strong>freezes</strong> into a small summary
+				card, so its DOM stops costing memory while the trail behind you keeps
+				growing. Tap a frozen card to thaw it back into a full article.
+			</p>
+			<p class="intro">
+				The whole journey lives in the URL, so a rabbit hole is shareable and
+				replayable. Browser history normally hides the shape of a wander like
+				this — here the trail <em>is</em> the page. (There's a bigger idea
+				lurking: this could grow into a whole browser paradigm where history
+				is spatial rather than a hidden stack. Parked for a later
+				experiment.)
+			</p>
+		</header>
+
+		<!-- Start screen: curated jumping-off points. -->
+		<section id="start" class="page" aria-label="Choose a starting article">
+			<h2 class="start-title">Choose where the rabbit hole begins</h2>
+			<div class="starts" id="starts"></div>
+			<button class="zui-button random" data-random>
+				<i class="ph ph-shuffle" aria-hidden="true"></i> Surprise me — random
+				article
+			</button>
+		</section>
+
+		<!-- The trail. Article panels are injected at runtime. -->
+		<div id="trail" aria-label="Your trail of articles"></div>
+
+		<!-- Fixed HUD: journey overview + controls. -->
+		<aside class="hud" hidden aria-label="Trail controls">
+			<div class="hud-row">
+				<i class="ph ph-path" aria-hidden="true"></i>
+				<span><span data-count>0</span> articles deep</span>
+			</div>
+			<ol class="hud-trail" data-list></ol>
+			<div class="hud-row hud-actions">
+				<button class="zui-button" data-size="sm" data-copy>
+					<i class="ph ph-link" aria-hidden="true"></i> Copy trail
+				</button>
+				<button class="zui-button" data-size="sm" data-variant="ghost" data-restart>
+					<i class="ph ph-arrow-counter-clockwise" aria-hidden="true"></i> Start over
+				</button>
+			</div>
+		</aside>
+	</main>
+</Layout>
+
+<script>
+	// ── Trail state ────────────────────────────────────────────────────────────
+	// Each article you visit is an Entry. Exactly one entry is 'live' (full DOM)
+	// at a time; everything older is 'frozen' — its article DOM replaced by a
+	// small summary card, so a 40-article trail stays cheap.
+	type Entry = {
+		title: string
+		via: string | null // the link text you clicked to get here
+		el: HTMLElement
+		state: 'loading' | 'live' | 'frozen' | 'error'
+		extract?: string
+		thumb?: string
+		words?: number
+		links?: number
+	}
+
+	const API = 'https://en.wikipedia.org/api/rest_v1'
+	const trail: Entry[] = []
+	const trailEl = document.getElementById('trail')!
+	const startEl = document.getElementById('start')!
+	const hudEl = document.querySelector<HTMLElement>('.hud')!
+	const countEl = document.querySelector('[data-count]')!
+	const listEl = document.querySelector<HTMLElement>('[data-list]')!
+
+	// Wikipedia titles/link-text end up in innerHTML — escape everything.
+	const esc = (s: string) =>
+		s.replace(/[&<>"']/g, (c) =>
+			({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!,
+		)
+
+	const wikiUrl = (title: string) =>
+		`https://en.wikipedia.org/wiki/${encodeURIComponent(title.replace(/ /g, '_'))}`
+
+	// ── Curated starting points ────────────────────────────────────────────────
+	const STARTS: [title: string, icon: string, blurb: string][] = [
+		['Antikythera mechanism', 'ph-gear', 'A 2,000-year-old analogue computer pulled from a shipwreck.'],
+		['Voyager Golden Record', 'ph-vinyl-record', 'The mixtape humanity mailed to the stars.'],
+		['Emu War', 'ph-bird', 'Australia declared war on emus. The emus won.'],
+		['Ship of Theseus', 'ph-boat', 'If you replace every plank, is it the same ship?'],
+		['Bioluminescence', 'ph-sparkle', 'Living things that make their own light.'],
+		['Rosetta Stone', 'ph-scroll', 'The slab that cracked Egyptian hieroglyphs.'],
+		['Trans-Siberian Railway', 'ph-train', 'Seven days and 9,289 km on one train.'],
+		['List of common misconceptions', 'ph-question', 'Everything you know that is wrong.'],
+	]
+
+	// ── Fetch + clean Wikipedia HTML ───────────────────────────────────────────
+	// The Wikimedia REST API serves full Parsoid HTML with CORS enabled — no
+	// key, no server. We parse it off-document, strip the heavy furniture
+	// (infoboxes, navboxes, reference lists, tables) and cap the length so a
+	// panel is an enjoyable read, not a 2 MB DOM.
+	const CHAR_BUDGET = 16000
+	const SKIP_SECTIONS =
+		/^(references|notes|citations|sources|bibliography|external links|further reading|see also|footnotes|works cited)$/i
+	const NAMESPACE =
+		/^(File|Image|Category|Help|Wikipedia|Special|Template|Portal|Talk|Draft|Module|Book|MediaWiki|TimedText|User|WP|MOS)( talk)?:/i
+
+	const fetchArticle = async (title: string) => {
+		const res = await fetch(
+			`${API}/page/html/${encodeURIComponent(title.replace(/ /g, '_'))}?redirect=true`,
+		)
+		if (!res.ok) throw new Error(String(res.status))
+		return res.text()
+	}
+
+	type Prepared = {
+		content: HTMLElement
+		displayTitle: string
+		extract: string
+		thumb?: string
+		words: number
+		links: number
+		dropped: number
+	}
+
+	const prepare = (html: string): Prepared => {
+		const doc = new DOMParser().parseFromString(html, 'text/html')
+		doc
+			.querySelectorAll(
+				[
+					'style', 'link', 'script', 'table', 'math',
+					'sup[typeof~="mw:Extension/ref"]', '.mw-ref',
+					'[typeof~="mw:Extension/references"]', '.mw-references-wrap',
+					'.reflist', '.hatnote', '.navbox', '[role="navigation"]',
+					'.mw-empty-elt', '.noprint', '.mw-editsection', '.ambox',
+					'.metadata', '.side-box', '.mw-kartographer-maplink',
+				].join(', '),
+			)
+			.forEach((el) => el.remove())
+		// Media figures without a plain image (audio, video, maps) go too.
+		doc.querySelectorAll('figure').forEach((f) => {
+			if (!f.querySelector('img')) f.remove()
+		})
+		doc.querySelectorAll('img').forEach((img) => {
+			img.loading = 'lazy'
+			img.decoding = 'async'
+		})
+
+		// Keep sections until the character budget runs out; skip boilerplate.
+		const content = document.createElement('div')
+		let chars = 0
+		let dropped = 0
+		for (const sec of Array.from(doc.body.children)) {
+			if (sec.tagName !== 'SECTION') continue
+			const label = sec.querySelector('h2, h3, h4')?.textContent?.trim() ?? ''
+			if (SKIP_SECTIONS.test(label)) continue
+			if (chars > CHAR_BUDGET) {
+				dropped++
+				continue
+			}
+			chars += (sec.textContent ?? '').length
+			content.append(sec)
+		}
+
+		// Rewrite links: internal wiki links become trail-follows, everything
+		// else opens on the real web in a new tab.
+		let links = 0
+		content.querySelectorAll('a').forEach((a) => {
+			const rel = a.getAttribute('rel') ?? ''
+			const href = a.getAttribute('href') ?? ''
+			if (rel.includes('mw:WikiLink') && href.startsWith('./')) {
+				const target = decodeURIComponent(href.slice(2).split('#')[0])
+					.replace(/_/g, ' ')
+					.trim()
+				// Red links and non-article namespaces aren't followable trails —
+				// flatten them to plain text.
+				if (!target || NAMESPACE.test(target) || a.classList.contains('new')) {
+					const span = document.createElement('span')
+					span.textContent = a.textContent
+					a.replaceWith(span)
+					return
+				}
+				a.dataset.wiki = target
+				a.href = wikiUrl(target) // real URL so middle/cmd-click still works
+				links++
+			} else if (href.startsWith('#')) {
+				a.dataset.frag = href.slice(1)
+			} else if (href) {
+				a.target = '_blank'
+				a.rel = 'noopener'
+			}
+		})
+
+		const firstPara = Array.from(content.querySelectorAll('p')).find(
+			(p) => (p.textContent ?? '').trim().length > 80,
+		)
+		const extract = (firstPara?.textContent ?? '').trim().slice(0, 240)
+		const rawThumb = content.querySelector('img')?.getAttribute('src') ?? ''
+		return {
+			content,
+			displayTitle:
+				doc.querySelector('title')?.textContent?.replace(/_/g, ' ').trim() ?? '',
+			extract,
+			thumb: rawThumb ? new URL(rawThumb, 'https://en.wikipedia.org').href : undefined,
+			words: (content.textContent ?? '').split(/\s+/).length,
+			links,
+			dropped,
+		}
+	}
+
+	// ── Panels ─────────────────────────────────────────────────────────────────
+	const makePanel = (title: string, via: string | null, idx: number) => {
+		const el = document.createElement('article')
+		el.className = 'panel is-loading'
+		el.innerHTML = `
+			${
+				via
+					? `<p class="via"><i class="ph ph-arrow-elbow-down-right" aria-hidden="true"></i> you followed <q>${esc(via)}</q></p>`
+					: ''
+			}
+			<div class="panel-head">
+				<span class="step" aria-hidden="true">${idx + 1}</span>
+				<h2 class="panel-title">${esc(title)}</h2>
+				<a class="wp-link" target="_blank" rel="noopener" href="${wikiUrl(title)}" aria-label="View ${esc(title)} on Wikipedia">
+					<i class="ph ph-arrow-square-out" aria-hidden="true"></i>
+				</a>
+			</div>
+			<div class="panel-body">
+				<p class="panel-note"><i class="ph ph-circle-notch spin" aria-hidden="true"></i> Fetching from Wikipedia…</p>
+			</div>`
+		return el
+	}
+
+	const hydrate = async (entry: Entry) => {
+		entry.state = 'loading'
+		entry.el.className = 'panel is-loading'
+		const body = entry.el.querySelector('.panel-body')!
+		try {
+			const article = prepare(await fetchArticle(entry.title))
+			if (article.displayTitle) {
+				entry.title = article.displayTitle
+				entry.el.querySelector('.panel-title')!.textContent = article.displayTitle
+			}
+			entry.extract = article.extract
+			entry.thumb = article.thumb
+			entry.words = article.words
+			entry.links = article.links
+			body.replaceChildren(...Array.from(article.content.children))
+			if (article.dropped > 0)
+				body.insertAdjacentHTML(
+					'beforeend',
+					`<p class="panel-note">✂️ ${article.dropped} more section${article.dropped === 1 ? '' : 's'} trimmed to keep the trail light — <a href="${wikiUrl(entry.title)}" target="_blank" rel="noopener">read the rest on Wikipedia</a>.</p>`,
+				)
+			entry.el.className = 'panel is-live'
+			entry.state = 'live'
+		} catch {
+			entry.el.className = 'panel is-error'
+			entry.state = 'error'
+			body.innerHTML = `<p class="panel-note">Couldn't fetch this article.
+				<button class="zui-button" data-size="sm" data-retry>Retry</button></p>`
+		}
+		syncHud()
+	}
+
+	// Freezing swaps the article's DOM for a one-card summary built from data
+	// captured while it was live. The heavy nodes are simply discarded — the
+	// browser's HTTP cache makes thawing (a re-fetch) cheap.
+	const freeze = (entry: Entry) => {
+		const stats = [
+			entry.words && `${entry.words.toLocaleString('en-GB')} words`,
+			entry.links && `${entry.links} onward links`,
+		].filter(Boolean)
+		entry.el.querySelector('.panel-body')!.innerHTML = `
+			<button class="frozen-card" data-thaw aria-label="Reopen ${esc(entry.title)}">
+				${
+					entry.thumb
+						? `<img src="${esc(entry.thumb)}" alt="" loading="lazy">`
+						: `<span class="frozen-ph"><i class="ph ph-snowflake" aria-hidden="true"></i></span>`
+				}
+				<span class="frozen-text">
+					<span class="frozen-extract">${esc(entry.extract || 'Frozen — tap to reopen.')}</span>
+					<span class="frozen-meta"><i class="ph ph-snowflake" aria-hidden="true"></i> frozen${stats.length ? ' · ' + stats.join(' · ') : ''} · tap to reopen</span>
+				</span>
+			</button>`
+		entry.el.className = 'panel is-frozen'
+		entry.state = 'frozen'
+	}
+
+	const freezeOthers = (except: Entry) =>
+		trail.forEach((e) => e !== except && e.state === 'live' && freeze(e))
+
+	const thaw = async (entry: Entry) => {
+		freezeOthers(entry)
+		entry.el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+		await hydrate(entry)
+		syncHud()
+	}
+
+	const addEntry = async (title: string, via: string | null) => {
+		if (trail.at(-1)?.state === 'loading') return // debounce link mashing
+		startEl.hidden = true
+		const entry: Entry = {
+			title,
+			via,
+			el: makePanel(title, via, trail.length),
+			state: 'loading',
+		}
+		trail.push(entry)
+		trail.forEach((e) => e !== entry && e.state === 'live' && freeze(e))
+		trailEl.append(entry.el)
+		entry.el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+		syncUrl()
+		syncHud()
+		await hydrate(entry)
+		syncUrl() // title may have changed via redirect
+	}
+
+	// ── Shareable URL ──────────────────────────────────────────────────────────
+	// The trail is the state: titles, in order, in a query param. Long trails
+	// are capped to the most recent 20 hops to keep the URL sane.
+	const syncUrl = () => {
+		const url = new URL(location.href)
+		url.searchParams.set(
+			'trail',
+			trail
+				.slice(-20)
+				.map((e) => encodeURIComponent(e.title.replace(/ /g, '_')))
+				.join(','),
+		)
+		history.replaceState(null, '', url)
+	}
+
+	const restore = async (titles: string[]) => {
+		startEl.hidden = true
+		for (const t of titles.slice(0, -1)) {
+			const entry: Entry = {
+				title: t,
+				via: null,
+				el: makePanel(t, null, trail.length),
+				state: 'frozen',
+			}
+			trail.push(entry)
+			trailEl.append(entry.el)
+			freeze(entry)
+			// Enrich the placeholder card from the cheap summary endpoint.
+			fetch(`${API}/page/summary/${encodeURIComponent(t.replace(/ /g, '_'))}`)
+				.then((r) => (r.ok ? r.json() : null))
+				.then((s) => {
+					if (s && entry.state === 'frozen') {
+						entry.extract = s.extract
+						entry.thumb = s.thumbnail?.source
+						freeze(entry)
+					}
+				})
+				.catch(() => {})
+		}
+		await addEntry(titles.at(-1)!, null)
+	}
+
+	// ── HUD ────────────────────────────────────────────────────────────────────
+	const syncHud = () => {
+		hudEl.hidden = trail.length === 0
+		countEl.textContent = String(trail.length)
+		listEl.innerHTML = trail
+			.map(
+				(e, i) =>
+					`<li><button data-goto="${i}" class="${e.state === 'live' || e.state === 'loading' ? 'is-current' : ''}">${esc(e.title)}</button></li>`,
+			)
+			.join('')
+	}
+
+	// ── Events ─────────────────────────────────────────────────────────────────
+	trailEl.addEventListener('click', (e) => {
+		const t = e.target as HTMLElement
+		const wiki = t.closest<HTMLAnchorElement>('a[data-wiki]')
+		if (wiki) {
+			if (e.metaKey || e.ctrlKey || e.shiftKey) return // open Wikipedia itself
+			e.preventDefault()
+			addEntry(wiki.dataset.wiki!, wiki.textContent?.trim() || wiki.dataset.wiki!)
+			return
+		}
+		const frag = t.closest<HTMLAnchorElement>('a[data-frag]')
+		if (frag) {
+			// Same-page anchors: ids repeat across panels, so scope to this panel.
+			e.preventDefault()
+			frag
+				.closest('.panel')
+				?.querySelector(`[id="${CSS.escape(frag.dataset.frag!)}"]`)
+				?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+			return
+		}
+		const thawBtn = t.closest('[data-thaw]')
+		if (thawBtn) {
+			thaw(trail.find((en) => en.el.contains(thawBtn))!)
+			return
+		}
+		const retry = t.closest('[data-retry]')
+		if (retry) hydrate(trail.find((en) => en.el.contains(retry))!)
+	})
+
+	listEl.addEventListener('click', (e) => {
+		const btn = (e.target as HTMLElement).closest<HTMLElement>('[data-goto]')
+		if (btn)
+			trail[Number(btn.dataset.goto)]?.el.scrollIntoView({
+				behavior: 'smooth',
+				block: 'start',
+			})
+	})
+
+	document.querySelector('[data-restart]')?.addEventListener('click', () => {
+		const url = new URL(location.href)
+		url.searchParams.delete('trail')
+		location.href = url.toString()
+	})
+
+	const copyBtn = document.querySelector<HTMLButtonElement>('[data-copy]')
+	copyBtn?.addEventListener('click', async () => {
+		await navigator.clipboard.writeText(location.href)
+		const label = copyBtn.innerHTML
+		copyBtn.innerHTML = `<i class="ph ph-check" aria-hidden="true"></i> Copied`
+		setTimeout(() => (copyBtn.innerHTML = label), 1500)
+	})
+
+	document
+		.querySelector<HTMLButtonElement>('[data-random]')
+		?.addEventListener('click', async (e) => {
+			const btn = e.currentTarget as HTMLButtonElement
+			btn.disabled = true
+			try {
+				const s = await (await fetch(`${API}/page/random/summary`)).json()
+				await addEntry(s.title, null)
+			} finally {
+				btn.disabled = false
+			}
+		})
+
+	// ── Boot ───────────────────────────────────────────────────────────────────
+	document.getElementById('starts')!.innerHTML = STARTS.map(
+		([title, icon, blurb]) => `
+		<button class="start-card" data-start="${esc(title)}">
+			<i class="ph ${icon}" aria-hidden="true"></i>
+			<span class="start-name">${esc(title)}</span>
+			<span class="start-blurb">${esc(blurb)}</span>
+		</button>`,
+	).join('')
+	document.getElementById('starts')!.addEventListener('click', (e) => {
+		const card = (e.target as HTMLElement).closest<HTMLElement>('[data-start]')
+		if (card) addEntry(card.dataset.start!, null)
+	})
+
+	const param = new URLSearchParams(location.search).get('trail')
+	const saved = (param ?? '')
+		.split(',')
+		.map((t) => {
+			try {
+				return decodeURIComponent(t)
+			} catch {
+				return t
+			}
+		})
+		.map((t) => t.replace(/_/g, ' ').trim())
+		.filter(Boolean)
+		.slice(0, 20)
+	if (saved.length) restore(saved)
+</script>
+
+<style>
+	.page {
+		max-width: 60rem;
+		margin-inline: auto;
+		padding: var(--space-xl) var(--space-md) var(--space-lg);
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-sm);
+	}
+	h1 {
+		margin: 0;
+		font-size: var(--step-4);
+	}
+	.intro {
+		max-width: 62ch;
+		line-height: 1.6;
+	}
+
+	/* start screen */
+	#start {
+		padding-block-start: 0;
+	}
+	/* .page's display:flex would beat the UA [hidden] rule */
+	#start[hidden] {
+		display: none;
+	}
+	.start-title {
+		margin: 0;
+		font-size: var(--step-2);
+	}
+	.starts {
+		display: grid;
+		grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr));
+		gap: var(--space-sm);
+	}
+	.start-card {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-3xs);
+		align-items: flex-start;
+		text-align: left;
+		padding: var(--space-sm);
+		background: var(--color-surface);
+		border: var(--border-style) 1px var(--color-border);
+		border-radius: var(--radius-md);
+		cursor: pointer;
+		color: var(--color-text);
+		font: inherit;
+		transition:
+			transform 150ms var(--ease),
+			box-shadow 150ms var(--ease);
+	}
+	.start-card:hover {
+		transform: translateY(-2px);
+		box-shadow: var(--shadow-md);
+	}
+	.start-card i {
+		font-size: var(--step-2);
+		color: var(--color-primary, currentColor);
+	}
+	.start-name {
+		font-weight: 600;
+	}
+	.start-blurb {
+		font-size: var(--step--1);
+		opacity: 0.7;
+	}
+	.random {
+		align-self: flex-start;
+	}
+
+	/* HUD */
+	.hud {
+		position: fixed;
+		right: var(--space-sm);
+		bottom: var(--space-sm);
+		z-index: var(--z-sticky, 10);
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-2xs);
+		padding: var(--space-2xs) var(--space-sm);
+		background: var(--color-background);
+		border: var(--border-style) 1px var(--color-border);
+		border-radius: var(--radius-md);
+		box-shadow: var(--shadow-md);
+		font-size: var(--step--1);
+		max-width: min(18rem, calc(100vw - 2 * var(--space-sm)));
+	}
+	.hud-row {
+		display: flex;
+		align-items: center;
+		gap: var(--space-2xs);
+	}
+	.hud-trail {
+		list-style: none;
+		margin: 0;
+		padding: 0;
+		max-height: 9rem;
+		overflow-y: auto;
+		display: flex;
+		flex-direction: column;
+		counter-reset: hop;
+	}
+	.hud-trail li {
+		counter-increment: hop;
+	}
+	.hud-trail button {
+		display: flex;
+		gap: var(--space-3xs);
+		width: 100%;
+		text-align: left;
+		background: none;
+		border: 0;
+		padding: var(--space-3xs) var(--space-3xs);
+		border-radius: var(--radius-sm);
+		color: var(--color-text);
+		font: inherit;
+		font-size: var(--step--2);
+		cursor: pointer;
+		opacity: 0.7;
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
+	}
+	.hud-trail button::before {
+		content: counter(hop) '.';
+		opacity: 0.5;
+	}
+	.hud-trail button:hover {
+		background: var(--color-surface);
+		opacity: 1;
+	}
+	.hud-trail button.is-current {
+		font-weight: 600;
+		opacity: 1;
+	}
+	.hud-actions {
+		padding-top: var(--space-3xs);
+	}
+</style>
+
+<style is:global>
+	/* Everything in #trail is injected at runtime, so Astro's scoped styles
+	   can't reach it — global rules, namespaced under #trail. Article bodies
+	   are real Wikipedia HTML (Parsoid), restyled as a calm reader view. */
+	#trail {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-md);
+		max-width: 46rem;
+		margin-inline: auto;
+		padding: 0 var(--space-md) 40vh; /* room to breathe below the live panel */
+	}
+
+	#trail .via {
+		margin: 0 0 var(--space-2xs);
+		font-size: var(--step--1);
+		opacity: 0.65;
+	}
+	#trail .via q {
+		font-style: italic;
+	}
+
+	#trail .panel {
+		border: var(--border-style) 1px var(--color-border);
+		border-radius: var(--radius-lg, var(--radius-md));
+		background: var(--color-background);
+		overflow: hidden;
+	}
+	#trail .via + .panel-head,
+	#trail .panel-head {
+		display: flex;
+		align-items: center;
+		gap: var(--space-2xs);
+		padding: var(--space-sm) var(--space-md);
+		border-block-end: var(--border-style) 1px var(--color-border);
+		background: var(--color-surface);
+	}
+	#trail .via {
+		padding-inline: var(--space-2xs);
+	}
+	#trail .step {
+		flex-shrink: 0;
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		width: 1.6em;
+		height: 1.6em;
+		border-radius: 50%;
+		background: var(--color-text);
+		color: var(--color-background);
+		font-size: var(--step--1);
+		font-weight: 700;
+	}
+	#trail .panel-title {
+		margin: 0;
+		font-size: var(--step-2);
+		line-height: 1.15;
+		flex: 1;
+	}
+	#trail .wp-link {
+		color: inherit;
+		opacity: 0.6;
+		font-size: var(--step-1);
+		display: inline-flex;
+	}
+	#trail .wp-link:hover {
+		opacity: 1;
+	}
+
+	#trail .panel-body {
+		padding: var(--space-md);
+	}
+	#trail .is-frozen .panel-body {
+		padding: var(--space-2xs);
+	}
+	#trail .is-frozen {
+		border-style: dashed;
+	}
+	#trail .is-frozen .panel-head {
+		border-block-end: 0;
+		background: none;
+		padding-block-end: 0;
+	}
+	#trail .is-frozen .panel-title {
+		font-size: var(--step-0);
+	}
+	#trail .is-frozen .step {
+		opacity: 0.55;
+	}
+
+	#trail .panel-note {
+		font-size: var(--step--1);
+		opacity: 0.75;
+		display: flex;
+		align-items: center;
+		gap: var(--space-2xs);
+		flex-wrap: wrap;
+	}
+	#trail .spin {
+		animation: trail-spin 0.8s linear infinite;
+	}
+	@keyframes trail-spin {
+		to {
+			transform: rotate(360deg);
+		}
+	}
+	@media (prefers-reduced-motion: reduce) {
+		#trail .spin {
+			animation: none;
+		}
+	}
+
+	/* frozen summary card */
+	#trail .frozen-card {
+		display: flex;
+		gap: var(--space-sm);
+		align-items: center;
+		width: 100%;
+		text-align: left;
+		background: none;
+		border: 0;
+		padding: var(--space-2xs) var(--space-sm) var(--space-sm);
+		font: inherit;
+		color: var(--color-text);
+		cursor: pointer;
+		border-radius: var(--radius-md);
+	}
+	#trail .frozen-card:hover .frozen-meta {
+		color: var(--color-text);
+		opacity: 1;
+	}
+	#trail .frozen-card img,
+	#trail .frozen-ph {
+		flex-shrink: 0;
+		width: 3.5rem;
+		height: 3.5rem;
+		object-fit: cover;
+		border-radius: var(--radius-sm);
+		filter: grayscale(0.8);
+	}
+	#trail .frozen-ph {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		background: var(--color-surface);
+		font-size: var(--step-2);
+		opacity: 0.6;
+	}
+	#trail .frozen-text {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-3xs);
+		min-width: 0;
+	}
+	#trail .frozen-extract {
+		font-size: var(--step--1);
+		opacity: 0.7;
+		display: -webkit-box;
+		-webkit-line-clamp: 2;
+		-webkit-box-orient: vertical;
+		overflow: hidden;
+	}
+	#trail .frozen-meta {
+		font-size: var(--step--2);
+		opacity: 0.55;
+	}
+
+	/* ── Reader styles for the injected Wikipedia article ── */
+	#trail .panel-body section {
+		font-family: Georgia, 'Times New Roman', serif;
+	}
+	#trail .panel-body p,
+	#trail .panel-body li,
+	#trail .panel-body dd {
+		line-height: 1.7;
+		font-size: var(--step-0);
+	}
+	#trail .panel-body p {
+		margin: 0 0 1em;
+	}
+	#trail .panel-body h2,
+	#trail .panel-body h3,
+	#trail .panel-body h4 {
+		font-family: inherit;
+		line-height: 1.2;
+		margin: 1.6em 0 0.5em;
+	}
+	#trail .panel-body h2 {
+		font-size: var(--step-2);
+		padding-block-end: var(--space-3xs);
+		border-block-end: var(--border-style) 1px var(--color-border);
+	}
+	#trail .panel-body h3 {
+		font-size: var(--step-1);
+	}
+	#trail .panel-body h4 {
+		font-size: var(--step-0);
+	}
+	#trail .panel-body section > section {
+		margin-block-start: var(--space-sm);
+	}
+	#trail .panel-body a[data-wiki] {
+		color: var(--color-primary, LinkText);
+		text-decoration: underline;
+		text-decoration-thickness: 1px;
+		text-underline-offset: 0.15em;
+	}
+	#trail .panel-body a[data-wiki]:hover {
+		text-decoration-thickness: 2px;
+	}
+	#trail .panel-body figure {
+		margin: var(--space-sm) 0;
+	}
+	#trail .panel-body img {
+		max-width: 100%;
+		height: auto;
+		border-radius: var(--radius-sm);
+	}
+	#trail .panel-body figcaption {
+		font-size: var(--step--1);
+		opacity: 0.7;
+		margin-block-start: var(--space-3xs);
+		font-family: var(--font-base, system-ui, sans-serif);
+	}
+	#trail .panel-body blockquote {
+		margin: var(--space-sm) 0;
+		padding-inline-start: var(--space-sm);
+		border-inline-start: 3px solid var(--color-border);
+		opacity: 0.9;
+	}
+	#trail .panel-body ul,
+	#trail .panel-body ol {
+		padding-inline-start: 1.4em;
+		margin: 0 0 1em;
+	}
+	#trail .panel-body .thumbinner {
+		max-width: 100% !important;
+	}
+</style>
