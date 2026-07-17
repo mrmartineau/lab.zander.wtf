@@ -44,7 +44,8 @@ const { fullscreen = false, class: className = '' } = Astro.props
 		<!-- Quiz prompt (top of the scene, only while quizzing) -->
 		<div class="quiz-prompt c-quizPrompt">
 			<span class="qp-label"
-				>Set the clock to <strong class="c-target">—</strong></span
+				><span class="c-qpText">Set the clock to</span>
+				<strong class="c-target">—</strong></span
 			>
 			<button class="qp-check c-check" type="button">Check</button>
 			<button class="qp-stop c-quizStop" type="button" aria-label="Stop quiz">
@@ -187,6 +188,7 @@ const { fullscreen = false, class: className = '' } = Astro.props
 		const quizBtn = q('.c-quiz'),
 			quizStop = q('.c-quizStop'),
 			targetEl = q('.c-target'),
+			qpText = q('.c-qpText'),
 			checkBtn = q('.c-check'),
 			toast = q('.c-toast')
 
@@ -382,6 +384,8 @@ const { fullscreen = false, class: className = '' } = Astro.props
 		// --- Quiz ---------------------------------------------------------------
 		let quizMode = false
 		let target: { h: number; m: number } | null = null
+		// Set for "add/take away" questions so the miss hint can point back at the start time.
+		let relative: { sign: number; mins: number; start: number } | null = null
 		let toastTimer = 0
 		// Result is shown as a toast over the face, so it's always in view.
 		function showToast(msg: string, cls: string) {
@@ -392,19 +396,41 @@ const { fullscreen = false, class: className = '' } = Astro.props
 		function hideToast() {
 			toast.classList.remove('show')
 		}
+		function fmtTime(h: number, m: number) {
+			return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`
+		}
+		function fmtDuration(mins: number) {
+			if (mins < 60) return `${mins} minutes`
+			if (mins === 60) return '1 hour'
+			return mins % 60 === 0 ? `${mins / 60} hours` : `1½ hours`
+		}
 		function newQuestion() {
-			const h = Math.floor(Math.random() * 24)
-			const m =
-				level === 'easy'
-					? [0, 15, 30, 45][Math.floor(Math.random() * 4)]
-					: [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55][
-							Math.floor(Math.random() * 12)
-						]
-			target = { h, m }
-			targetEl.textContent = `${String(h).padStart(2, '0')}:${String(m).padStart(
-				2,
-				'0',
-			)}`
+			// Half the questions are "add/take away" jumps from wherever the hands are now.
+			if (Math.random() < 0.5) {
+				const offsets = level === 'easy' ? [15, 30, 60] : [15, 30, 45, 60, 90]
+				const mins = offsets[Math.floor(Math.random() * offsets.length)]
+				const sign = Math.random() < 0.5 ? 1 : -1
+				const start = hours * 60 + minutes
+				const t = (((start + sign * mins) % 1440) + 1440) % 1440
+				target = { h: Math.floor(t / 60), m: t % 60 }
+				relative = { sign, mins, start }
+				qpText.textContent = `It's ${fmtTime(hours, minutes)} — ${
+					sign > 0 ? 'add' : 'take away'
+				}`
+				targetEl.textContent = fmtDuration(mins)
+			} else {
+				relative = null
+				const h = Math.floor(Math.random() * 24)
+				const m =
+					level === 'easy'
+						? [0, 15, 30, 45][Math.floor(Math.random() * 4)]
+						: [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55][
+								Math.floor(Math.random() * 12)
+							]
+				target = { h, m }
+				qpText.textContent = 'Set the clock to'
+				targetEl.textContent = fmtTime(h, m)
+			}
 			hideToast()
 		}
 		function setQuiz(on: boolean) {
@@ -420,6 +446,17 @@ const { fullscreen = false, class: className = '' } = Astro.props
 			if (hours === target.h && minutes === target.m) {
 				showToast('🎉 Perfect!', 'win')
 				toastTimer = window.setTimeout(newQuestion, 1500)
+			} else if (relative) {
+				showToast(
+					`Count ${relative.sign > 0 ? 'on' : 'back'} ${fmtDuration(
+						relative.mins,
+					)} from ${fmtTime(
+						Math.floor(relative.start / 60),
+						relative.start % 60,
+					)}. Try again!`,
+					'miss',
+				)
+				toastTimer = window.setTimeout(hideToast, 2600)
 			} else {
 				let h12 = target.h % 12
 				if (h12 === 0) h12 = 12
