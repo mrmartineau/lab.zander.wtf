@@ -11,10 +11,15 @@ design.
 
 | Slug                  | What it is                                              |
 | :-------------------- | :------------------------------------------------------ |
+| `cloze-generator`     | Paste text, hide words, test recall — for language teachers |
+| `css-icons`           | Icons drawn with nothing but CSS — no SVG, no images    |
 | `data-transformation` | A React "dojo" for practising data-transform challenges |
 | `drawing-app`         | A small in-browser drawing app                          |
 | `keyboard-only`       | A cursorless page navigated entirely with the keyboard  |
+| `procedural-page`     | An endless page that generates itself as you scroll — seeded randomness, no AI |
 | `spotify-favourites`  | Browse most-explored Spotify artists & albums (ZUI)     |
+| `time`                | A quiz for learning to read the 24-hour clock           |
+| `wiki-trail`          | Follow Wikipedia links downward — old articles freeze into cards, the trail is the page |
 | `zui-components`      | A reference page showcasing ZUI components              |
 
 ## Project structure
