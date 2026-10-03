@@ -20,13 +20,14 @@ design.
 | `spotify-favourites`  | Browse most-explored Spotify artists & albums (ZUI)     |
 | `time`                | A quiz for learning to read the 24-hour clock           |
 | `wiki-trail`          | Follow Wikipedia links downward — old articles freeze into cards, the trail is the page |
+| `word-art`            | 90s WordArt rebuilt in CSS (Solid) — any Google Font, gradients, 3D, curves, copyable CSS, PNG export |
 | `zui-components`      | A reference page showcasing ZUI components              |
 
 ## Project structure
 
 ```text
 src/
-  components/            Per-item React/Astro components
+  components/            Per-item React/Solid/Astro components
   data/lab.ts            Lab item types + discovery helper (no manual registry)
   layouts/Layout.astro   Minimal shell — ZUI CSS + Phosphor icons + body reset
   pages/
@@ -81,6 +82,10 @@ In an `.md` page, put the same keys in the YAML frontmatter block.
   loaded in `Layout.astro`.
 - Each lab item page may have a completely bespoke design. `Layout.astro` is
   intentionally minimal.
+- Both React and Solid integrations are installed. They both compile JSX, so
+  `astro.config.mjs` scopes them: Solid only handles `**/word-art/**`, React
+  handles everything else. Add new Solid paths to both filters. Solid files
+  also start with `/** @jsxImportSource solid-js */` (tsconfig defaults to React).
 
 ## Commands
 

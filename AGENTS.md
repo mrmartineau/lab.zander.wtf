@@ -87,9 +87,10 @@ Always run `npm run build` after changes to confirm the site compiles.
 
 ## Notes
 
-- No Astro framework integration is installed. `.astro` ZUI components work
-  out of the box. To use React/Solid/Svelte/Vue ZUI wrappers, install that
-  framework's `@astrojs/*` integration first.
+- The React and Solid integrations are installed. Both compile JSX, so
+  `astro.config.mjs` scopes them: Solid only handles `**/word-art/**`, React
+  everything else — add new Solid paths to both filters. Solid files start with
+  `/** @jsxImportSource solid-js */` because tsconfig defaults to React.
 - **Keep `README.md` up to date.** Whenever a change affects project structure,
   the lab items list, commands, or conventions, update `README.md` in the same
   change so it never drifts from the actual state of the repo.
