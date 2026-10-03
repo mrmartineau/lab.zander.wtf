@@ -279,7 +279,10 @@ export interface LetterGeo {
 
 const seg =
 	typeof Intl !== 'undefined' && 'Segmenter' in Intl ? new Intl.Segmenter(undefined, { granularity: 'grapheme' }) : null
-export const graphemes = (t: string) => (seg ? [...seg.segment(t)].map((x) => x.segment) : [...t])
+// Without Segmenter: keep combining marks, ZWJ emoji sequences and flag pairs
+// together so one visible character never splits across letter spans.
+const GRAPHEME = /\p{RI}\p{RI}|\P{M}\p{M}*(?:\u200D\P{M}\p{M}*)*|\p{M}+/gu
+export const graphemes = (t: string) => (seg ? [...seg.segment(t)].map((x) => x.segment) : (t.match(GRAPHEME) ?? []))
 
 const escAttr = (s: string) => s.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
 
@@ -365,17 +368,21 @@ export function bounds(s: WAState, m: Metrics, geo: LetterGeo[]) {
 		const qy = px * Math.sin(rr) + py * Math.cos(rr)
 		return [ox + qx * cx, oy + qy * cy]
 	}
+	const ink = s.size * 0.15
 	geo.forEach((g, i) => {
 		const w = m.widths[i]
 		const lcx = m.lefts[i] + w / 2
 		const lcy = m.H / 2
 		const cos = Math.cos(g.rot)
 		const sin = Math.sin(g.rot)
+		// Glyph ink overshoots the line box (swashes, tall caps) — matters once rotated
+		const hw = w / 2 + ink
+		const hh = m.H / 2 + ink
 		for (const [ax, ay] of [
-			[-w / 2, -m.H / 2],
-			[w / 2, -m.H / 2],
-			[-w / 2, m.H / 2],
-			[w / 2, m.H / 2],
+			[-hw, -hh],
+			[hw, -hh],
+			[-hw, hh],
+			[hw, hh],
 		]) {
 			const sxp = ax * g.sx
 			const syp = ay * g.sy
@@ -387,17 +394,30 @@ export function bounds(s: WAState, m: Metrics, geo: LetterGeo[]) {
 		}
 	})
 	if (!Number.isFinite(x0)) return null
-	// Room for things that paint outside the letter boxes.
+	// Room for things that paint outside the letter boxes. Their offsets are in
+	// the word's own axes, so run them through the same transform (sans origin).
+	const offset = (x: number, y: number) => {
+		const [px, py] = word(ox + x, oy + y)
+		return [px - ox, py - oy]
+	}
 	const rad = (s.extrude.angle * Math.PI) / 180
-	const ex = Math.cos(rad) * s.extrude.depth
-	const ey = Math.sin(rad) * s.extrude.depth
 	const sh = s.shadow.blur * 1.5
+	const offsets = [
+		[0, 0],
+		offset(Math.cos(rad) * s.extrude.depth, Math.sin(rad) * s.extrude.depth),
+		offset(s.shadow.x - sh, s.shadow.y - sh),
+		offset(s.shadow.x + sh, s.shadow.y - sh),
+		offset(s.shadow.x - sh, s.shadow.y + sh),
+		offset(s.shadow.x + sh, s.shadow.y + sh),
+	]
+	const xs = offsets.map(([x]) => x)
+	const ys = offsets.map(([, y]) => y)
 	const st = s.stroke.width * 2
 	return {
-		x0: x0 + Math.min(0, ex, s.shadow.x - sh) - st,
-		x1: x1 + Math.max(0, ex, s.shadow.x + sh) + st,
-		y0: y0 + Math.min(0, ey, s.shadow.y - sh) - st,
-		y1: y1 + Math.max(0, ey, s.shadow.y + sh) + st,
+		x0: x0 + Math.min(...xs) - st,
+		x1: x1 + Math.max(...xs) + st,
+		y0: y0 + Math.min(...ys) - st,
+		y1: y1 + Math.max(...ys) + st,
 	}
 }
 
@@ -435,10 +455,64 @@ export function decodeState(str: string): WAState | null {
 	try {
 		const b = atob(str.replace(/-/g, '+').replace(/_/g, '/'))
 		const json = new TextDecoder().decode(Uint8Array.from(b, (c) => c.charCodeAt(0)))
-		return merge(clone(DEFAULT_STATE), JSON.parse(json))
+		return sanitise(merge(clone(DEFAULT_STATE), JSON.parse(json)))
 	} catch {
 		return null
 	}
+}
+
+/** Slider ranges, mirrored from the editor controls. */
+const RANGES: Record<string, [number, number]> = {
+	weight: [100, 900],
+	size: [40, 220],
+	spacing: [-10, 60],
+	'fill.angle': [0, 360],
+	'stroke.width': [0, 12],
+	'extrude.depth': [0, 48],
+	'extrude.angle': [0, 359],
+	'shadow.x': [-40, 40],
+	'shadow.y': [-40, 40],
+	'shadow.blur': [0, 60],
+	'shape.curve': [-360, 360],
+	'shape.wave': [0, 100],
+	'shape.freq': [0.5, 4],
+	'shape.bulge': [-80, 150],
+	'shape.taper': [-80, 80],
+	'tf.rotate': [-180, 180],
+	'tf.skew': [-45, 45],
+	'tf.tiltX': [-70, 70],
+	'tf.tiltY': [-70, 70],
+	'tf.stretch': [0.4, 2.5],
+}
+const HEX = /^#(?:[0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})$/i
+const FILL_TYPES: FillType[] = ['solid', 'linear', 'radial', 'conic']
+
+/**
+ * Share links are untrusted input that ends up in CSS (and in downloaded
+ * files), so clamp numbers to the editor's ranges and only let through values
+ * the controls themselves could produce.
+ */
+function sanitise(s: WAState): WAState {
+	const d = DEFAULT_STATE
+	for (const [path, [lo, hi]] of Object.entries(RANGES)) {
+		const keys = path.split('.')
+		const last = keys.pop()!
+		const obj = keys.reduce<any>((o, k) => o[k], s)
+		const v = obj[last]
+		obj[last] = Number.isFinite(v) ? Math.min(hi, Math.max(lo, v)) : keys.reduce<any>((o, k) => o[k], d)[last]
+	}
+	const colour = (v: string, fallback: string) => (HEX.test(v) ? v : fallback)
+	s.fill.stops = s.fill.stops.filter((c) => HEX.test(c)).slice(0, 8)
+	if (!s.fill.stops.length) s.fill.stops = [...d.fill.stops]
+	if (!FILL_TYPES.includes(s.fill.type)) s.fill.type = d.fill.type
+	if (!ANIMS.some((a) => a.id === s.anim)) s.anim = d.anim
+	s.stroke.color = colour(s.stroke.color, d.stroke.color)
+	s.extrude.color = colour(s.extrude.color, d.extrude.color)
+	s.shadow.color = colour(s.shadow.color, d.shadow.color)
+	// Font names are letters, digits, spaces and dashes — nothing that can escape a CSS string
+	if (!/^[\p{L}\p{N} -]{1,60}$/u.test(s.font)) s.font = d.font
+	s.text = s.text.slice(0, 48)
+	return s
 }
 
 /** Deep-merge `src` onto `base`, keeping only keys `base` knows about. */

@@ -152,27 +152,34 @@ export default function Studio() {
 		setCanRedo(future.length > 0)
 	}
 
+	/** Record the current state as a history step, if it changed. */
+	function commit() {
+		clearTimeout(commitTimer)
+		const now = JSON.stringify(state)
+		if (now === committed) return
+		if (committed) past.push(committed)
+		if (past.length > 100) past.shift()
+		future.length = 0
+		committed = now
+		syncHistory()
+	}
+
 	// Reading the whole store via JSON tracks every field
 	createEffect(() => {
-		const now = JSON.stringify(state)
+		JSON.stringify(state)
 		clearTimeout(commitTimer)
-		commitTimer = window.setTimeout(() => {
-			if (now === committed) return
-			if (committed) past.push(committed)
-			if (past.length > 100) past.shift()
-			future.length = 0
-			committed = now
-			syncHistory()
-		}, 350)
+		commitTimer = window.setTimeout(commit, 350)
 		clearTimeout(hashTimer)
 		hashTimer = window.setTimeout(() => history.replaceState(null, '', `#${encodeState(unwrap(state))}`), 300)
 	})
 
 	function travel(from: string[], to: string[]) {
+		// Land any edit still inside the debounce window first, so undo steps
+		// back from it rather than skipping over it.
+		commit()
 		const snap = from.pop()
 		if (!snap) return
-		clearTimeout(commitTimer)
-		to.push(JSON.stringify(state))
+		to.push(committed)
 		committed = snap
 		setState(reconcile(JSON.parse(snap)))
 		syncHistory()

@@ -92,7 +92,8 @@ export async function savePNG(input: SnapshotInput, name: string): Promise<'png'
 	const W = Math.ceil((w0 + pad * 2) * scale)
 	const H = Math.ceil((h0 + pad * 2) * scale)
 
-	const fonts = await embeddedFont(s.font, s.text)
+	// Best effort: without the font the picture still renders, in the fallback face
+	const fonts = await embeddedFont(s.font, s.text).catch(() => '')
 	const vars = Object.entries(rootVars(s, input.wEm))
 		.map(([k, v]) => `${k}: ${v};`)
 		.join(' ')
@@ -103,7 +104,7 @@ ${baseCss('.wordart', 'none')}
 .snap { position: relative; width: ${W}px; height: ${H}px; overflow: hidden; ${input.background ?? ''} }
 .place { position: absolute; left: 0; top: 0; width: max-content; transform-origin: 0 0; transform: translate(${(pad - b.x0) * scale}px, ${(pad - b.y0) * scale}px) scale(${scale}); }`
 
-	const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}"><foreignObject width="100%" height="100%"><div xmlns="http://www.w3.org/1999/xhtml" class="snap"><style><![CDATA[${css}]]></style><div class="place">${html}</div></div></foreignObject></svg>`
+	const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}"><foreignObject width="100%" height="100%"><div xmlns="http://www.w3.org/1999/xhtml" class="snap"><style><![CDATA[${css.replace(/]]>/g, ']]]]><![CDATA[>')}]]></style><div class="place">${html}</div></div></foreignObject></svg>`
 	const svgBlob = new Blob([svg], { type: 'image/svg+xml' })
 
 	const img = new Image()
