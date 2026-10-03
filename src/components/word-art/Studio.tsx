@@ -15,6 +15,7 @@ import {
 	type WAState,
 } from './engine'
 import { FONTS, PRESETS, SWATCHES } from './presets'
+import { savePNG } from './png'
 import WordArt, { type WordArtApi } from './WordArt'
 
 const TABS = [
@@ -276,7 +277,7 @@ ${html}
 `
 		const a = document.createElement('a')
 		a.href = URL.createObjectURL(new Blob([doc], { type: 'text/html' }))
-		a.download = `${(state.text || 'wordart').replace(/[^\w-]+/g, '-').toLowerCase()}.html`
+		a.download = `${fileName()}.html`
 		a.click()
 		setTimeout(() => URL.revokeObjectURL(a.href), 1000)
 	}
@@ -288,6 +289,52 @@ ${html}
 		} catch {}
 	}
 
+	/* ───────────── PNG + full screen ───────────── */
+
+	let stageEl!: HTMLDivElement
+	const [full, setFull] = createSignal(false)
+	const [saving, setSaving] = createSignal(false)
+	const fileName = () =>
+		state.text.replace(/[^\w-]+/g, '-').replace(/^-+|-+$/g, '').toLowerCase() || 'wordart'
+
+	async function savePicture() {
+		if (!wordart || saving()) return
+		setSaving(true)
+		try {
+			const cs = getComputedStyle(stageEl)
+			const kind = await savePNG(
+				{
+					state: unwrap(state),
+					chars: wordart.chars(),
+					geo: wordart.geo(),
+					metrics: wordart.metrics(),
+					wEm: wordart.wEm(),
+					// The see-through stage makes a transparent PNG
+					background:
+						stage() === 'checker'
+							? null
+							: `background-color: ${cs.backgroundColor}; background-image: ${cs.backgroundImage};`,
+				},
+				fileName(),
+			)
+			notify(kind === 'png' ? 'Picture saved!' : "Saved as SVG — this browser can't make PNGs")
+		} catch {
+			notify("Couldn't save the picture")
+		} finally {
+			setSaving(false)
+		}
+	}
+
+	// Real full screen where the browser allows it (not iPhone Safari); else
+	// the stage just covers the page.
+	function toggleFull() {
+		if (document.fullscreenElement) return void document.exitFullscreen()
+		if (full()) return setFull(false)
+		if (stageEl.requestFullscreen) stageEl.requestFullscreen().catch(() => setFull(true))
+		else setFull(true)
+	}
+	createEffect(() => document.documentElement.classList.toggle('wa-locked', full() && !document.fullscreenElement))
+
 	/* ───────────── mount ───────────── */
 
 	onMount(() => {
@@ -297,9 +344,12 @@ ${html}
 			const saved = localStorage.getItem('wa-stage')
 			if (saved) setStage(saved)
 		} catch {}
+		const onFull = () => setFull(document.fullscreenElement === stageEl)
+		document.addEventListener('fullscreenchange', onFull)
 		const onFonts = () => setFontTick((t) => t + 1)
 		document.fonts.addEventListener('loadingdone', onFonts)
 		const onKey = (e: KeyboardEvent) => {
+			if (e.key === 'Escape' && full() && !document.fullscreenElement) return setFull(false)
 			if (!(e.metaKey || e.ctrlKey) || e.key.toLowerCase() !== 'z') return
 			if ((e.target as HTMLElement).matches('input[type=text], input:not([type])')) return
 			e.preventDefault()
@@ -308,6 +358,8 @@ ${html}
 		addEventListener('keydown', onKey)
 		onCleanup(() => {
 			document.fonts.removeEventListener('loadingdone', onFonts)
+			document.removeEventListener('fullscreenchange', onFull)
+			document.documentElement.classList.remove('wa-locked')
 			removeEventListener('keydown', onKey)
 		})
 	})
@@ -371,14 +423,45 @@ ${html}
 	return (
 		<div class="wa-workspace">
 			<section class="wa-left" aria-label="Preview">
-				<div class="wa-stage" data-bg={stage()}>
+				<div ref={stageEl} class="wa-stage" classList={{ 'is-full': full() }} data-bg={stage()}>
 					<WordArt
 						class="wa-stage-inner"
 						state={state}
 						fontTick={fontTick()}
-						maxScale={1}
+						maxScale={full() ? 4 : 1}
 						ref={(api) => (wordart = api)}
 					/>
+					<div class="wa-stage-tools">
+						<Show when={full()}>
+							<button type="button" class="wa-tool" title="Surprise me!" aria-label="Surprise me!" onClick={surprise}>
+								<i class="ph ph-dice-five" />
+							</button>
+							<button
+								type="button"
+								class="wa-tool"
+								title="Save as PNG"
+								aria-label="Save as PNG"
+								disabled={saving()}
+								onClick={savePicture}
+							>
+								<i class={`ph ${saving() ? 'ph-spinner wa-spin' : 'ph-image'}`} />
+							</button>
+						</Show>
+						<button
+							type="button"
+							class="wa-tool"
+							title={full() ? 'Exit full screen' : 'Full screen'}
+							aria-label={full() ? 'Exit full screen' : 'Full screen'}
+							aria-pressed={full()}
+							onClick={toggleFull}
+						>
+							<i class={`ph ${full() ? 'ph-corners-in' : 'ph-corners-out'}`} />
+						</button>
+					</div>
+					{/* Inside the stage so it still shows in full screen */}
+					<div class={`wa-toast${toast() ? ' is-on' : ''}`} role="status" aria-live="polite">
+						{toast()}
+					</div>
 				</div>
 
 				<div class="wa-textrow">
@@ -423,6 +506,14 @@ ${html}
 						</button>
 						<button class="zui-button zui-button-variant-ghost zui-button-size-sm" type="button" disabled={!canRedo()} onClick={redo}>
 							<i class="ph ph-arrow-u-up-right" /> Redo
+						</button>
+						<button
+							class="zui-button zui-button-variant-outline zui-button-size-sm"
+							type="button"
+							disabled={saving()}
+							onClick={savePicture}
+						>
+							<i class={`ph ${saving() ? 'ph-spinner wa-spin' : 'ph-image'}`} /> Save PNG
 						</button>
 						<button
 							class="zui-button zui-button-variant-outline zui-button-size-sm"
@@ -836,9 +927,6 @@ ${html}
 				</Pane>
 			</section>
 
-			<div class={`wa-toast${toast() ? ' is-on' : ''}`} role="status" aria-live="polite">
-				{toast()}
-			</div>
 		</div>
 	)
 }

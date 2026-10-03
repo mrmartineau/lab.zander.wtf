@@ -8,6 +8,7 @@ export interface WordArtApi {
 	chars: () => string[]
 	geo: () => LetterGeo[]
 	wEm: () => number
+	metrics: () => Metrics
 	/** A springy entrance, for when the whole style changes at once. */
 	pop: () => void
 }
@@ -74,6 +75,7 @@ export default function WordArt(props: {
 			chars,
 			geo,
 			wEm,
+			metrics,
 			pop: () =>
 				!matchMedia('(prefers-reduced-motion: reduce)').matches &&
 				root.animate([{ scale: 0.6, opacity: 0 }, { scale: 1, opacity: 1 }], {

@@ -71,6 +71,9 @@ const fontCache = new Map<string, Promise<string | null>>()
 /** The stylesheet URL that actually worked for each family (keeps the weight axis). */
 const fontResolved = new Map<string, string>()
 
+/** Stylesheet URL for a family: the one that loaded, else the plain family. */
+export const resolvedFontHref = (family: string) => fontResolved.get(family) ?? fontHref(family)
+
 export const fontHref = (family: string, axis = '') =>
 	`https://fonts.googleapis.com/css2?family=${encodeURIComponent(family).replace(/%20/g, '+')}${axis}&display=swap`
 
@@ -407,7 +410,7 @@ export function exportCode(s: WAState, chars: string[], geo: LetterGeo[], wEm: n
 		.join('\n')
 	let css = ''
 	if (!SYSTEM_FONTS.has(s.font)) {
-		css += `/* Keep @import at the very top of your stylesheet */\n@import url('${fontResolved.get(s.font) ?? fontHref(s.font)}');\n\n`
+		css += `/* Keep @import at the very top of your stylesheet */\n@import url('${resolvedFontHref(s.font)}');\n\n`
 	}
 	css += `/* Tweak me! */\n.wordart {\n${vars}\n}\n\n${baseCss('.wordart', s.anim)}`
 	const letters = chars
