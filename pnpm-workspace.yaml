@@ -1,6 +1,7 @@
 packages: []
 allowBuilds:
   esbuild: true
+  sharp: false
   workerd: true
 minimumReleaseAgeExclude:
   - miniflare@4.20260617.0
