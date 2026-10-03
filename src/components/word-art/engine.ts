@@ -1,4 +1,6 @@
-// WordArt engine — turns a plain state object into per-letter HTML + CSS.
+// WordArt engine — pure functions that turn a state object into CSS + per-letter
+// transforms. Rendering lives in the Solid components; nothing here touches
+// the DOM except font loading.
 //
 // Every letter is its own inline-block span so it can be bent onto a curve,
 // waved, inflated or tapered. The gradient is painted per letter but offset by
@@ -9,17 +11,13 @@
 //   <span data-c="A" style="--i;--x;transform">   ← positioned, carries the
 //     <span>A</span>                              ← gradient-clipped fill
 //   </span>                                       ::before = outline + 3D
+//
+// All the per-state values are CSS custom properties on the root, and the
+// structural stylesheet only depends on the animation. So changing a slider
+// only rewrites a few inline styles — animations keep running.
 
 export type FillType = 'solid' | 'linear' | 'radial' | 'conic'
-export type Anim =
-	| 'none'
-	| 'wave'
-	| 'jelly'
-	| 'swing'
-	| 'float'
-	| 'spin'
-	| 'rainbow'
-	| 'flow'
+export type Anim = 'none' | 'wave' | 'jelly' | 'swing' | 'float' | 'spin' | 'rainbow' | 'flow'
 
 export interface WAState {
 	text: string
@@ -40,13 +38,7 @@ export interface WAState {
 		bulge: number
 		taper: number
 	}
-	tf: {
-		rotate: number
-		skew: number
-		tiltX: number
-		tiltY: number
-		stretch: number
-	}
+	tf: { rotate: number; skew: number; tiltX: number; tiltY: number; stretch: number }
 	anim: Anim
 }
 
@@ -74,7 +66,7 @@ export const clone = <T,>(v: T): T => JSON.parse(JSON.stringify(v))
 
 /* ─────────────────────────────── Fonts ─────────────────────────────── */
 
-const SYSTEM_FONTS = new Set(['serif', 'sans-serif', 'monospace', 'cursive', 'fantasy', 'system-ui'])
+export const SYSTEM_FONTS = new Set(['serif', 'sans-serif', 'monospace', 'cursive', 'fantasy', 'system-ui'])
 const fontCache = new Map<string, Promise<string | null>>()
 /** The stylesheet URL that actually worked for each family (keeps the weight axis). */
 const fontResolved = new Map<string, string>()
@@ -137,13 +129,11 @@ const n = (v: number, d = 3) => {
 const em = (px: number, size: number) => `${n(px / size)}em`
 
 export function gradient(fill: WAState['fill'], loop = false): string {
-	let stops = fill.stops.length ? [...fill.stops] : ['#000']
+	const stops = fill.stops.length ? [...fill.stops] : ['#000']
 	if (fill.type === 'solid') return `linear-gradient(${stops[0]}, ${stops[0]})`
 	if ((loop || fill.type === 'conic') && !fill.hard && stops[0] !== stops.at(-1)) stops.push(stops[0])
 	const list = fill.hard
-		? stops
-				.map((c, i) => `${c} ${n((i / stops.length) * 100, 1)}% ${n(((i + 1) / stops.length) * 100, 1)}%`)
-				.join(', ')
+		? stops.map((c, i) => `${c} ${n((i / stops.length) * 100, 1)}% ${n(((i + 1) / stops.length) * 100, 1)}%`).join(', ')
 		: stops.join(', ')
 	if (fill.type === 'radial') return `radial-gradient(ellipse at 50% 50%, ${list})`
 	if (fill.type === 'conic') return `conic-gradient(from ${fill.angle}deg at 50% 50%, ${list})`
@@ -152,7 +142,7 @@ export function gradient(fill: WAState['fill'], loop = false): string {
 
 function extrudeShadow(s: WAState): string {
 	const { depth, angle, color } = s.extrude
-	if (depth <= 0) return ''
+	if (depth <= 0) return 'none'
 	const rad = (angle * Math.PI) / 180
 	const dx = Math.cos(rad)
 	const dy = Math.sin(rad)
@@ -164,7 +154,7 @@ function extrudeShadow(s: WAState): string {
 		const dark = Math.round((i / steps) * 45)
 		out.push(`${em(dx * d, s.size)} ${em(dy * d, s.size)} 0 color-mix(in oklab, ${color}, #000 ${dark}%)`)
 	}
-	return out.join(',\n    ')
+	return out.join(', ')
 }
 
 const wordTransform = (s: WAState) => {
@@ -176,12 +166,13 @@ const wordTransform = (s: WAState) => {
 	if (t.rotate) parts.push(`rotate(${t.rotate}deg)`)
 	if (t.skew) parts.push(`skewX(${t.skew}deg)`)
 	if (t.stretch !== 1) parts.push(`scaleY(${t.stretch})`)
-	return parts.join(' ')
+	return parts.join(' ') || 'none'
 }
 
 const dropShadow = (s: WAState) => {
 	const { x, y, blur, color } = s.shadow
-	if (!x && !y && !blur) return ''
+	// A transparent shadow keeps the filter list valid for the rainbow keyframes
+	if (!x && !y && !blur) return 'drop-shadow(0 0 0 transparent)'
 	return `drop-shadow(${em(x, s.size)} ${em(y, s.size)} ${em(blur, s.size)} ${color})`
 }
 
@@ -196,56 +187,55 @@ export const ANIMS: { id: Anim; label: string; icon: string }[] = [
 	{ id: 'flow', label: 'Flow', icon: 'ph-shuffle' },
 ]
 
-/** The full stylesheet for one piece of WordArt under `sel`. */
-export function cssFor(s: WAState, sel: string, wEm: number, opts: { imports?: boolean; kf?: string } = {}): string {
-	// Keyframe names are global, so previews get their own prefix
-	const k = opts.kf ?? 'wa'
-	const font = SYSTEM_FONTS.has(s.font) ? s.font : `"${s.font}", sans-serif`
-	const tf = wordTransform(s)
-	const drop = dropShadow(s)
-	const ext = extrudeShadow(s)
-	const hasBack = s.stroke.width > 0 || s.extrude.depth > 0
-	const backColor = s.stroke.width > 0 ? s.stroke.color : s.extrude.color
-	const pad = 0.3
-	const anim = s.anim
+/** Everything that varies with the state, as declarations for the root element. */
+export function rootVars(s: WAState, wEm: number): Record<string, string> {
+	const hasStroke = s.stroke.width > 0
+	return {
+		'--wa-fill': gradient(s.fill, s.anim === 'flow'),
+		'--wa-w': `${n(wEm)}em`,
+		'--wa-back': hasStroke ? s.stroke.color : s.extrude.depth > 0 ? s.extrude.color : 'transparent',
+		'--wa-stroke': hasStroke ? `${em(s.stroke.width * 2, s.size)} ${s.stroke.color}` : '0 transparent',
+		'--wa-ext': extrudeShadow(s),
+		'--wa-drop': dropShadow(s),
+		'font-family': SYSTEM_FONTS.has(s.font) ? s.font : `"${s.font}", sans-serif`,
+		'font-size': `${s.size}px`,
+		'font-weight': String(s.weight),
+		'letter-spacing': `${n(s.spacing / 100)}em`,
+		transform: wordTransform(s),
+	}
+}
 
-	const root: string[] = [
-		`--wa-fill: ${gradient(s.fill, anim === 'flow')};`,
-		`--wa-w: ${n(wEm)}em;`,
-		`display: inline-block;`,
-		`position: relative;`,
-		`white-space: nowrap;`,
-		`line-height: 1.15;`,
-		`font-family: ${font};`,
-		`font-size: ${s.size}px;`,
-		`font-weight: ${s.weight};`,
-		`letter-spacing: ${n(s.spacing / 100)}em;`,
+/**
+ * The structural stylesheet. It reads everything from the root's custom
+ * properties, so it only changes when the animation does. `k` prefixes the
+ * keyframe names, which are global.
+ */
+export function baseCss(sel: string, anim: Anim, k = 'wa'): string {
+	const pad = 0.3
+	const root = [
+		'display: inline-block;',
+		'position: relative;',
+		'white-space: nowrap;',
+		'line-height: 1.15;',
+		'filter: var(--wa-drop);',
 	]
-	if (tf) root.push(`transform: ${tf};`)
-	if (drop) root.push(`filter: ${drop};`)
 	if (anim === 'spin') root.push(`animation: ${k}-spin 4s linear infinite;`)
 	if (anim === 'float') root.push(`animation: ${k}-float 3s ease-in-out infinite;`)
 	if (anim === 'rainbow') root.push(`animation: ${k}-rainbow 3s linear infinite;`)
 	if (anim === 'flow') root.push(`animation: ${k}-flow 3s linear infinite;`)
 
-	const letter = [`display: inline-block;`, `position: relative;`, `white-space: pre;`]
-	if (anim === 'wave') letter.push(`animation: ${k}-wave 1.4s ease-in-out infinite;`, `animation-delay: calc(var(--i) * -0.1s);`)
-	if (anim === 'jelly') letter.push(`animation: ${k}-jelly 1.2s ease-in-out infinite;`, `animation-delay: calc(var(--i) * -0.08s);`)
-	if (anim === 'swing') letter.push(`animation: ${k}-swing 1.6s ease-in-out infinite alternate;`, `animation-delay: calc(var(--i) * -0.15s);`)
+	const letter = ['display: inline-block;', 'position: relative;', 'white-space: pre;']
+	if (anim === 'wave') letter.push(`animation: ${k}-wave 1.4s ease-in-out infinite;`, 'animation-delay: calc(var(--i) * -0.1s);')
+	if (anim === 'jelly') letter.push(`animation: ${k}-jelly 1.2s ease-in-out infinite;`, 'animation-delay: calc(var(--i) * -0.08s);')
+	if (anim === 'swing') letter.push(`animation: ${k}-swing 1.6s ease-in-out infinite alternate;`, 'animation-delay: calc(var(--i) * -0.15s);')
 
 	const shift = anim === 'flow' ? ' + var(--wa-shift) * var(--wa-w)' : ''
 	let css = ''
-	if (opts.imports && !SYSTEM_FONTS.has(s.font)) css += `/* Keep @import at the very top of your stylesheet */\n@import url('${fontResolved.get(s.font) ?? fontHref(s.font)}');\n\n`
 	if (anim === 'flow') css += `@property --wa-shift {\n  syntax: '<number>';\n  inherits: true;\n  initial-value: 0;\n}\n\n`
 	css += `${sel} {\n  ${root.join('\n  ')}\n}\n\n`
 	css += `${sel} > span {\n  ${letter.join('\n  ')}\n}\n\n`
-	if (hasBack) {
-		css += `/* Outline + 3D extrusion sit behind the gradient fill */\n`
-		css += `${sel} > span::before {\n  content: attr(data-c);\n  position: absolute;\n  inset: 0;\n  color: ${backColor};\n`
-		if (s.stroke.width > 0) css += `  -webkit-text-stroke: ${em(s.stroke.width * 2, s.size)} ${s.stroke.color};\n`
-		if (ext) css += `  text-shadow:\n    ${ext};\n`
-		css += `}\n\n`
-	}
+	css += `/* Outline + 3D extrusion sit behind the gradient fill */\n`
+	css += `${sel} > span::before {\n  content: attr(data-c);\n  position: absolute;\n  inset: 0;\n  color: var(--wa-back);\n  -webkit-text-stroke: var(--wa-stroke);\n  text-shadow: var(--wa-ext);\n}\n\n`
 	css += `${sel} > span > span {\n  display: block;\n  position: relative;\n  padding: ${pad}em;\n  margin: -${pad}em;\n  background: var(--wa-fill);\n  background-size: var(--wa-w) 100%;\n  background-position: calc(${pad}em - var(--x)${shift}) 0;\n  -webkit-background-clip: text;\n  background-clip: text;\n  color: transparent;\n  -webkit-text-fill-color: transparent;\n}\n`
 
 	const kf: Partial<Record<Anim, string>> = {
@@ -254,7 +244,7 @@ export function cssFor(s: WAState, sel: string, wEm: number, opts: { imports?: b
 		swing: `@keyframes ${k}-swing {\n  from { rotate: -9deg; }\n  to { rotate: 9deg; }\n}`,
 		float: `@keyframes ${k}-float {\n  0%, 100% { translate: 0 0; }\n  50% { translate: 0 -0.18em; }\n}`,
 		spin: `@keyframes ${k}-spin {\n  to { rotate: y 360deg; }\n}`,
-		rainbow: `@keyframes ${k}-rainbow {\n  from { filter: ${drop || ''} hue-rotate(0deg); }\n  to { filter: ${drop || ''} hue-rotate(360deg); }\n}`,
+		rainbow: `@keyframes ${k}-rainbow {\n  from { filter: var(--wa-drop) hue-rotate(0deg); }\n  to { filter: var(--wa-drop) hue-rotate(360deg); }\n}`,
 		flow: `@keyframes ${k}-flow {\n  to { --wa-shift: 1; }\n}`,
 	}
 	if (kf[anim]) {
@@ -265,27 +255,38 @@ export function cssFor(s: WAState, sel: string, wEm: number, opts: { imports?: b
 
 /* ───────────────────────────── Geometry ───────────────────────────── */
 
-export interface Letter {
-	c: string
+/** Flat layout of the word, measured from the DOM in px. */
+export interface Metrics {
+	lefts: number[]
+	widths: number[]
+	/** Word width */
+	W: number
+	/** Line box height */
+	H: number
+}
+
+export interface LetterGeo {
 	style: string
+	tx: number
+	ty: number
+	rot: number
+	sx: number
+	sy: number
 }
 
 const seg =
-	typeof Intl !== 'undefined' && 'Segmenter' in Intl
-		? new Intl.Segmenter(undefined, { granularity: 'grapheme' })
-		: null
+	typeof Intl !== 'undefined' && 'Segmenter' in Intl ? new Intl.Segmenter(undefined, { granularity: 'grapheme' }) : null
 export const graphemes = (t: string) => (seg ? [...seg.segment(t)].map((x) => x.segment) : [...t])
 
-const escAttr = (s: string) =>
-	s.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+const escAttr = (s: string) => s.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
 
 /** Work out each letter's transform from flat layout measurements (px). */
-function layout(s: WAState, lefts: number[], widths: number[], W: number): Letter[] {
+export function layout(s: WAState, m: Metrics): LetterGeo[] {
+	const { lefts, widths, W } = m
 	const size = s.size
 	const { curve, wave, freq, bulge, taper } = s.shape
 	const tp = taper / 100
 	const bg = bulge / 100
-	const count = lefts.length
 
 	const sx: number[] = []
 	const sy: number[] = []
@@ -330,108 +331,92 @@ function layout(s: WAState, lefts: number[], widths: number[], W: number): Lette
 		if (Math.abs(rot) > 0.0005) parts.push(`rotate(${n(rot, 4)}rad)`)
 		if (Math.abs(sx[i] - 1) > 0.001 || Math.abs(sy[i] - 1) > 0.001) parts.push(`scale(${n(sx[i])}, ${n(sy[i])})`)
 		const style = `--i:${i};--x:${em(l, size)}${parts.length ? `;transform:${parts.join(' ')}` : ''}`
-		return { c: '', style }
+		return { style, tx, ty: py, rot, sx: sx[i], sy: sy[i] }
 	})
 }
 
-const letterHTML = (l: Letter) => {
-	const c = escAttr(l.c)
-	return `<span data-c="${c}" style="${l.style}" aria-hidden="true"><span>${c}</span></span>`
-}
-
-/* ───────────────────────────── Render ───────────────────────────── */
-
-let uid = 0
-
-export interface Rendered {
-	letters: Letter[]
-	wEm: number
-}
-
 /**
- * Render WordArt into `host`. Letters are laid out flat first so their real
- * widths (with the web font) can be measured, then bent into shape. When
- * `fit` is set the result is scaled + centred to fill the host.
+ * Bounding box of the finished word in the root's own coordinates, worked out
+ * from the layout maths rather than measured — so it ignores animation and is
+ * cheap enough to run on every slider tick. 3D tilt is approximated by
+ * foreshortening, which is plenty for fitting the preview.
  */
-export function render(host: HTMLElement, s: WAState, opts: { fit?: boolean; maxScale?: number } = {}): Rendered {
-	const id = (host.dataset.waId ||= `wa-${++uid}`)
-	const sel = `.${id}`
-	const chars = graphemes(s.text || ' ')
-
-	let style = host.querySelector<HTMLStyleElement>(':scope > style')
-	let fit = host.querySelector<HTMLElement>(':scope > .wa-fit')
-	if (!style || !fit) {
-		host.innerHTML = `<style></style><div class="wa-fit"></div>`
-		style = host.querySelector('style')!
-		fit = host.querySelector('.wa-fit')!
-	}
-	style.textContent = cssFor(s, sel, 1, { kf: id })
-
-	const root = document.createElement('span')
-	root.className = id
-	root.setAttribute('role', 'img')
-	root.setAttribute('aria-label', s.text)
-	root.innerHTML = chars.map((c) => letterHTML({ c, style: '--i:0;--x:0em' })).join('')
-	fit.replaceChildren(root)
-
-	const spans = [...root.children] as HTMLElement[]
-	const lefts = spans.map((el) => el.offsetLeft)
-	const widths = spans.map((el) => el.offsetWidth)
-	const W = root.offsetWidth || 1
-	const letters = layout(s, lefts, widths, W).map((l, i) => ({ ...l, c: chars[i] }))
-	const wEm = W / s.size
-
-	style.textContent = cssFor(s, sel, wEm, { kf: id })
-	spans.forEach((el, i) => el.setAttribute('style', letters[i].style))
-
-	if (opts.fit) fitTo(host, fit, root, s, opts.maxScale ?? 1)
-	return { letters, wEm }
-}
-
-function fitTo(host: HTMLElement, fit: HTMLElement, root: HTMLElement, s: WAState, maxScale: number) {
-	host.classList.add('wa-measuring')
-	fit.style.transform = 'none'
-	const fr = fit.getBoundingClientRect()
+export function bounds(s: WAState, m: Metrics, geo: LetterGeo[]) {
 	let x0 = Infinity
 	let y0 = Infinity
 	let x1 = -Infinity
 	let y1 = -Infinity
-	for (const el of root.children) {
-		const r = el.getBoundingClientRect()
-		x0 = Math.min(x0, r.left)
-		y0 = Math.min(y0, r.top)
-		x1 = Math.max(x1, r.right)
-		y1 = Math.max(y1, r.bottom)
+	const t = s.tf
+	const ox = m.W / 2
+	const oy = m.H / 2
+	const rr = (t.rotate * Math.PI) / 180
+	const sk = Math.tan((t.skew * Math.PI) / 180)
+	const cx = Math.cos((t.tiltY * Math.PI) / 180)
+	const cy = Math.cos((t.tiltX * Math.PI) / 180)
+	const word = (x: number, y: number) => {
+		// scaleY → skewX → rotate → tilt, about the word's centre
+		let px = x - ox
+		let py = (y - oy) * t.stretch
+		px += py * sk
+		const qx = px * Math.cos(rr) - py * Math.sin(rr)
+		const qy = px * Math.sin(rr) + py * Math.cos(rr)
+		return [ox + qx * cx, oy + qy * cy]
 	}
-	host.classList.remove('wa-measuring')
-	if (!Number.isFinite(x0)) return
+	geo.forEach((g, i) => {
+		const w = m.widths[i]
+		const lcx = m.lefts[i] + w / 2
+		const lcy = m.H / 2
+		const cos = Math.cos(g.rot)
+		const sin = Math.sin(g.rot)
+		for (const [ax, ay] of [
+			[-w / 2, -m.H / 2],
+			[w / 2, -m.H / 2],
+			[-w / 2, m.H / 2],
+			[w / 2, m.H / 2],
+		]) {
+			const sxp = ax * g.sx
+			const syp = ay * g.sy
+			const [x, y] = word(lcx + g.tx + sxp * cos - syp * sin, lcy + g.ty + sxp * sin + syp * cos)
+			x0 = Math.min(x0, x)
+			x1 = Math.max(x1, x)
+			y0 = Math.min(y0, y)
+			y1 = Math.max(y1, y)
+		}
+	})
+	if (!Number.isFinite(x0)) return null
 	// Room for things that paint outside the letter boxes.
 	const rad = (s.extrude.angle * Math.PI) / 180
 	const ex = Math.cos(rad) * s.extrude.depth
 	const ey = Math.sin(rad) * s.extrude.depth
 	const sh = s.shadow.blur * 1.5
 	const st = s.stroke.width * 2
-	x0 += Math.min(0, ex, s.shadow.x - sh) - st
-	x1 += Math.max(0, ex, s.shadow.x + sh) + st
-	y0 += Math.min(0, ey, s.shadow.y - sh) - st
-	y1 += Math.max(0, ey, s.shadow.y + sh) + st
-
-	const hw = host.clientWidth
-	const hh = host.clientHeight
-	const pad = Math.min(hw, hh) * 0.08
-	const w = x1 - x0
-	const h = y1 - y0
-	const scale = Math.min(maxScale, (hw - pad * 2) / w, (hh - pad * 2) / h)
-	const cx = (x0 + x1) / 2 - fr.left
-	const cy = (y0 + y1) / 2 - fr.top
-	fit.style.transform = `translate(${hw / 2 - cx * scale}px, ${hh / 2 - cy * scale}px) scale(${scale})`
+	return {
+		x0: x0 + Math.min(0, ex, s.shadow.x - sh) - st,
+		x1: x1 + Math.max(0, ex, s.shadow.x + sh) + st,
+		y0: y0 + Math.min(0, ey, s.shadow.y - sh) - st,
+		y1: y1 + Math.max(0, ey, s.shadow.y + sh) + st,
+	}
 }
 
-/** Standalone, copy-pasteable HTML + CSS for the last render. */
-export function exportCode(s: WAState, r: Rendered): { html: string; css: string } {
-	const css = cssFor(s, '.wordart', r.wEm, { imports: true })
-	const html = `<span class="wordart" role="img" aria-label="${escAttr(s.text)}">${r.letters.map(letterHTML).join('')}</span>`
-	return { html, css }
+/* ───────────────────────────── Export ───────────────────────────── */
+
+/** Standalone, copy-pasteable HTML + CSS. */
+export function exportCode(s: WAState, chars: string[], geo: LetterGeo[], wEm: number): { html: string; css: string } {
+	const vars = Object.entries(rootVars(s, wEm))
+		.map(([k, v]) => `  ${k}: ${v};`)
+		.join('\n')
+	let css = ''
+	if (!SYSTEM_FONTS.has(s.font)) {
+		css += `/* Keep @import at the very top of your stylesheet */\n@import url('${fontResolved.get(s.font) ?? fontHref(s.font)}');\n\n`
+	}
+	css += `/* Tweak me! */\n.wordart {\n${vars}\n}\n\n${baseCss('.wordart', s.anim)}`
+	const letters = chars
+		.map((c, i) => {
+			const e = escAttr(c)
+			return `<span data-c="${e}" style="${geo[i]?.style ?? ''}" aria-hidden="true"><span>${e}</span></span>`
+		})
+		.join('')
+	return { css, html: `<span class="wordart" role="img" aria-label="${escAttr(s.text)}">${letters}</span>` }
 }
 
 /* ───────────────────────────── Share ───────────────────────────── */
@@ -443,6 +428,7 @@ export const encodeState = (s: WAState) =>
 		.replace(/=+$/, '')
 
 export function decodeState(str: string): WAState | null {
+	if (!str) return null
 	try {
 		const b = atob(str.replace(/-/g, '+').replace(/_/g, '/'))
 		const json = new TextDecoder().decode(Uint8Array.from(b, (c) => c.charCodeAt(0)))
