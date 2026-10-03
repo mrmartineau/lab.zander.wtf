@@ -20,6 +20,7 @@ design.
 | `spotify-favourites`  | Browse most-explored Spotify artists & albums (ZUI)     |
 | `time`                | A quiz for learning to read the 24-hour clock           |
 | `wiki-trail`          | Follow Wikipedia links downward — old articles freeze into cards, the trail is the page |
+| `word-art`            | 90s WordArt rebuilt in CSS — any Google Font, gradients, 3D, curves, copyable CSS |
 | `zui-components`      | A reference page showcasing ZUI components              |
 
 ## Project structure

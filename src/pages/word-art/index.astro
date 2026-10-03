@@ -1,0 +1,1604 @@
+---
+import Layout from '../../layouts/Layout.astro'
+import { Badge, Link } from '@mrmartineau/zui/astro'
+import { ANIMS } from '../../components/word-art/engine'
+import { FONTS, PRESETS } from '../../components/word-art/presets'
+
+export const title = 'WordArt Studio'
+export const description =
+	'The 90s WordArt dialog, rebuilt with modern CSS — any Google Font, gradient fills, 3D extrusion, arches, circles and waves, animation, and copy-paste CSS.'
+export const date = '2026-10-03'
+export const status = 'live'
+export const tags = ['tool', 'css', 'typography', 'fun']
+
+const tabs = [
+	{ id: 'gallery', label: 'Gallery', icon: 'ph-squares-four' },
+	{ id: 'font', label: 'Font', icon: 'ph-text-aa' },
+	{ id: 'colour', label: 'Colour', icon: 'ph-palette' },
+	{ id: 'depth', label: '3D', icon: 'ph-cube' },
+	{ id: 'shape', label: 'Shape', icon: 'ph-bezier-curve' },
+	{ id: 'tilt', label: 'Tilt', icon: 'ph-perspective' },
+	{ id: 'motion', label: 'Motion', icon: 'ph-sparkle' },
+	{ id: 'code', label: 'CSS', icon: 'ph-code' },
+]
+
+const shapes = [
+	{ name: 'Flat', icon: 'ph-minus', shape: { curve: 0, wave: 0, bulge: 0, taper: 0 } },
+	{ name: 'Arch', icon: 'ph-rainbow', shape: { curve: 90, wave: 0, bulge: 0, taper: 0 } },
+	{ name: 'Smile', icon: 'ph-smiley', shape: { curve: -90, wave: 0, bulge: 0, taper: 0 } },
+	{ name: 'Circle', icon: 'ph-circle-dashed', shape: { curve: 360, wave: 0, bulge: 0, taper: 0 } },
+	{ name: 'Wave', icon: 'ph-wave-sine', shape: { curve: 0, wave: 35, freq: 1.5, bulge: 0, taper: 0 } },
+	{ name: 'Inflate', icon: 'ph-balloon', shape: { curve: 0, wave: 0, bulge: 70, taper: 0 } },
+	{ name: 'Pinch', icon: 'ph-hourglass', shape: { curve: 0, wave: 0, bulge: -50, taper: 0 } },
+	{ name: 'Grow', icon: 'ph-trend-up', shape: { curve: 0, wave: 0, bulge: 0, taper: 50 } },
+	{ name: 'Shrink', icon: 'ph-trend-down', shape: { curve: 0, wave: 0, bulge: 0, taper: -50 } },
+	{ name: 'Rainbow', icon: 'ph-cloud-sun', shape: { curve: 140, wave: 0, bulge: 40, taper: 0 } },
+]
+
+const stages = [
+	{ id: 'night', label: 'Night' },
+	{ id: 'sky', label: 'Sky' },
+	{ id: 'paper', label: 'Paper' },
+	{ id: 'grass', label: 'Grass' },
+	{ id: 'checker', label: 'See-through' },
+]
+---
+
+<Layout title="WordArt Studio — lab.zander.wtf">
+	<main class="wa-app">
+		<header class="wa-header">
+			<!-- The page title is WordArt too, so it needs its font -->
+			<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Luckiest+Guy&display=swap" />
+			<Link href="/">← All lab items</Link>
+			<div class="wa-title">
+				<h1>WordArt <span>Studio</span></h1>
+				<Badge variant="fill" color="emerald">live</Badge>
+			</div>
+			<p class="wa-intro">{description}</p>
+		</header>
+
+		<div class="wa-workspace">
+			<section class="wa-left" aria-label="Preview">
+				<div class="wa-stage" id="stage" data-bg="night"></div>
+
+				<div class="wa-textrow">
+					<label class="wa-sr" for="wa-text">Your words</label>
+					<input
+						id="wa-text"
+						class="zui-input wa-text"
+						type="text"
+						maxlength="48"
+						autocomplete="off"
+						data-bind="text"
+						placeholder="Type something…"
+					/>
+					<button class="zui-button zui-button-size-lg wa-dice" id="surprise" type="button">
+						<i class="ph ph-dice-five"></i> Surprise me!
+					</button>
+				</div>
+
+				<div class="wa-toolbar">
+					<div class="wa-bgs" role="radiogroup" aria-label="Background">
+						{
+							stages.map((b, i) => (
+								<button
+									type="button"
+									class="wa-bg"
+									data-stage={b.id}
+									role="radio"
+									aria-checked={i === 0 ? 'true' : 'false'}
+									title={b.label}
+									aria-label={b.label}
+								/>
+							))
+						}
+					</div>
+					<div class="wa-actions">
+						<button class="zui-button zui-button-variant-ghost zui-button-size-sm" id="undo" type="button" disabled>
+							<i class="ph ph-arrow-u-up-left"></i> Undo
+						</button>
+						<button class="zui-button zui-button-variant-ghost zui-button-size-sm" id="redo" type="button" disabled>
+							<i class="ph ph-arrow-u-up-right"></i> Redo
+						</button>
+						<button class="zui-button zui-button-variant-outline zui-button-size-sm" id="share" type="button">
+							<i class="ph ph-link"></i> Copy link
+						</button>
+					</div>
+				</div>
+			</section>
+
+			<section class="wa-panel" aria-label="Controls">
+				<div class="wa-tabs" role="tablist">
+					{
+						tabs.map((t, i) => (
+							<button
+								type="button"
+								role="tab"
+								class="wa-tab"
+								id={`tab-${t.id}`}
+								aria-controls={`panel-${t.id}`}
+								aria-selected={i === 0 ? 'true' : 'false'}
+								tabindex={i === 0 ? 0 : -1}
+							>
+								<i class={`ph ${t.icon}`} />
+								<span>{t.label}</span>
+							</button>
+						))
+					}
+				</div>
+
+				<!-- Gallery -->
+				<div class="wa-pane" role="tabpanel" id="panel-gallery" aria-labelledby="tab-gallery">
+					<p class="wa-hint">Pick a style to start from. Your words stay the same.</p>
+					<div class="wa-gallery">
+						{
+							PRESETS.map((pr, i) => (
+								<button type="button" class="wa-tile" data-preset={i}>
+									<div class="wa-tile-stage" />
+									<span>{pr.name}</span>
+								</button>
+							))
+						}
+					</div>
+				</div>
+
+				<!-- Font -->
+				<div class="wa-pane" role="tabpanel" id="panel-font" aria-labelledby="tab-font" hidden>
+					<div class="wa-field">
+						<label class="zui-label" for="wa-font">Any Google Font</label>
+						<div class="wa-fontrow">
+							<input
+								id="wa-font"
+								class="zui-input"
+								list="wa-fontlist"
+								autocomplete="off"
+								spellcheck="false"
+								placeholder="e.g. Lobster, Nabla, Bungee Shade…"
+							/>
+							<button class="zui-button" id="font-go" type="button">Use</button>
+							<button class="zui-button zui-button-variant-subtle zui-button-icon" id="font-random" type="button" title="Random font" aria-label="Random font">
+								<i class="ph ph-shuffle"></i>
+							</button>
+						</div>
+						<datalist id="wa-fontlist">{FONTS.map((f) => <option value={f} />)}</datalist>
+						<p class="wa-fontstatus" id="font-status" aria-live="polite"></p>
+						<p class="wa-hint">
+							Type any family from <a href="https://fonts.google.com" target="_blank" rel="noopener">fonts.google.com</a>, or tap one below.
+						</p>
+					</div>
+					<div class="wa-fonts" id="font-chips">
+						{FONTS.map((f) => <button type="button" class="wa-chip" data-font={f}>{f}</button>)}
+					</div>
+					<div class="wa-sliders">
+						<label class="wa-range">
+							<span>Size <output data-out="size" data-unit="px"></output></span>
+							<input type="range" min="40" max="220" step="1" data-bind="size" />
+						</label>
+						<label class="wa-range">
+							<span>Weight <output data-out="weight"></output></span>
+							<input type="range" min="100" max="900" step="100" data-bind="weight" />
+						</label>
+						<label class="wa-range">
+							<span>Spacing <output data-out="spacing"></output></span>
+							<input type="range" min="-10" max="60" step="1" data-bind="spacing" />
+						</label>
+					</div>
+				</div>
+
+				<!-- Colour -->
+				<div class="wa-pane" role="tabpanel" id="panel-colour" aria-labelledby="tab-colour" hidden>
+					<div class="wa-field">
+						<span class="zui-label">Fill</span>
+						<div class="wa-seg" role="radiogroup" aria-label="Fill type">
+							<label><input type="radio" name="filltype" value="solid" data-bind="fill.type" /><span><i class="ph ph-square"></i> Solid</span></label>
+							<label><input type="radio" name="filltype" value="linear" data-bind="fill.type" /><span><i class="ph ph-gradient"></i> Linear</span></label>
+							<label><input type="radio" name="filltype" value="radial" data-bind="fill.type" /><span><i class="ph ph-circle-half"></i> Radial</span></label>
+							<label><input type="radio" name="filltype" value="conic" data-bind="fill.type" /><span><i class="ph ph-chart-pie-slice"></i> Conic</span></label>
+						</div>
+					</div>
+					<div class="wa-gradbar" id="gradbar" aria-hidden="true"></div>
+					<div class="wa-field">
+						<span class="zui-label">Colours</span>
+						<div class="wa-stops" id="stops"></div>
+						<div class="wa-stopactions">
+							<button class="zui-button zui-button-variant-subtle zui-button-size-sm" id="stop-add" type="button"><i class="ph ph-plus"></i> Add</button>
+							<button class="zui-button zui-button-variant-subtle zui-button-size-sm" id="stop-reverse" type="button"><i class="ph ph-arrows-left-right"></i> Flip</button>
+							<button class="zui-button zui-button-variant-subtle zui-button-size-sm" id="stop-random" type="button"><i class="ph ph-shuffle"></i> Random</button>
+						</div>
+					</div>
+					<div class="wa-sliders">
+						<label class="wa-range">
+							<span>Gradient angle <output data-out="fill.angle" data-unit="°"></output></span>
+							<input type="range" min="0" max="360" step="1" data-bind="fill.angle" />
+						</label>
+						<label class="zui-checkbox">
+							<input type="checkbox" data-bind="fill.hard" /> Stripes (hard edges)
+						</label>
+					</div>
+					<div class="wa-field">
+						<span class="zui-label">Outline</span>
+						<div class="wa-colorrow">
+							<input type="color" data-bind="stroke.color" aria-label="Outline colour" />
+							<label class="wa-range">
+								<span>Thickness <output data-out="stroke.width" data-unit="px"></output></span>
+								<input type="range" min="0" max="12" step="0.5" data-bind="stroke.width" />
+							</label>
+						</div>
+					</div>
+					<div class="wa-field">
+						<span class="zui-label">Shadow &amp; glow</span>
+						<div class="wa-colorrow">
+							<input type="color" data-bind="shadow.color" data-alpha aria-label="Shadow colour" />
+							<label class="wa-range">
+								<span>Blur <output data-out="shadow.blur" data-unit="px"></output></span>
+								<input type="range" min="0" max="60" step="1" data-bind="shadow.blur" />
+							</label>
+						</div>
+						<div class="wa-sliders wa-two">
+							<label class="wa-range">
+								<span>Across <output data-out="shadow.x" data-unit="px"></output></span>
+								<input type="range" min="-40" max="40" step="1" data-bind="shadow.x" />
+							</label>
+							<label class="wa-range">
+								<span>Down <output data-out="shadow.y" data-unit="px"></output></span>
+								<input type="range" min="-40" max="40" step="1" data-bind="shadow.y" />
+							</label>
+						</div>
+					</div>
+				</div>
+
+				<!-- 3D -->
+				<div class="wa-pane" role="tabpanel" id="panel-depth" aria-labelledby="tab-depth" hidden>
+					<p class="wa-hint">Pull the letters out of the screen with a chunky 3D side.</p>
+					<div class="wa-colorrow">
+						<input type="color" data-bind="extrude.color" aria-label="3D colour" />
+						<label class="wa-range">
+							<span>Depth <output data-out="extrude.depth" data-unit="px"></output></span>
+							<input type="range" min="0" max="48" step="1" data-bind="extrude.depth" />
+						</label>
+					</div>
+					<div class="wa-dialrow">
+						<div class="wa-dial" id="extrude-dial" role="slider" tabindex="0" aria-label="3D direction" aria-valuemin="0" aria-valuemax="359">
+							<div class="wa-dial-hand"></div>
+						</div>
+						<label class="wa-range">
+							<span>Direction <output data-out="extrude.angle" data-unit="°"></output></span>
+							<input type="range" min="0" max="359" step="1" data-bind="extrude.angle" />
+						</label>
+					</div>
+				</div>
+
+				<!-- Shape -->
+				<div class="wa-pane" role="tabpanel" id="panel-shape" aria-labelledby="tab-shape" hidden>
+					<p class="wa-hint">Choose the line your words ride along.</p>
+					<div class="wa-shapes">
+						{
+							shapes.map((s) => (
+								<button type="button" class="wa-shape" data-shape={JSON.stringify(s.shape)}>
+									<i class={`ph ${s.icon}`} />
+									<span>{s.name}</span>
+								</button>
+							))
+						}
+					</div>
+					<div class="wa-sliders">
+						<label class="wa-range">
+							<span>Bend <output data-out="shape.curve" data-unit="°"></output></span>
+							<input type="range" min="-360" max="360" step="1" data-bind="shape.curve" />
+						</label>
+						<label class="wa-range">
+							<span>Wave height <output data-out="shape.wave"></output></span>
+							<input type="range" min="0" max="100" step="1" data-bind="shape.wave" />
+						</label>
+						<label class="wa-range">
+							<span>Wiggles <output data-out="shape.freq"></output></span>
+							<input type="range" min="0.5" max="4" step="0.25" data-bind="shape.freq" />
+						</label>
+						<label class="wa-range">
+							<span>Puff up <output data-out="shape.bulge"></output></span>
+							<input type="range" min="-80" max="150" step="1" data-bind="shape.bulge" />
+						</label>
+						<label class="wa-range">
+							<span>Small → big <output data-out="shape.taper"></output></span>
+							<input type="range" min="-80" max="80" step="1" data-bind="shape.taper" />
+						</label>
+					</div>
+				</div>
+
+				<!-- Tilt -->
+				<div class="wa-pane" role="tabpanel" id="panel-tilt" aria-labelledby="tab-tilt" hidden>
+					<div class="wa-sliders">
+						<label class="wa-range">
+							<span>Rotate <output data-out="tf.rotate" data-unit="°"></output></span>
+							<input type="range" min="-180" max="180" step="1" data-bind="tf.rotate" />
+						</label>
+						<label class="wa-range">
+							<span>Lean <output data-out="tf.skew" data-unit="°"></output></span>
+							<input type="range" min="-45" max="45" step="1" data-bind="tf.skew" />
+						</label>
+						<label class="wa-range">
+							<span>Lie back <output data-out="tf.tiltX" data-unit="°"></output></span>
+							<input type="range" min="-70" max="70" step="1" data-bind="tf.tiltX" />
+						</label>
+						<label class="wa-range">
+							<span>Turn <output data-out="tf.tiltY" data-unit="°"></output></span>
+							<input type="range" min="-70" max="70" step="1" data-bind="tf.tiltY" />
+						</label>
+						<label class="wa-range">
+							<span>Stretch <output data-out="tf.stretch" data-unit="×"></output></span>
+							<input type="range" min="0.4" max="2.5" step="0.05" data-bind="tf.stretch" />
+						</label>
+					</div>
+					<button class="zui-button zui-button-variant-subtle zui-button-size-sm" id="tilt-reset" type="button">
+						<i class="ph ph-arrow-counter-clockwise"></i> Straighten up
+					</button>
+				</div>
+
+				<!-- Motion -->
+				<div class="wa-pane" role="tabpanel" id="panel-motion" aria-labelledby="tab-motion" hidden>
+					<p class="wa-hint">Make it move! It's all pure CSS animation, so it comes along when you copy the code.</p>
+					<div class="wa-shapes">
+						{
+							ANIMS.map((a) => (
+								<label class="wa-shape">
+									<input type="radio" name="anim" value={a.id} data-bind="anim" />
+									<i class={`ph ${a.icon}`} />
+									<span>{a.label}</span>
+								</label>
+							))
+						}
+					</div>
+				</div>
+
+				<!-- Code -->
+				<div class="wa-pane" role="tabpanel" id="panel-code" aria-labelledby="tab-code" hidden>
+					<p class="wa-hint">
+						Plain HTML + CSS — no JavaScript needed. Sizes are in <code class="zui-code">em</code>, so change
+						<code class="zui-code">font-size</code> and everything scales.
+					</p>
+					<div class="wa-codeblock">
+						<div class="wa-codehead">
+							<span>CSS</span>
+							<button class="zui-button zui-button-size-sm" data-copy="css" type="button"><i class="ph ph-copy"></i> Copy CSS</button>
+						</div>
+						<pre class="zui-pre"><code id="code-css"></code></pre>
+					</div>
+					<div class="wa-codeblock">
+						<div class="wa-codehead">
+							<span>HTML</span>
+							<button class="zui-button zui-button-size-sm" data-copy="html" type="button"><i class="ph ph-copy"></i> Copy HTML</button>
+						</div>
+						<pre class="zui-pre"><code id="code-html"></code></pre>
+					</div>
+					<button class="zui-button zui-button-variant-outline" id="download" type="button">
+						<i class="ph ph-download-simple"></i> Download as .html
+					</button>
+				</div>
+			</section>
+		</div>
+
+		<div class="wa-toast" id="toast" role="status" aria-live="polite"></div>
+	</main>
+</Layout>
+
+<script>
+	import {
+		clone,
+		DEFAULT_STATE,
+		decodeState,
+		encodeState,
+		exportCode,
+		gradient,
+		loadFont,
+		merge,
+		render,
+		type Rendered,
+		type WAState,
+	} from '../../components/word-art/engine'
+	import { FONTS, PRESETS, SWATCHES } from '../../components/word-art/presets'
+
+	const $ = <T extends Element = HTMLElement>(sel: string, root: ParentNode = document) => root.querySelector<T>(sel)!
+	const $$ = <T extends Element = HTMLElement>(sel: string, root: ParentNode = document) => [...root.querySelectorAll<T>(sel)]
+
+	const stage = $('#stage')
+	const textInput = $<HTMLInputElement>('#wa-text')
+	const fontInput = $<HTMLInputElement>('#wa-font')
+	const fontStatus = $('#font-status')
+
+	let state: WAState = decodeState(location.hash.slice(1)) ?? clone(DEFAULT_STATE)
+	let last: Rendered | null = null
+
+	/* ───────────── path helpers for data-bind="a.b" ───────────── */
+
+	const getPath = (path: string): unknown => path.split('.').reduce<any>((o, k) => o?.[k], state)
+	const setPath = (path: string, v: unknown) => {
+		const keys = path.split('.')
+		const tail = keys.pop()!
+		keys.reduce<any>((o, k) => o[k], state)[tail] = v
+	}
+
+	/* ───────────── history ───────────── */
+
+	const past: string[] = []
+	const future: string[] = []
+	let committed = JSON.stringify(state)
+	let commitTimer = 0
+
+	function commit() {
+		clearTimeout(commitTimer)
+		commitTimer = window.setTimeout(() => {
+			const now = JSON.stringify(state)
+			if (now === committed) return
+			past.push(committed)
+			if (past.length > 100) past.shift()
+			future.length = 0
+			committed = now
+			syncHistory()
+		}, 350)
+	}
+	function travel(from: string[], to: string[]) {
+		clearTimeout(commitTimer)
+		const snap = from.pop()
+		if (!snap) return
+		to.push(JSON.stringify(state))
+		state = JSON.parse(snap)
+		committed = snap
+		syncControls()
+		update({ font: true })
+		syncHistory()
+	}
+	const syncHistory = () => {
+		$<HTMLButtonElement>('#undo').disabled = !past.length
+		$<HTMLButtonElement>('#redo').disabled = !future.length
+	}
+	$('#undo').addEventListener('click', () => travel(past, future))
+	$('#redo').addEventListener('click', () => travel(future, past))
+	addEventListener('keydown', (e) => {
+		if (!(e.metaKey || e.ctrlKey) || e.key.toLowerCase() !== 'z') return
+		if ((e.target as HTMLElement).matches('input[type=text], input:not([type])')) return
+		e.preventDefault()
+		e.shiftKey ? travel(future, past) : travel(past, future)
+	})
+
+	/* ───────────── render loop ───────────── */
+
+	let raf = 0
+	let fontToken = 0
+	let hashTimer = 0
+
+	function draw() {
+		cancelAnimationFrame(raf)
+		raf = requestAnimationFrame(() => {
+			last = render(stage, state, { fit: true, maxScale: 1 })
+			drawGradBar()
+			if (activeTab === 'code') drawCode()
+		})
+	}
+
+	async function update(opts: { font?: boolean; record?: boolean } = {}) {
+		if (opts.record !== false) commit()
+		clearTimeout(hashTimer)
+		hashTimer = window.setTimeout(() => history.replaceState(null, '', `#${encodeState(state)}`), 300)
+		if (opts.font) {
+			const token = ++fontToken
+			fontStatus.dataset.state = 'loading'
+			fontStatus.textContent = `Loading “${state.font}”…`
+			fontInput.value = state.font
+			markChip()
+			draw()
+			const ok = await loadFont(state.font, state.weight)
+			if (token !== fontToken) return
+			fontStatus.dataset.state = ok ? 'ok' : 'error'
+			fontStatus.innerHTML = ok
+				? `<i class="ph ph-check-circle"></i> Using “${state.font}”`
+				: `<i class="ph ph-warning-circle"></i> Couldn't find “${state.font}” on Google Fonts`
+		}
+		draw()
+		if (activeTab === 'gallery') drawGallery()
+	}
+
+	document.fonts.addEventListener('loadingdone', () => draw())
+	new ResizeObserver(() => draw()).observe(stage)
+
+	/* ───────────── generic bindings ───────────── */
+
+	function readInput(el: HTMLInputElement): unknown {
+		if (el.type === 'checkbox') return el.checked
+		if (el.type === 'range' || el.type === 'number') return Number(el.value)
+		if (el.type === 'color' && el.hasAttribute('data-alpha')) {
+			// keep the alpha of the current shadow colour
+			const old = String(getPath(el.dataset.bind!))
+			return el.value + (old.length === 9 ? old.slice(7) : '88')
+		}
+		return el.value
+	}
+
+	function syncControls() {
+		for (const el of $$<HTMLInputElement>('[data-bind]')) {
+			const v = getPath(el.dataset.bind!)
+			if (el.type === 'checkbox') el.checked = Boolean(v)
+			else if (el.type === 'radio') el.checked = el.value === v
+			else if (el.type === 'color') el.value = String(v).slice(0, 7)
+			else if (document.activeElement !== el) el.value = String(v)
+		}
+		for (const out of $$('[data-out]')) {
+			const v = getPath(out.dataset.out!)
+			out.textContent = `${v}${out.dataset.unit ?? ''}`
+		}
+		drawStops()
+		drawDial()
+	}
+
+	for (const el of $$<HTMLInputElement>('[data-bind]')) {
+		el.addEventListener('input', () => {
+			if (el.type === 'radio' && !el.checked) return
+			const path = el.dataset.bind!
+			setPath(path, readInput(el))
+			const out = $$('[data-out]').find((o) => o.dataset.out === path)
+			if (out) out.textContent = `${getPath(path)}${out.dataset.unit ?? ''}`
+			if (path === 'extrude.angle') drawDial()
+			update({ font: path === 'weight' })
+		})
+	}
+
+	/* ───────────── tabs ───────────── */
+
+	let activeTab = 'gallery'
+	const tabEls = $$<HTMLButtonElement>('.wa-tab')
+	function selectTab(id: string, focus = false) {
+		activeTab = id
+		for (const t of tabEls) {
+			const on = t.id === `tab-${id}`
+			t.setAttribute('aria-selected', String(on))
+			t.tabIndex = on ? 0 : -1
+			if (on && focus) t.focus()
+		}
+		for (const p of $$('.wa-pane')) p.hidden = p.id !== `panel-${id}`
+		if (id === 'gallery') drawGallery()
+		if (id === 'font') loadChipFonts()
+		if (id === 'code') drawCode()
+	}
+	tabEls.forEach((t, i) => {
+		t.addEventListener('click', () => selectTab(t.id.slice(4)))
+		t.addEventListener('keydown', (e) => {
+			const d = e.key === 'ArrowRight' ? 1 : e.key === 'ArrowLeft' ? -1 : 0
+			if (!d) return
+			e.preventDefault()
+			selectTab(tabEls[(i + d + tabEls.length) % tabEls.length].id.slice(4), true)
+		})
+	})
+
+	/* ───────────── gallery ───────────── */
+
+	const tiles = $$<HTMLButtonElement>('.wa-tile')
+	let galleryTimer = 0
+	function drawGallery() {
+		clearTimeout(galleryTimer)
+		galleryTimer = window.setTimeout(() => {
+			tiles.forEach((tile) => {
+				const pr = PRESETS[Number(tile.dataset.preset)]
+				const s = { ...clone(pr.state), text: state.text || 'WordArt' }
+				const host = $('.wa-tile-stage', tile)
+				render(host, s, { fit: true, maxScale: 4 })
+				loadFont(s.font, s.weight).then(() => render(host, s, { fit: true, maxScale: 4 }))
+			})
+		}, 120)
+	}
+	tiles.forEach((tile) =>
+		tile.addEventListener('click', () => {
+			const pr = PRESETS[Number(tile.dataset.preset)]
+			state = { ...clone(pr.state), text: state.text }
+			syncControls()
+			update({ font: true })
+			pop()
+		}),
+	)
+
+	/* ───────────── fonts ───────────── */
+
+	function useFont(name: string) {
+		name = name.trim()
+		if (!name) return
+		// Match curated names case-insensitively so "lobster" works
+		state.font = FONTS.find((f) => f.toLowerCase() === name.toLowerCase()) ?? name
+		update({ font: true })
+	}
+	$('#font-go').addEventListener('click', () => useFont(fontInput.value))
+	fontInput.addEventListener('keydown', (e) => e.key === 'Enter' && useFont(fontInput.value))
+	fontInput.addEventListener('change', () => {
+		if (FONTS.includes(fontInput.value)) useFont(fontInput.value)
+	})
+	$('#font-random').addEventListener('click', () => useFont(pick(FONTS)))
+
+	const chips = $$<HTMLButtonElement>('.wa-chip')
+	chips.forEach((c) => c.addEventListener('click', () => useFont(c.dataset.font!)))
+	const markChip = () => chips.forEach((c) => c.setAttribute('aria-pressed', String(c.dataset.font === state.font)))
+
+	// Each chip shows its name in its own face. Tiny `text=` subsets keep this
+	// cheap; families are renamed so they never shadow the full font.
+	let chipsLoaded = false
+	async function loadChipFonts() {
+		if (chipsLoaded) return
+		chipsLoaded = true
+		const chars = [...new Set(FONTS.join(''))].join('')
+		const batches: string[][] = []
+		for (let i = 0; i < FONTS.length; i += 12) batches.push(FONTS.slice(i, i + 12))
+		for (const batch of batches) {
+			const fam = batch.map((f) => `family=${encodeURIComponent(f).replace(/%20/g, '+')}`).join('&')
+			try {
+				const res = await fetch(`https://fonts.googleapis.com/css2?${fam}&text=${encodeURIComponent(chars)}&display=swap`)
+				if (!res.ok) continue
+				const css = (await res.text()).replace(/font-family: '([^']+)'/g, "font-family: '$1 WA Preview'")
+				const style = document.createElement('style')
+				style.textContent = css
+				document.head.append(style)
+			} catch {}
+		}
+		chips.forEach((c) => (c.style.fontFamily = `"${c.dataset.font} WA Preview", var(--font-body)`))
+	}
+
+	/* ───────────── colour stops ───────────── */
+
+	const stopsEl = $('#stops')
+	function drawStops() {
+		stopsEl.innerHTML = state.fill.stops
+			.map(
+				(c, i) => `
+				<div class="wa-stop">
+					<input type="color" value="${c}" data-stop="${i}" aria-label="Colour ${i + 1}" />
+					${state.fill.stops.length > 1 ? `<button type="button" class="wa-stop-x" data-remove="${i}" aria-label="Remove colour ${i + 1}"><i class="ph ph-x"></i></button>` : ''}
+				</div>`,
+			)
+			.join('') +
+			`<div class="wa-swatches">${SWATCHES.map((s) => `<button type="button" class="wa-swatch" style="--sw:${s}" data-swatch="${s}" aria-label="Add ${s}"></button>`).join('')}</div>`
+		$('#stop-add').toggleAttribute('disabled', state.fill.stops.length >= 8)
+	}
+	stopsEl.addEventListener('input', (e) => {
+		const el = e.target as HTMLInputElement
+		if (!el.dataset.stop) return
+		state.fill.stops[Number(el.dataset.stop)] = el.value
+		update()
+	})
+	stopsEl.addEventListener('click', (e) => {
+		const t = (e.target as HTMLElement).closest<HTMLElement>('[data-remove], [data-swatch]')
+		if (!t) return
+		if (t.dataset.remove) state.fill.stops.splice(Number(t.dataset.remove), 1)
+		else if (state.fill.stops.length < 8) state.fill.stops.push(t.dataset.swatch!)
+		if (state.fill.type === 'solid' && t.dataset.swatch) state.fill.stops = [t.dataset.swatch]
+		drawStops()
+		update()
+	})
+	$('#stop-add').addEventListener('click', () => {
+		if (state.fill.stops.length >= 8) return
+		state.fill.stops.push(randomColour())
+		if (state.fill.type === 'solid') state.fill.type = 'linear'
+		syncControls()
+		update()
+	})
+	$('#stop-reverse').addEventListener('click', () => {
+		state.fill.stops.reverse()
+		drawStops()
+		update()
+	})
+	$('#stop-random').addEventListener('click', () => {
+		state.fill.stops = randomPalette()
+		drawStops()
+		update()
+	})
+	const gradbar = $('#gradbar')
+	const drawGradBar = () => (gradbar.style.background = gradient({ ...state.fill, type: state.fill.type === 'solid' ? 'solid' : 'linear', angle: 90 }))
+
+	/* ───────────── 3D direction dial ───────────── */
+
+	const dial = $('#extrude-dial')
+	const drawDial = () => {
+		dial.style.setProperty('--a', `${state.extrude.angle}deg`)
+		dial.setAttribute('aria-valuenow', String(state.extrude.angle))
+	}
+	function dialTo(e: PointerEvent) {
+		const r = dial.getBoundingClientRect()
+		const a = (Math.atan2(e.clientY - (r.top + r.height / 2), e.clientX - (r.left + r.width / 2)) * 180) / Math.PI
+		state.extrude.angle = Math.round((a + 360) % 360)
+		syncControls()
+		update()
+	}
+	dial.addEventListener('pointerdown', (e) => {
+		dial.setPointerCapture(e.pointerId)
+		dialTo(e)
+	})
+	dial.addEventListener('pointermove', (e) => dial.hasPointerCapture(e.pointerId) && dialTo(e))
+	dial.addEventListener('keydown', (e) => {
+		const d = { ArrowRight: 5, ArrowUp: 5, ArrowLeft: -5, ArrowDown: -5 }[e.key]
+		if (!d) return
+		e.preventDefault()
+		state.extrude.angle = (state.extrude.angle + d + 360) % 360
+		syncControls()
+		update()
+	})
+
+	/* ───────────── shapes, tilt, stage ───────────── */
+
+	for (const b of $$<HTMLButtonElement>('.wa-shape[data-shape]')) {
+		b.addEventListener('click', () => {
+			Object.assign(state.shape, JSON.parse(b.dataset.shape!))
+			syncControls()
+			update()
+		})
+	}
+	$('#tilt-reset').addEventListener('click', () => {
+		state.tf = { rotate: 0, skew: 0, tiltX: 0, tiltY: 0, stretch: 1 }
+		syncControls()
+		update()
+	})
+
+	const bgButtons = $$<HTMLButtonElement>('.wa-bg')
+	function setStage(id: string) {
+		stage.dataset.bg = id
+		bgButtons.forEach((b) => b.setAttribute('aria-checked', String(b.dataset.stage === id)))
+		try {
+			localStorage.setItem('wa-stage', id)
+		} catch {}
+	}
+	bgButtons.forEach((b) => b.addEventListener('click', () => setStage(b.dataset.stage!)))
+	try {
+		const saved = localStorage.getItem('wa-stage')
+		if (saved) setStage(saved)
+	} catch {}
+
+	/* ───────────── surprise me ───────────── */
+
+	const rand = (a: number, b: number) => a + Math.random() * (b - a)
+	const pick = <T,>(arr: T[]): T => arr[Math.floor(Math.random() * arr.length)]
+	const hex = (h: number, s: number, l: number) => {
+		s /= 100
+		l /= 100
+		const f = (n: number) => {
+			const k = (n + h / 30) % 12
+			const c = l - s * Math.min(l, 1 - l) * Math.max(-1, Math.min(k - 3, 9 - k, 1))
+			return Math.round(c * 255)
+				.toString(16)
+				.padStart(2, '0')
+		}
+		return `#${f(0)}${f(8)}${f(4)}`
+	}
+	const randomColour = () => hex(rand(0, 360), rand(70, 100), rand(45, 65))
+	function randomPalette() {
+		const h = rand(0, 360)
+		const step = pick([25, 40, 60, 120])
+		return Array.from({ length: pick([2, 3, 3, 4, 5]) }, (_, i) => hex((h + i * step) % 360, rand(75, 100), rand(45, 70)))
+	}
+
+	function surprise() {
+		const pal = randomPalette()
+		const dark = hex(rand(0, 360), rand(40, 80), rand(10, 25))
+		const curve = pick([0, 0, rand(30, 140), -rand(30, 120), 360])
+		state = merge(clone(DEFAULT_STATE), {
+			text: state.text,
+			font: pick(FONTS.slice(0, -4)),
+			size: 120,
+			spacing: Math.round(rand(0, 8)),
+			fill: { type: pick(['linear', 'linear', 'radial', 'conic']), angle: Math.round(rand(0, 360)), stops: pal, hard: Math.random() < 0.3 },
+			stroke: { width: pick([0, 1, 2, 3, 5]), color: pick([dark, '#ffffff', '#000000']) },
+			extrude: { depth: pick([0, 8, 14, 22, 30]), angle: Math.round(rand(20, 160)), color: dark },
+			shadow: Math.random() < 0.5 ? { x: 0, y: 10, blur: 16, color: '#00000066' } : { x: 0, y: 0, blur: 20, color: pal[0] + 'aa' },
+			shape: {
+				curve: Math.round(curve),
+				wave: curve === 0 && Math.random() < 0.5 ? Math.round(rand(15, 45)) : 0,
+				freq: pick([1, 1.5, 2]),
+				bulge: Math.random() < 0.3 ? Math.round(rand(-40, 80)) : 0,
+				taper: Math.random() < 0.2 ? Math.round(rand(-40, 40)) : 0,
+			},
+			tf: {
+				rotate: Math.random() < 0.3 ? Math.round(rand(-12, 12)) : 0,
+				skew: Math.random() < 0.2 ? Math.round(rand(-15, 15)) : 0,
+				tiltX: Math.random() < 0.2 ? Math.round(rand(20, 50)) : 0,
+				tiltY: 0,
+				stretch: 1,
+			},
+			anim: Math.random() < 0.5 ? 'none' : pick(['wave', 'jelly', 'swing', 'float', 'rainbow', 'flow']),
+		})
+		syncControls()
+		update({ font: true })
+		pop()
+	}
+	$('#surprise').addEventListener('click', surprise)
+
+	const pop = () => {
+		stage.classList.remove('wa-pop')
+		void stage.offsetWidth
+		stage.classList.add('wa-pop')
+	}
+
+	/* ───────────── export ───────────── */
+
+	function drawCode() {
+		if (!last) return
+		const { css, html } = exportCode(state, last)
+		$('#code-css').textContent = css
+		$('#code-html').textContent = html
+	}
+
+	const toastEl = $('#toast')
+	let toastTimer = 0
+	function toast(msg: string) {
+		toastEl.textContent = msg
+		toastEl.classList.add('is-on')
+		clearTimeout(toastTimer)
+		toastTimer = window.setTimeout(() => toastEl.classList.remove('is-on'), 1800)
+	}
+	async function copy(text: string, what: string) {
+		try {
+			await navigator.clipboard.writeText(text)
+			toast(`${what} copied!`)
+		} catch {
+			toast(`Couldn't copy ${what} — select it and copy by hand`)
+		}
+	}
+	for (const b of $$<HTMLButtonElement>('[data-copy]')) {
+		b.addEventListener('click', () => {
+			if (!last) return
+			const code = exportCode(state, last)
+			b.dataset.copy === 'css' ? copy(code.css, 'CSS') : copy(code.html, 'HTML')
+		})
+	}
+	$('#share').addEventListener('click', () => {
+		history.replaceState(null, '', `#${encodeState(state)}`)
+		copy(location.href, 'Link')
+	})
+	$('#download').addEventListener('click', () => {
+		if (!last) return
+		const { css, html } = exportCode(state, last)
+		const doc = `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>${state.text.replace(/</g, '&lt;')}</title>
+<style>
+${css}
+body { margin: 0; min-height: 100vh; display: grid; place-items: center; overflow: hidden; background: radial-gradient(circle at 50% 30%, #2a1d6b, #0b0820); }
+</style>
+</head>
+<body>
+${html}
+</body>
+</html>
+`
+		const a = document.createElement('a')
+		a.href = URL.createObjectURL(new Blob([doc], { type: 'text/html' }))
+		a.download = `${(state.text || 'wordart').replace(/[^\w-]+/g, '-').toLowerCase()}.html`
+		a.click()
+		setTimeout(() => URL.revokeObjectURL(a.href), 1000)
+	})
+
+	/* ───────────── go ───────────── */
+
+	textInput.value = state.text
+	syncControls()
+	selectTab('gallery')
+	update({ font: true, record: false })
+</script>
+
+<style is:global>
+	.wa-app {
+		--wa-gap: var(--space-md);
+		min-height: 100dvh;
+		padding: var(--space-md) var(--space-md) var(--space-2xl);
+		max-width: 96rem;
+		margin-inline: auto;
+		display: flex;
+		flex-direction: column;
+		gap: var(--wa-gap);
+	}
+
+	.wa-header {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-2xs);
+	}
+	.wa-title {
+		display: flex;
+		align-items: center;
+		gap: var(--space-sm);
+	}
+	.wa-title h1 {
+		margin: 0;
+		font-size: var(--step-4);
+		line-height: 1;
+		font-family: 'Luckiest Guy', var(--font-display);
+		letter-spacing: 0.02em;
+		background: linear-gradient(
+			90deg,
+			var(--color-red-500),
+			var(--color-orange-400),
+			var(--color-yellow-400),
+			var(--color-green-500),
+			var(--color-sky-500),
+			var(--color-violet-500)
+		);
+		-webkit-background-clip: text;
+		background-clip: text;
+		color: transparent;
+		filter: drop-shadow(0.06em 0.06em 0 var(--color-indigo-900));
+	}
+	.wa-title h1 span {
+		font-style: italic;
+	}
+	.wa-intro {
+		margin: 0;
+		max-width: 60ch;
+		color: var(--color-muted);
+	}
+
+	.wa-workspace {
+		display: grid;
+		gap: var(--wa-gap);
+		grid-template-columns: minmax(0, 1fr);
+	}
+	@media (min-width: 64rem) {
+		.wa-workspace {
+			grid-template-columns: minmax(0, 1.4fr) minmax(22rem, 1fr);
+			align-items: start;
+		}
+		.wa-left {
+			position: sticky;
+			top: var(--space-md);
+		}
+	}
+
+	.wa-left {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-sm);
+		min-width: 0;
+	}
+
+	/* ── Stage ── */
+	.wa-stage {
+		position: relative;
+		overflow: hidden;
+		height: clamp(14rem, min(52vh, 80vw), 36rem);
+		border-radius: var(--radius-2xl);
+		box-shadow: var(--shadow-lg), inset 0 0 0 1px oklch(from var(--color-text) l c h / 10%);
+		background: var(--wa-stage-bg);
+		transition: background var(--ease-out) 0.3s;
+	}
+	.wa-stage[data-bg='night'] {
+		--wa-stage-bg: radial-gradient(circle at 50% 25%, var(--color-indigo-800), var(--color-slate-950) 75%);
+	}
+	.wa-stage[data-bg='sky'] {
+		--wa-stage-bg: linear-gradient(var(--color-sky-400), var(--color-sky-100));
+	}
+	.wa-stage[data-bg='paper'] {
+		--wa-stage-bg: radial-gradient(circle, var(--color-stone-50), var(--color-stone-200));
+	}
+	.wa-stage[data-bg='grass'] {
+		--wa-stage-bg: linear-gradient(var(--color-sky-300) 0 62%, var(--color-lime-400) 62%, var(--color-green-600));
+	}
+	.wa-stage[data-bg='checker'] {
+		--wa-stage-bg: repeating-conic-gradient(var(--color-neutral-200) 0 25%, var(--color-neutral-50) 0 50%) 0 0 / 1.5rem
+			1.5rem;
+	}
+	/* Twinkly stars on the night stage */
+	.wa-stage[data-bg='night']::before {
+		content: '';
+		position: absolute;
+		inset: 0;
+		pointer-events: none;
+		background-image:
+			radial-gradient(1px 1px at 12% 18%, var(--color-white) 50%, transparent),
+			radial-gradient(1.5px 1.5px at 78% 12%, var(--color-white) 50%, transparent),
+			radial-gradient(1px 1px at 33% 72%, var(--color-white) 50%, transparent),
+			radial-gradient(1px 1px at 88% 64%, var(--color-white) 50%, transparent),
+			radial-gradient(1.5px 1.5px at 55% 40%, var(--color-white) 50%, transparent),
+			radial-gradient(1px 1px at 22% 46%, var(--color-white) 50%, transparent),
+			radial-gradient(1px 1px at 66% 88%, var(--color-white) 50%, transparent);
+		opacity: 0.7;
+		animation: wa-twinkle 4s ease-in-out infinite alternate;
+	}
+	@keyframes wa-twinkle {
+		to {
+			opacity: 0.25;
+		}
+	}
+	.wa-stage.wa-pop .wa-fit > span {
+		animation: wa-pop 0.5s var(--ease-spring);
+	}
+	@keyframes wa-pop {
+		from {
+			scale: 0.6;
+			opacity: 0;
+		}
+	}
+
+	.wa-fit {
+		position: absolute;
+		top: 0;
+		left: 0;
+		width: max-content;
+		transform-origin: 0 0;
+	}
+	.wa-measuring,
+	.wa-measuring * {
+		animation: none !important;
+	}
+
+	/* ── Text row ── */
+	.wa-textrow {
+		display: flex;
+		gap: var(--space-xs);
+		flex-wrap: wrap;
+	}
+	.wa-text {
+		flex: 1 1 14rem;
+		font-size: var(--step-2);
+		padding-block: var(--space-xs);
+		font-weight: var(--font-weight-bold);
+	}
+	.wa-dice {
+		--zui-btn-accent: var(--color-fuchsia-500);
+		--zui-btn-accent-hover: var(--color-fuchsia-600);
+		flex: 0 0 auto;
+	}
+	.wa-dice:hover i {
+		animation: wa-roll 0.6s var(--ease-spring);
+	}
+	@keyframes wa-roll {
+		to {
+			rotate: 360deg;
+		}
+	}
+
+	.wa-toolbar {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		gap: var(--space-sm);
+		flex-wrap: wrap;
+	}
+	.wa-actions {
+		display: flex;
+		gap: var(--space-3xs);
+		flex-wrap: wrap;
+	}
+	.wa-bgs {
+		display: flex;
+		gap: var(--space-2xs);
+	}
+	.wa-bg {
+		width: 2rem;
+		height: 2rem;
+		border-radius: var(--radius-full);
+		border: 2px var(--border-style) var(--color-border);
+		cursor: pointer;
+		padding: 0;
+		transition: scale 0.2s var(--ease-spring);
+	}
+	.wa-bg:hover {
+		scale: 1.12;
+	}
+	.wa-bg[aria-checked='true'] {
+		outline: 3px var(--border-style) var(--color-accent);
+		outline-offset: 2px;
+	}
+	.wa-bg[data-stage='night'] {
+		background: radial-gradient(circle at 50% 25%, var(--color-indigo-800), var(--color-slate-950));
+	}
+	.wa-bg[data-stage='sky'] {
+		background: linear-gradient(var(--color-sky-400), var(--color-sky-100));
+	}
+	.wa-bg[data-stage='paper'] {
+		background: var(--color-stone-100);
+	}
+	.wa-bg[data-stage='grass'] {
+		background: linear-gradient(var(--color-sky-300) 55%, var(--color-lime-400) 55%);
+	}
+	.wa-bg[data-stage='checker'] {
+		background: repeating-conic-gradient(var(--color-neutral-300) 0 25%, var(--color-neutral-50) 0 50%) 0 0 / 0.75rem
+			0.75rem;
+	}
+
+	/* ── Panel ── */
+	.wa-panel {
+		background: var(--color-surface);
+		border: 1px var(--border-style) var(--color-border);
+		border-radius: var(--radius-2xl);
+		padding: var(--space-sm);
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-sm);
+		min-width: 0;
+	}
+	.wa-tabs {
+		display: grid;
+		grid-template-columns: repeat(4, 1fr);
+		gap: var(--space-3xs);
+	}
+	@media (min-width: 40rem) {
+		.wa-tabs {
+			grid-template-columns: repeat(8, 1fr);
+		}
+	}
+	@media (min-width: 64rem) {
+		.wa-tabs {
+			grid-template-columns: repeat(4, 1fr);
+		}
+	}
+	@media (min-width: 80rem) {
+		.wa-tabs {
+			grid-template-columns: repeat(8, 1fr);
+		}
+	}
+	.wa-tab {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: var(--space-5xs);
+		padding: var(--space-2xs) var(--space-4xs);
+		border: 0;
+		border-radius: var(--radius-lg);
+		background: transparent;
+		color: var(--color-muted);
+		font: inherit;
+		font-size: var(--step--1);
+		font-weight: var(--font-weight-medium);
+		cursor: pointer;
+		transition:
+			background 0.15s,
+			color 0.15s;
+	}
+	.wa-tab i {
+		font-size: var(--step-2);
+	}
+	.wa-tab:hover {
+		background: oklch(from var(--color-text) l c h / 6%);
+		color: var(--color-text);
+	}
+	.wa-tab[aria-selected='true'] {
+		background: var(--color-accent);
+		color: var(--color-background);
+	}
+	.wa-tab[aria-selected='true'] i {
+		animation: wa-bounce 0.4s var(--ease-spring);
+	}
+	@keyframes wa-bounce {
+		50% {
+			translate: 0 -0.2em;
+		}
+	}
+
+	.wa-pane {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-sm);
+	}
+	.wa-pane[hidden] {
+		display: none;
+	}
+	.wa-hint {
+		margin: 0;
+		font-size: var(--step--1);
+		color: var(--color-muted);
+	}
+
+	/* Gallery */
+	.wa-gallery {
+		display: grid;
+		grid-template-columns: repeat(auto-fill, minmax(9rem, 1fr));
+		gap: var(--space-xs);
+	}
+	.wa-tile {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-4xs);
+		padding: var(--space-4xs);
+		border: 2px var(--border-style) transparent;
+		border-radius: var(--radius-xl);
+		background: oklch(from var(--color-text) l c h / 5%);
+		color: var(--color-text);
+		font: inherit;
+		font-size: var(--step--1);
+		cursor: pointer;
+		transition:
+			scale 0.2s var(--ease-spring),
+			border-color 0.2s;
+	}
+	.wa-tile:hover,
+	.wa-tile:focus-visible {
+		scale: 1.04;
+		border-color: var(--color-accent);
+	}
+	.wa-tile-stage {
+		position: relative;
+		overflow: hidden;
+		aspect-ratio: 16 / 10;
+		border-radius: var(--radius-lg);
+		background: radial-gradient(circle at 50% 25%, var(--color-indigo-800), var(--color-slate-950) 80%);
+		pointer-events: none;
+	}
+
+	/* Fonts */
+	.wa-field {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-3xs);
+	}
+	.wa-fontrow {
+		display: flex;
+		gap: var(--space-3xs);
+	}
+	.wa-fontrow .zui-input {
+		flex: 1;
+		min-width: 0;
+	}
+	.wa-fontstatus {
+		margin: 0;
+		min-height: 1.4em;
+		font-size: var(--step--1);
+		display: flex;
+		align-items: center;
+		gap: var(--space-4xs);
+	}
+	.wa-fontstatus[data-state='ok'] {
+		color: var(--color-success);
+	}
+	.wa-fontstatus[data-state='error'] {
+		color: var(--color-error);
+	}
+	.wa-fontstatus[data-state='loading'] {
+		color: var(--color-muted);
+	}
+	.wa-fonts {
+		display: flex;
+		flex-wrap: wrap;
+		gap: var(--space-3xs);
+		max-height: 15rem;
+		overflow-y: auto;
+		padding: var(--space-4xs);
+		border-radius: var(--radius-lg);
+		background: oklch(from var(--color-text) l c h / 4%);
+	}
+	.wa-chip {
+		padding: var(--space-4xs) var(--space-xs);
+		border: 1px var(--border-style) var(--color-border);
+		border-radius: var(--radius-full);
+		background: var(--color-surface);
+		color: var(--color-text);
+		font-size: var(--step-0);
+		cursor: pointer;
+		transition: scale 0.15s var(--ease-spring);
+	}
+	.wa-chip:hover {
+		scale: 1.06;
+		border-color: var(--color-accent);
+	}
+	.wa-chip[aria-pressed='true'] {
+		background: var(--color-accent);
+		border-color: var(--color-accent);
+		color: var(--color-background);
+	}
+
+	/* Sliders */
+	.wa-sliders {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-xs);
+	}
+	.wa-two {
+		display: grid;
+		grid-template-columns: 1fr 1fr;
+	}
+	.wa-range {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-5xs);
+		flex: 1;
+		min-width: 0;
+		font-size: var(--step--1);
+		font-weight: var(--font-weight-medium);
+	}
+	.wa-range > span {
+		display: flex;
+		justify-content: space-between;
+	}
+	.wa-range output {
+		font-family: var(--font-code);
+		color: var(--color-muted);
+		font-variant-numeric: tabular-nums;
+	}
+	.wa-range input[type='range'] {
+		width: 100%;
+		accent-color: var(--color-accent);
+		height: 1.5rem;
+	}
+
+	/* Segmented control */
+	.wa-seg {
+		display: grid;
+		grid-template-columns: repeat(4, 1fr);
+		gap: var(--space-4xs);
+		padding: var(--space-4xs);
+		border-radius: var(--radius-lg);
+		background: oklch(from var(--color-text) l c h / 6%);
+	}
+	.wa-seg label {
+		position: relative;
+	}
+	.wa-seg input {
+		position: absolute;
+		opacity: 0;
+		inset: 0;
+	}
+	.wa-seg span {
+		display: flex;
+		justify-content: center;
+		align-items: center;
+		gap: var(--space-4xs);
+		padding: var(--space-3xs);
+		border-radius: var(--radius-md);
+		font-size: var(--step--1);
+		cursor: pointer;
+	}
+	.wa-seg input:checked + span {
+		background: var(--color-surface);
+		box-shadow: var(--shadow-sm);
+		font-weight: var(--font-weight-bold);
+	}
+	.wa-seg input:focus-visible + span {
+		outline: var(--focus-ring);
+	}
+
+	.wa-gradbar {
+		height: var(--space-md);
+		border-radius: var(--radius-full);
+		box-shadow: inset 0 0 0 1px oklch(from var(--color-text) l c h / 15%);
+	}
+
+	/* Colour stops */
+	.wa-stops {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: var(--space-2xs);
+	}
+	.wa-stop {
+		position: relative;
+	}
+	.wa-app input[type='color'] {
+		width: 2.75rem;
+		height: 2.75rem;
+		padding: 0;
+		border: 3px var(--border-style) var(--color-surface);
+		border-radius: var(--radius-full);
+		box-shadow: 0 0 0 1px var(--color-border), var(--shadow-sm);
+		background: none;
+		cursor: pointer;
+		flex: 0 0 auto;
+	}
+	.wa-app input[type='color']::-webkit-color-swatch-wrapper {
+		padding: 0;
+	}
+	.wa-app input[type='color']::-webkit-color-swatch {
+		border: 0;
+		border-radius: var(--radius-full);
+	}
+	.wa-app input[type='color']::-moz-color-swatch {
+		border: 0;
+		border-radius: var(--radius-full);
+	}
+	.wa-stop-x {
+		position: absolute;
+		top: calc(var(--space-3xs) * -1);
+		right: calc(var(--space-3xs) * -1);
+		display: grid;
+		place-items: center;
+		width: 1.1rem;
+		height: 1.1rem;
+		padding: 0;
+		border: 0;
+		border-radius: var(--radius-full);
+		background: var(--color-text);
+		color: var(--color-background);
+		font-size: var(--step--2);
+		cursor: pointer;
+		opacity: 0;
+		transition: opacity 0.15s;
+	}
+	.wa-stop:hover .wa-stop-x,
+	.wa-stop-x:focus-visible {
+		opacity: 1;
+	}
+	@media (hover: none) {
+		.wa-stop-x {
+			opacity: 1;
+		}
+	}
+	.wa-swatches {
+		display: flex;
+		flex-wrap: wrap;
+		gap: var(--space-4xs);
+		flex-basis: 100%;
+	}
+	.wa-swatch {
+		width: 1.5rem;
+		height: 1.5rem;
+		padding: 0;
+		border: 0;
+		border-radius: var(--radius-md);
+		background: var(--sw);
+		box-shadow: inset 0 0 0 1px oklch(from var(--color-text) l c h / 20%);
+		cursor: pointer;
+		transition: scale 0.15s var(--ease-spring);
+	}
+	.wa-swatch:hover {
+		scale: 1.2;
+	}
+	.wa-stopactions {
+		display: flex;
+		gap: var(--space-3xs);
+		flex-wrap: wrap;
+	}
+	.wa-colorrow,
+	.wa-dialrow {
+		display: flex;
+		align-items: center;
+		gap: var(--space-sm);
+	}
+
+	/* 3D dial */
+	.wa-dial {
+		--a: 45deg;
+		position: relative;
+		flex: 0 0 auto;
+		width: 5rem;
+		height: 5rem;
+		border-radius: var(--radius-full);
+		background: conic-gradient(from 90deg, var(--color-accent), var(--color-fuchsia-400), var(--color-amber-400), var(--color-accent));
+		box-shadow: var(--shadow-md);
+		cursor: grab;
+		touch-action: none;
+	}
+	.wa-dial::after {
+		content: '';
+		position: absolute;
+		inset: 0.6rem;
+		border-radius: inherit;
+		background: var(--color-surface);
+	}
+	.wa-dial-hand {
+		position: absolute;
+		top: 50%;
+		left: 50%;
+		width: 50%;
+		height: 0.3rem;
+		margin-top: -0.15rem;
+		transform-origin: 0 50%;
+		rotate: var(--a);
+		border-radius: var(--radius-full);
+		background: var(--color-text);
+		z-index: 1;
+	}
+	.wa-dial-hand::after {
+		content: '';
+		position: absolute;
+		right: 0;
+		top: 50%;
+		width: 0.9rem;
+		height: 0.9rem;
+		translate: 30% -50%;
+		border-radius: var(--radius-full);
+		background: var(--color-text);
+	}
+	.wa-dial:focus-visible {
+		outline: var(--focus-ring);
+		outline-offset: var(--focus-ring-offset);
+	}
+
+	/* Shape + motion pickers */
+	.wa-shapes {
+		display: grid;
+		grid-template-columns: repeat(auto-fill, minmax(5rem, 1fr));
+		gap: var(--space-3xs);
+	}
+	.wa-shape {
+		position: relative;
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: var(--space-5xs);
+		padding: var(--space-xs) var(--space-4xs);
+		border: 2px var(--border-style) transparent;
+		border-radius: var(--radius-lg);
+		background: oklch(from var(--color-text) l c h / 5%);
+		color: var(--color-text);
+		font: inherit;
+		font-size: var(--step--1);
+		cursor: pointer;
+		transition:
+			scale 0.15s var(--ease-spring),
+			border-color 0.15s;
+	}
+	.wa-shape i {
+		font-size: var(--step-3);
+	}
+	.wa-shape:hover {
+		scale: 1.05;
+		border-color: var(--color-accent);
+	}
+	.wa-shape input {
+		position: absolute;
+		opacity: 0;
+		inset: 0;
+		cursor: pointer;
+	}
+	.wa-shape:has(input:checked) {
+		background: var(--color-accent);
+		color: var(--color-background);
+	}
+	.wa-shape:has(input:focus-visible) {
+		outline: var(--focus-ring);
+	}
+
+	/* Code */
+	.wa-codeblock {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-3xs);
+	}
+	.wa-codehead {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		font-weight: var(--font-weight-bold);
+	}
+	.wa-codeblock pre {
+		margin: 0;
+		max-height: 18rem;
+		overflow: auto;
+		font-size: var(--step--2);
+	}
+	.wa-codeblock code {
+		white-space: pre-wrap;
+		word-break: break-all;
+	}
+
+	/* Toast */
+	.wa-toast {
+		position: fixed;
+		left: 50%;
+		bottom: var(--space-lg);
+		z-index: var(--z-9);
+		translate: -50% 150%;
+		padding: var(--space-2xs) var(--space-md);
+		border-radius: var(--radius-full);
+		background: var(--color-text);
+		color: var(--color-background);
+		font-weight: var(--font-weight-bold);
+		box-shadow: var(--shadow-xl);
+		opacity: 0;
+		transition:
+			translate 0.35s var(--ease-spring),
+			opacity 0.2s;
+		pointer-events: none;
+	}
+	.wa-toast.is-on {
+		translate: -50% 0;
+		opacity: 1;
+	}
+
+	.wa-sr {
+		position: absolute;
+		width: 1px;
+		height: 1px;
+		overflow: hidden;
+		clip-path: inset(50%);
+		white-space: nowrap;
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.wa-stage::before,
+		.wa-stage.wa-pop .wa-fit > span {
+			animation: none;
+		}
+	}
+</style>
