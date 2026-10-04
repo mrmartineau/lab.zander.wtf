@@ -125,3 +125,33 @@ ${baseCss('.wordart', 'none')}
 		return 'svg'
 	}
 }
+
+/** Safe file name from the words, e.g. "Hello Leo!" → "hello-leo". */
+export const fileNameFor = (text: string) =>
+	text.replace(/[^\w-]+/g, '-').replace(/^-+|-+$/g, '').toLowerCase() || 'wordart'
+
+/**
+ * Save what's on a stage: the live WordArt's layout plus the stage's resolved
+ * background (the see-through stage gives a transparent PNG).
+ */
+export function saveStage(
+	wordart: { chars: () => string[]; geo: () => LetterGeo[]; metrics: () => Metrics; wEm: () => number },
+	state: WAState,
+	stageEl: HTMLElement,
+) {
+	const cs = getComputedStyle(stageEl)
+	return savePNG(
+		{
+			state,
+			chars: wordart.chars(),
+			geo: wordart.geo(),
+			metrics: wordart.metrics(),
+			wEm: wordart.wEm(),
+			background:
+				state.bg === 'checker'
+					? null
+					: `background-color: ${cs.backgroundColor}; background-image: ${cs.backgroundImage};`,
+		},
+		fileNameFor(state.text),
+	)
+}

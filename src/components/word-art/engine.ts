@@ -40,7 +40,18 @@ export interface WAState {
 	}
 	tf: { rotate: number; skew: number; tiltX: number; tiltY: number; stretch: number }
 	anim: Anim
+	/** Stage background (see STAGES) — part of the state so share links carry it. */
+	bg: string
 }
+
+/** Stage backgrounds. The colours live in word-art.css under `[data-bg]`. */
+export const STAGES = [
+	{ id: 'night', label: 'Night' },
+	{ id: 'sky', label: 'Sky' },
+	{ id: 'paper', label: 'Paper' },
+	{ id: 'grass', label: 'Grass' },
+	{ id: 'checker', label: 'See-through' },
+]
 
 export const DEFAULT_STATE: WAState = {
 	text: 'WordArt!',
@@ -60,6 +71,7 @@ export const DEFAULT_STATE: WAState = {
 	shape: { curve: 70, wave: 0, freq: 1, bulge: 0, taper: 0 },
 	tf: { rotate: 0, skew: 0, tiltX: 0, tiltY: 0, stretch: 1 },
 	anim: 'none',
+	bg: 'night',
 }
 
 export const clone = <T,>(v: T): T => JSON.parse(JSON.stringify(v))
@@ -506,6 +518,7 @@ function sanitise(s: WAState): WAState {
 	if (!s.fill.stops.length) s.fill.stops = [...d.fill.stops]
 	if (!FILL_TYPES.includes(s.fill.type)) s.fill.type = d.fill.type
 	if (!ANIMS.some((a) => a.id === s.anim)) s.anim = d.anim
+	if (!STAGES.some((b) => b.id === s.bg)) s.bg = d.bg
 	s.stroke.color = colour(s.stroke.color, d.stroke.color)
 	s.extrude.color = colour(s.extrude.color, d.extrude.color)
 	s.shadow.color = colour(s.shadow.color, d.shadow.color)

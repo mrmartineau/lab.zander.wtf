@@ -11,11 +11,12 @@ import {
 	gradient,
 	loadFont,
 	merge,
+	STAGES,
 	type FillType,
 	type WAState,
 } from './engine'
 import { FONTS, PRESETS, SWATCHES } from './presets'
-import { savePNG } from './png'
+import { fileNameFor, saveStage } from './png'
 import WordArt, { type WordArtApi } from './WordArt'
 
 const TABS = [
@@ -43,13 +44,6 @@ const SHAPES: { name: string; icon: string; shape: Partial<WAState['shape']> }[]
 	{ name: 'Rainbow', icon: 'ph-cloud-sun', shape: { curve: 140, wave: 0, bulge: 40, taper: 0 } },
 ]
 
-const STAGES = [
-	{ id: 'night', label: 'Night' },
-	{ id: 'sky', label: 'Sky' },
-	{ id: 'paper', label: 'Paper' },
-	{ id: 'grass', label: 'Grass' },
-	{ id: 'checker', label: 'See-through' },
-]
 
 const FILLS: { id: FillType; label: string; icon: string }[] = [
 	{ id: 'solid', label: 'Solid', icon: 'ph-square' },
@@ -129,7 +123,6 @@ export default function Studio() {
 	const set = (path: string, v: unknown) => (setState as any)(...path.split('.'), v)
 
 	const [tab, setTab] = createSignal<Tab>('gallery')
-	const [stage, setStage] = createSignal('night')
 	const [fontTick, setFontTick] = createSignal(0)
 	const [fontStatus, setFontStatus] = createSignal<{ state: 'loading' | 'ok' | 'error'; font: string } | null>(null)
 	const [fontDraft, setFontDraft] = createSignal(state.font)
@@ -238,11 +231,11 @@ export default function Studio() {
 	const pop = () => wordart?.pop()
 
 	function applyPreset(i: number) {
-		setState(reconcile({ ...clone(PRESETS[i].state), text: state.text }))
+		setState(reconcile({ ...clone(PRESETS[i].state), text: state.text, bg: state.bg }))
 		pop()
 	}
 	function surprise() {
-		setState(reconcile(surpriseState(state.text)))
+		setState(reconcile({ ...surpriseState(state.text), bg: state.bg }))
 		pop()
 	}
 
@@ -289,41 +282,18 @@ ${html}
 		setTimeout(() => URL.revokeObjectURL(a.href), 1000)
 	}
 
-	function chooseStage(id: string) {
-		setStage(id)
-		try {
-			localStorage.setItem('wa-stage', id)
-		} catch {}
-	}
-
 	/* ───────────── PNG + full screen ───────────── */
 
 	let stageEl!: HTMLDivElement
 	const [full, setFull] = createSignal(false)
 	const [saving, setSaving] = createSignal(false)
-	const fileName = () =>
-		state.text.replace(/[^\w-]+/g, '-').replace(/^-+|-+$/g, '').toLowerCase() || 'wordart'
+	const fileName = () => fileNameFor(state.text)
 
 	async function savePicture() {
 		if (!wordart || saving()) return
 		setSaving(true)
 		try {
-			const cs = getComputedStyle(stageEl)
-			const kind = await savePNG(
-				{
-					state: unwrap(state),
-					chars: wordart.chars(),
-					geo: wordart.geo(),
-					metrics: wordart.metrics(),
-					wEm: wordart.wEm(),
-					// The see-through stage makes a transparent PNG
-					background:
-						stage() === 'checker'
-							? null
-							: `background-color: ${cs.backgroundColor}; background-image: ${cs.backgroundImage};`,
-				},
-				fileName(),
-			)
+			const kind = await saveStage(wordart, unwrap(state), stageEl)
 			notify(kind === 'png' ? 'Picture saved!' : "Saved as SVG — this browser can't make PNGs")
 		} catch {
 			notify("Couldn't save the picture")
@@ -331,6 +301,10 @@ ${html}
 			setSaving(false)
 		}
 	}
+
+	/** The read-only, full-window view of this piece — the link to share. */
+	// Reads through the store proxy, so the "View it" href stays in sync
+	const viewUrl = () => `${location.origin}/word-art/view#${encodeState(state)}`
 
 	// Real full screen where the browser allows it (not iPhone Safari); else
 	// the stage just covers the page.
@@ -347,10 +321,6 @@ ${html}
 	onMount(() => {
 		const fromHash = decodeState(location.hash.slice(1))
 		if (fromHash) setState(reconcile(fromHash))
-		try {
-			const saved = localStorage.getItem('wa-stage')
-			if (saved) setStage(saved)
-		} catch {}
 		const onFull = () => setFull(document.fullscreenElement === stageEl)
 		document.addEventListener('fullscreenchange', onFull)
 		const onFonts = () => setFontTick((t) => t + 1)
@@ -430,7 +400,7 @@ ${html}
 	return (
 		<div class="wa-workspace">
 			<section class="wa-left" aria-label="Preview">
-				<div ref={stageEl} class="wa-stage" classList={{ 'is-full': full() }} data-bg={stage()}>
+				<div ref={stageEl} class="wa-stage" classList={{ 'is-full': full() }} data-bg={state.bg}>
 					<WordArt
 						class="wa-stage-inner"
 						state={state}
@@ -499,10 +469,10 @@ ${html}
 									class="wa-bg"
 									data-stage={b.id}
 									role="radio"
-									aria-checked={stage() === b.id}
+									aria-checked={state.bg === b.id}
 									title={b.label}
 									aria-label={b.label}
-									onClick={() => chooseStage(b.id)}
+									onClick={() => setState('bg', b.id)}
 								/>
 							)}
 						</For>
@@ -525,13 +495,13 @@ ${html}
 						<button
 							class="zui-button zui-button-variant-outline zui-button-size-sm"
 							type="button"
-							onClick={() => {
-								history.replaceState(null, '', `#${encodeState(unwrap(state))}`)
-								copy(location.href, 'Link')
-							}}
+							onClick={() => copy(viewUrl(), 'Share link')}
 						>
 							<i class="ph ph-link" /> Copy link
 						</button>
+						<a class="zui-button zui-button-size-sm" href={viewUrl()} target="_blank" rel="noopener">
+							<i class="ph ph-frame-corners" /> View it
+						</a>
 					</div>
 				</div>
 			</section>
