@@ -59,14 +59,23 @@ export default function Viewer() {
 		}
 	}
 
-	const toggleFull = () =>
-		document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen?.()
+	const [full, setFull] = createSignal(false)
+	async function toggleFull() {
+		try {
+			if (document.fullscreenElement) await document.exitFullscreen()
+			else await document.documentElement.requestFullscreen()
+		} catch {
+			notify("This browser won't go full screen here")
+		}
+	}
 
 	onMount(() => {
 		read()
 		addEventListener('hashchange', read)
 		const onFonts = () => setFontTick((t) => t + 1)
 		document.fonts.addEventListener('loadingdone', onFonts)
+		const onFull = () => setFull(Boolean(document.fullscreenElement))
+		document.addEventListener('fullscreenchange', onFull)
 
 		// Controls fade away so the artwork is all you see; any movement brings them back
 		let idleTimer = 0
@@ -81,6 +90,7 @@ export default function Viewer() {
 		onCleanup(() => {
 			removeEventListener('hashchange', read)
 			document.fonts.removeEventListener('loadingdone', onFonts)
+			document.removeEventListener('fullscreenchange', onFull)
 			for (const ev of ['pointermove', 'pointerdown', 'keydown'] as const) removeEventListener(ev, wake)
 		})
 	})
@@ -95,7 +105,7 @@ export default function Viewer() {
 				ref={(api) => (wordart = api)}
 			/>
 
-			<nav class="wa-view-bar" aria-label="Artwork">
+			<nav class="wa-view-bar" aria-label="Viewer controls">
 				<a class="wa-view-btn" href={found() ? `/word-art#${encodeState(state)}` : '/word-art'}>
 					<i class="ph ph-pencil-simple" /> {found() ? 'Edit this' : 'Make your own'}
 				</a>
@@ -106,8 +116,15 @@ export default function Viewer() {
 					<i class={`ph ${saving() ? 'ph-spinner wa-spin' : 'ph-image'}`} /> Save PNG
 				</button>
 				<Show when={document.documentElement.requestFullscreen}>
-					<button type="button" class="wa-view-btn" aria-label="Full screen" title="Full screen" onClick={toggleFull}>
-						<i class="ph ph-corners-out" />
+					<button
+						type="button"
+						class="wa-view-btn"
+						aria-label={full() ? 'Exit full screen' : 'Full screen'}
+						title={full() ? 'Exit full screen' : 'Full screen'}
+						aria-pressed={full()}
+						onClick={toggleFull}
+					>
+						<i class={`ph ${full() ? 'ph-corners-in' : 'ph-corners-out'}`} />
 					</button>
 				</Show>
 			</nav>

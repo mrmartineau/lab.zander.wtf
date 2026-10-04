@@ -140,6 +140,9 @@ export function saveStage(
 	stageEl: HTMLElement,
 ) {
 	const cs = getComputedStyle(stageEl)
+	// The night stage's stars are a ::before layer; stack them on top of the background
+	const deco = getComputedStyle(stageEl, '::before')
+	const stars = deco.content !== 'none' && deco.backgroundImage !== 'none' ? `${deco.backgroundImage}, ` : ''
 	return savePNG(
 		{
 			state,
@@ -150,7 +153,7 @@ export function saveStage(
 			background:
 				state.bg === 'checker'
 					? null
-					: `background-color: ${cs.backgroundColor}; background-image: ${cs.backgroundImage};`,
+					: `background-color: ${cs.backgroundColor}; background-image: ${stars}${cs.backgroundImage};`,
 		},
 		fileNameFor(state.text),
 	)

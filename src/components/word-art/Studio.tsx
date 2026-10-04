@@ -250,7 +250,10 @@ export default function Studio() {
 			await navigator.clipboard.writeText(text)
 			notify(`${what} copied!`)
 		} catch {
-			notify(`Couldn't copy ${what} — select it and copy by hand`)
+			// No clipboard access: show the text somewhere it can be selected. The
+			// address bar is the studio, not the share link, so don't point there.
+			if (text.startsWith('http')) window.prompt(`Copy this ${what.toLowerCase()}:`, text)
+			else notify(`Couldn't copy ${what} — select it and copy by hand`)
 		}
 	}
 	const code = () => {

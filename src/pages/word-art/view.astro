@@ -7,5 +7,10 @@ import '../../components/word-art/word-art.css'
 ---
 
 <Layout title="WordArt — lab.zander.wtf">
-	<Viewer client:only="solid-js" />
+	<Viewer client:only="solid-js">
+		<!-- client:only renders nothing until Solid loads; keep the shared link from opening blank -->
+		<div class="wa-stage wa-view" data-bg="night" slot="fallback">
+			<p class="wa-view-loading">Warming up the WordArt machine…</p>
+		</div>
+	</Viewer>
 </Layout>
