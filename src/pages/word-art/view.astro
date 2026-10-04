@@ -1,0 +1,16 @@
+---
+// Full-window viewer for a saved piece: /word-art/view#<state>.
+// Not an index page, so it stays out of the homepage listing.
+import Layout from '../../layouts/Layout.astro'
+import Viewer from '../../components/word-art/Viewer'
+import '../../components/word-art/word-art.css'
+---
+
+<Layout title="WordArt — lab.zander.wtf">
+	<Viewer client:only="solid-js">
+		<!-- client:only renders nothing until Solid loads; keep the shared link from opening blank -->
+		<div class="wa-stage wa-view" data-bg="night" slot="fallback">
+			<p class="wa-view-loading">Warming up the WordArt machine…</p>
+		</div>
+	</Viewer>
+</Layout>
