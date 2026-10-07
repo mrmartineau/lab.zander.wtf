@@ -1,6 +1,6 @@
 ---
 import Layout from '../../layouts/Layout.astro'
-import { Badge, Link } from '@mrmartineau/zui/astro'
+import { Badge } from '@mrmartineau/zui/astro'
 import Studio from '../../components/word-art/Studio'
 import '../../components/word-art/word-art.css'
 
@@ -17,12 +17,15 @@ export const tags = ['tool', 'css', 'typography', 'fun', 'solid']
 		<header class="wa-header">
 			<!-- The page title is WordArt too, so it needs its font -->
 			<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Luckiest+Guy&display=swap" />
-			<Link href="/">← All lab items</Link>
 			<div class="wa-title">
 				<h1>WordArt <span>Studio</span></h1>
 				<Badge variant="fill" color="emerald">live</Badge>
 			</div>
 			<p class="wa-intro">{description}</p>
+			<p class="wa-intro">
+				I loved WordArt when I first got my hands on a computer as a kid. I built this mainly so my son can have a go
+				and play around with it too.
+			</p>
 		</header>
 
 		<Studio client:only="solid-js">

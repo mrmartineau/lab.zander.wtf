@@ -1,100 +1,220 @@
 ---
 import Layout from '../../layouts/Layout.astro'
-import { Card, CardBody, Popover, Tooltip } from '@mrmartineau/zui/astro'
+import { Menu, MenuContent, MenuItem, MenuTrigger, Tooltip } from '@mrmartineau/zui/astro'
 
 // Lab item metadata — read by the homepage listing.
 export const title = 'Drawing app'
-export const description = 'Kid-friendly drawing app built with p5.js — brushes, shapes, emoji stamps, symmetry mode and undo.'
+export const description = 'Kid-friendly drawing app built with p5.js — magic brushes, neon and ribbon pens, paint-bucket fill, colouring pages, text, stickers and snowflake mirrors.'
 export const date = '2026-05-19'
 export const status = 'live'
 export const tags = ['drawing', 'p5.js']
+
+type Tool = { mode: string; name: string; icon: string; desc: string }
+
+const magic: Tool[] = [
+  { mode: 'trails', name: 'Trails', icon: 'ph-sparkle', desc: 'Rainbow dots that wobble as you move.' },
+  { mode: 'splatter', name: 'Splatter', icon: 'ph-drop', desc: 'Paint flicks out from the brush.' },
+  { mode: 'spirograph', name: 'Spirograph', icon: 'ph-spiral', desc: 'Loops spin round while you hold.' },
+  { mode: 'bubbles', name: 'Bubbles', icon: 'ph-circles-three', desc: 'Soft see-through bubbles.' },
+  { mode: 'lightning', name: 'Lightning', icon: 'ph-lightning', desc: 'Crackles of light while you hold.' },
+  { mode: 'glitter', name: 'Glitter', icon: 'ph-star-four', desc: 'Twinkly sparkles in every colour.' },
+  { mode: 'grass', name: 'Grass', icon: 'ph-plant', desc: 'Little blades grow as you drag.' },
+]
+const pens: Tool[] = [
+  { mode: 'pen', name: 'Pen', icon: 'ph-pen-nib', desc: 'Lines. Slow is thick, fast is thin.' },
+  { mode: 'neon', name: 'Neon', icon: 'ph-lightbulb', desc: 'A glowing pen, like a light-up sign.' },
+  { mode: 'ribbon', name: 'Ribbon', icon: 'ph-wave-sine', desc: 'A rainbow ribbon follows you.' },
+  { mode: 'text', name: 'Text', icon: 'ph-text-t', desc: 'Tap the page to type. Drag the handle to move it.' },
+  { mode: 'fill', name: 'Fill', icon: 'ph-paint-bucket', desc: 'Tap a space to fill it with colour.' },
+  { mode: 'eraser', name: 'Eraser', icon: 'ph-eraser', desc: 'Rubs out back to the paper.' },
+]
+const shapes: Tool[] = [
+  { mode: 'circle', name: 'Circle', icon: 'ph-circle', desc: 'Drag to stamp circles. Speed packs them closer.' },
+  { mode: 'square', name: 'Square', icon: 'ph-square', desc: 'Drag to stamp squares. Speed packs them closer.' },
+  { mode: 'triangle', name: 'Triangle', icon: 'ph-triangle', desc: 'Drag to stamp triangles. Speed packs them closer.' },
+  { mode: 'star', name: 'Star', icon: 'ph-star', desc: 'Drag to stamp stars. Speed packs them closer.' },
+  { mode: 'heart', name: 'Heart', icon: 'ph-heart', desc: 'Drag to stamp hearts. Speed packs them closer.' },
+]
+const stamp: Tool = { mode: 'emoji', name: 'Stickers', icon: 'ph-stamp', desc: 'Drag to stamp stickers. Speed packs them closer.' }
+const stickers = ['🌈', '🐱', '🚀', '🦄', '🌟', '🌸', '🐶', '🦋', '❤️', '🦖', '🐠', '🍕', '🍩', '🌻', '🐝', '👑', '🎈', '⚽']
+const colours = ['#ffffff', '#ff4d6d', '#ff9f1c', '#ffd60a', '#52d273', '#2ec4f1', '#4d7cff', '#a66cff', '#ff7ac6', '#8b5a2b', '#1a1a1a']
+const mirrors = [
+  { v: 'off', icon: 'ph-prohibit', name: 'Off' },
+  { v: 'lr', icon: 'ph-flip-horizontal', name: 'Butterfly' },
+  { v: 'four', icon: 'ph-plus', name: 'Four ways' },
+  { v: 'k6', icon: 'ph-snowflake', name: 'Snowflake' },
+]
+const colouringPages = [
+  { v: 'fish', emoji: '🐟', name: 'Fish' },
+  { v: 'flower', emoji: '🌸', name: 'Flower' },
+  { v: 'house', emoji: '🏠', name: 'House' },
+  { v: 'rocket', emoji: '🚀', name: 'Rocket' },
+  { v: 'cat', emoji: '🐱', name: 'Cat' },
+  { v: 'butterfly', emoji: '🦋', name: 'Butterfly' },
+]
+const fonts = [
+  { v: 'rounded', name: 'Round', css: 'ui-rounded, "Arial Rounded MT Bold", "Nunito", system-ui, sans-serif' },
+  { v: 'hand', name: 'Comic', css: '"Comic Sans MS", "Chalkboard SE", "Comic Neue", cursive' },
+  { v: 'serif', name: 'Story', css: 'Georgia, "Times New Roman", serif' },
+  { v: 'mono', name: 'Robot', css: 'ui-monospace, "Courier New", monospace' },
+]
+const papers = [
+  { c: '#141414', name: 'Night' },
+  { c: '#ffffff', name: 'White' },
+  { c: '#fff4d6', name: 'Cream' },
+  { c: '#cdeefd', name: 'Sky' },
+]
 ---
-<Layout title="Drawing app — lab.zander.wtf">
-<div id="app">
-  <Card id="toolbar">
-    <CardBody class="toolbar-body">
-      <div class="tool-group">
-        <Tooltip text="Trails" placement="right"><button class="tool-btn active" data-mode="trails" onclick="setMode('trails',this)">✨</button></Tooltip>
-        <Tooltip text="Splatter" placement="right"><button class="tool-btn" data-mode="splatter" onclick="setMode('splatter',this)">💥</button></Tooltip>
-        <Tooltip text="Spirograph" placement="right"><button class="tool-btn" data-mode="spirograph" onclick="setMode('spirograph',this)">🌀</button></Tooltip>
-        <Tooltip text="Bubbles" placement="right"><button class="tool-btn" data-mode="bubbles" onclick="setMode('bubbles',this)">🫧</button></Tooltip>
-        <Tooltip text="Lightning" placement="right"><button class="tool-btn" data-mode="lightning" onclick="setMode('lightning',this)">⚡</button></Tooltip>
-        <Tooltip text="Pen" placement="right"><button class="tool-btn" data-mode="pen" onclick="setMode('pen',this)">✏️</button></Tooltip>
-        <Tooltip text="Eraser" placement="right"><button class="tool-btn" data-mode="eraser" onclick="setMode('eraser',this)">🩹</button></Tooltip>
-      </div>
-      <div class="tool-sep"></div>
-      <div class="tool-group">
-        <Tooltip text="Shapes" placement="right">
-          <button class="tool-btn" id="shape-trigger" popovertarget="shape-pop" style="anchor-name: --shape-pop">⭕</button>
+<Layout title="Drawing app — lab.zander.wtf" lockZoom>
+<div class="app">
+  <header class="bar">
+    <div class="group" aria-label="Magic brushes">
+      {magic.map((t, i) => (
+        <Tooltip text={`${t.name} (${i + 1})`} placement="bottom"><button class="tool" data-mode={t.mode} data-desc={t.desc} data-name={t.name} aria-label={t.name} aria-pressed={i === 0 ? 'true' : 'false'}><i class={`ph ${t.icon}`}></i></button></Tooltip>
+      ))}
+    </div>
+    <div class="group" aria-label="Pens">
+      {pens.map((t) => (
+        <Tooltip text={t.name} placement="bottom"><button class="tool" data-mode={t.mode} data-desc={t.desc} data-name={t.name} aria-label={t.name} aria-pressed="false"><i class={`ph ${t.icon}`}></i></button></Tooltip>
+      ))}
+    </div>
+    <div class="group" aria-label="Shapes and stickers">
+      <Menu id="shape-menu">
+        <Tooltip text="Shapes" placement="bottom">
+        <MenuTrigger class="tool menu-trigger" id="shape-trigger" data-mode={shapes[0].mode} data-desc={shapes[0].desc} data-name={shapes[0].name} aria-label="Shapes">
+          <i class={`ph ${shapes[0].icon}`}></i><i class="ph ph-caret-down caret" aria-hidden="true"></i>
+        </MenuTrigger>
         </Tooltip>
-      </div>
-      <Popover id="shape-pop" type="auto" style="position-area: inline-end center; margin: 0 0 0 8px">
-        <div class="stamp-grid">
-          <button class="tool-btn" data-mode="circle" onclick="setShape('circle','⭕',this)" popovertarget="shape-pop" popovertargetaction="hide">⭕</button>
-          <button class="tool-btn" data-mode="square" onclick="setShape('square','🟦',this)" popovertarget="shape-pop" popovertargetaction="hide">🟦</button>
-          <button class="tool-btn" data-mode="triangle" onclick="setShape('triangle','🔺',this)" popovertarget="shape-pop" popovertargetaction="hide">🔺</button>
-          <button class="tool-btn" data-mode="star" onclick="setShape('star','⭐',this)" popovertarget="shape-pop" popovertargetaction="hide">⭐</button>
-          <button class="tool-btn" data-mode="heart" onclick="setShape('heart','❤️',this)" popovertarget="shape-pop" popovertargetaction="hide">❤️</button>
+        <MenuContent class="menu-list">
+          {shapes.map((t, i) => (
+            <MenuItem class="menu-item shape-item" data-shape={t.mode} data-desc={t.desc} data-name={t.name} data-icon={t.icon} data-current={i === 0 ? 'true' : undefined}>
+              <i class={`ph ${t.icon}`}></i>{t.name}
+            </MenuItem>
+          ))}
+        </MenuContent>
+      </Menu>
+      <Tooltip text={stamp.name} placement="bottom"><button class="tool" data-mode={stamp.mode} data-desc={stamp.desc} data-name={stamp.name} aria-label={stamp.name} aria-pressed="false"><i class={`ph ${stamp.icon}`}></i></button></Tooltip>
+    </div>
+    <div class="group" aria-label="Page">
+      <Menu id="mirror-menu">
+        <Tooltip text="Mirror" placement="bottom">
+          <MenuTrigger class="tool menu-trigger" id="mirror-trigger" aria-label="Mirror">
+            <i class="ph ph-flip-horizontal"></i><i class="ph ph-caret-down caret" aria-hidden="true"></i>
+          </MenuTrigger>
+        </Tooltip>
+        <MenuContent class="menu-list">
+          {mirrors.map((m, i) => (
+            <MenuItem class="menu-item" data-sym={m.v} data-current={i === 0 ? 'true' : undefined}>
+              <i class={`ph ${m.icon}`}></i>{m.name}
+            </MenuItem>
+          ))}
+        </MenuContent>
+      </Menu>
+      <Menu id="page-menu">
+        <Tooltip text="Colouring pages" placement="bottom">
+          <MenuTrigger class="tool menu-trigger" aria-label="Colouring pages">
+            <i class="ph ph-book-open"></i><i class="ph ph-caret-down caret" aria-hidden="true"></i>
+          </MenuTrigger>
+        </Tooltip>
+        <MenuContent class="menu-list">
+          {colouringPages.map((pg) => (
+            <MenuItem class="menu-item" data-page={pg.v}>
+              <span class="menu-emoji">{pg.emoji}</span>{pg.name}
+            </MenuItem>
+          ))}
+        </MenuContent>
+      </Menu>
+      <Menu id="paper-menu">
+        <Tooltip text="New paper" placement="bottom">
+          <MenuTrigger class="tool menu-trigger" aria-label="New paper">
+            <i class="ph ph-file-plus"></i><i class="ph ph-caret-down caret" aria-hidden="true"></i>
+          </MenuTrigger>
+        </Tooltip>
+        <MenuContent class="menu-list">
+          {papers.map((pp) => (
+            <MenuItem class="menu-item" data-paper={pp.c}>
+              <span class="menu-paper" style={`--c:${pp.c}`}></span>{pp.name}
+            </MenuItem>
+          ))}
+        </MenuContent>
+      </Menu>
+    </div>
+    <span class="spacer"></span>
+    <Tooltip text="Pick a surprise tool" placement="bottom"><button class="act" data-action="surprise"><i class="ph ph-dice-five"></i><span>Surprise!</span></button></Tooltip>
+    <Tooltip text="Undo (⌘Z)" placement="bottom"><button class="act" data-action="undo"><i class="ph ph-arrow-counter-clockwise"></i><span>Undo</span></button></Tooltip>
+    <Tooltip text="Clear the page" placement="bottom"><button class="act" data-action="clear"><i class="ph ph-trash"></i><span>Clear</span></button></Tooltip>
+    <Tooltip text="Save as a picture" placement="bottom"><button class="act primary" data-action="save"><i class="ph ph-download-simple"></i><span>Save</span></button></Tooltip>
+  </header>
+
+  <div class="main">
+    <div class="stage" id="stage">
+      <canvas id="c"></canvas>
+      <canvas id="lines" aria-hidden="true"></canvas>
+      <div class="guides" id="guides" data-sym="off" aria-hidden="true"></div>
+      <div class="texts" id="texts"></div>
+    </div>
+
+    <aside class="panel" aria-label="Tool settings">
+      <div class="head">
+        <span class="head-icon"><i class="ph ph-sparkle" id="tool-icon"></i></span>
+        <div>
+          <h2 id="tool-name">Trails</h2>
+          <p id="tool-desc">Rainbow dots that wobble as you move.</p>
         </div>
-      </Popover>
-      <div class="tool-sep"></div>
-      <div class="tool-group">
-        <Tooltip text="Stamps" placement="right">
-          <button class="tool-btn" id="stamp-trigger" popovertarget="stamp-pop" style="anchor-name: --stamp-pop">🌟</button>
-        </Tooltip>
       </div>
-      <Popover id="stamp-pop" type="auto" style="position-area: inline-end center; margin: 0 0 0 8px">
-        <div class="stamp-grid">
-          <button class="tool-btn" data-mode="emoji" onclick="setEmoji('🌈',this)" popovertarget="stamp-pop" popovertargetaction="hide">🌈</button>
-          <button class="tool-btn" data-mode="emoji" onclick="setEmoji('🐱',this)" popovertarget="stamp-pop" popovertargetaction="hide">🐱</button>
-          <button class="tool-btn" data-mode="emoji" onclick="setEmoji('🚀',this)" popovertarget="stamp-pop" popovertargetaction="hide">🚀</button>
-          <button class="tool-btn" data-mode="emoji" onclick="setEmoji('🦄',this)" popovertarget="stamp-pop" popovertargetaction="hide">🦄</button>
-          <button class="tool-btn" data-mode="emoji" onclick="setEmoji('🌟',this)" popovertarget="stamp-pop" popovertargetaction="hide">🌟</button>
-          <button class="tool-btn" data-mode="emoji" onclick="setEmoji('🌸',this)" popovertarget="stamp-pop" popovertargetaction="hide">🌸</button>
-          <button class="tool-btn" data-mode="emoji" onclick="setEmoji('🐶',this)" popovertarget="stamp-pop" popovertargetaction="hide">🐶</button>
-          <button class="tool-btn" data-mode="emoji" onclick="setEmoji('🦋',this)" popovertarget="stamp-pop" popovertargetaction="hide">🦋</button>
-          <button class="tool-btn" data-mode="emoji" onclick="setEmoji('❤️',this)" popovertarget="stamp-pop" popovertargetaction="hide">❤️</button>
+
+      <section class="field" data-for="fx pen eraser shape emoji text">
+        <label for="size">Size <output id="size-v">12</output></label>
+        <input type="range" id="size" min="2" max="40" value="12">
+      </section>
+      <section class="field" data-for="fx shape emoji">
+        <label for="speed">Speed <output id="speed-v">5</output></label>
+        <input type="range" id="speed" min="1" max="10" value="5">
+      </section>
+      <section class="field" data-for="pen eraser">
+        <label for="wobble">Line <output id="wobble-v">Smooth</output></label>
+        <input type="range" id="wobble" min="0" max="10" value="3">
+        <div class="range-ends" aria-hidden="true"><span>Smooth</span><span>Jittery</span></div>
+      </section>
+      <section class="field" data-for="fx">
+        <span class="label">Colour</span>
+        <div class="row">
+          <span class="rainbow"></span>
+          <span class="hint">Magic colours — they change by themselves</span>
+          <button class="small" data-action="shuffle" aria-label="Jump to new colours" title="Jump to new colours"><i class="ph ph-shuffle"></i></button>
         </div>
-      </Popover>
-      <div class="tool-sep"></div>
-      <div class="tool-group">
-        <Tooltip text="Pen colour" placement="right">
-          <div class="picker">
-            <input type="color" id="pen-colour" value="#ffffff" oninput="penColour=this.value">
-          </div>
-        </Tooltip>
-        <Tooltip text="Background colour" placement="right">
-          <div class="picker">
-            <input type="color" id="bg-colour" value="#141414" oninput="bgColour=this.value">
-          </div>
-        </Tooltip>
-      </div>
-      <div class="tool-sep"></div>
-      <div class="tool-group">
-        <Tooltip text="Brush size" placement="right">
-          <div class="slider-wrap">
-            <input type="range" id="sz" min="2" max="40" value="12" oninput="brushSize=+this.value;document.getElementById('szv').textContent=this.value">
-            <span class="slider-val" id="szv">12</span>
-          </div>
-        </Tooltip>
-        <Tooltip text="Speed" placement="right">
-          <div class="slider-wrap">
-            <input type="range" id="sp" min="1" max="10" value="5" oninput="speed=+this.value;document.getElementById('spv').textContent=this.value">
-            <span class="slider-val" id="spv">5</span>
-          </div>
-        </Tooltip>
-        <Tooltip text="Symmetry" placement="right"><button class="tool-btn" onclick="toggleSym(this)">🪞</button></Tooltip>
-      </div>
-      <div class="tool-spacer"></div>
-      <div class="tool-group">
-        <Tooltip text="Undo" placement="right"><button class="tool-btn" onclick="undo()">↩️</button></Tooltip>
-        <Tooltip text="Random colour" placement="right"><button class="tool-btn" onclick="randomColour()">🎨</button></Tooltip>
-        <Tooltip text="Clear canvas" placement="right"><button class="tool-btn" onclick="clearCanvas()">🗑</button></Tooltip>
-        <Tooltip text="Save image" placement="right"><button class="tool-btn" onclick="saveImage()">⬇</button></Tooltip>
-      </div>
-    </CardBody>
-  </Card>
-  <canvas id="c"></canvas>
+      </section>
+      <section class="field" data-for="pen shape fill text">
+        <span class="label" id="colour-label">Colour</span>
+        <div class="swatches" role="radiogroup" aria-labelledby="colour-label">
+          <button class="swatch swatch-rainbow" role="radio" aria-checked="false" data-colour="rainbow" aria-label="Rainbow"></button>
+          {colours.map((c, i) => (
+            <button class="swatch" role="radio" aria-checked={i === 0 ? 'true' : 'false'} data-colour={c} style={`--c:${c}`} aria-label={c}></button>
+          ))}
+          <label class="swatch swatch-custom" title="Any colour">
+            <input type="color" id="custom-colour" value="#ffffff" aria-label="Any colour">
+            <i class="ph ph-plus" aria-hidden="true"></i>
+          </label>
+        </div>
+      </section>
+      <section class="field" data-for="text">
+        <span class="label" id="font-label">Letters</span>
+        <div class="choices" role="radiogroup" aria-labelledby="font-label">
+          {fonts.map((f, i) => (
+            <button class="choice font" role="radio" aria-checked={i === 0 ? 'true' : 'false'} data-font={f.css} style={`font-family:${f.css}`}>{f.name}</button>
+          ))}
+        </div>
+        <p class="hint">Changes the text you are typing, and any new text.</p>
+      </section>
+      <section class="field" data-for="emoji">
+        <span class="label">Sticker</span>
+        <div class="stickers">
+          {stickers.map((e, i) => <button class="sticker" data-sticker={e} aria-pressed={i === 4 ? 'true' : 'false'}>{e}</button>)}
+        </div>
+      </section>
+
+    </aside>
+  </div>
 </div>
 </Layout>
 
@@ -103,107 +223,506 @@ export const tags = ['drawing', 'p5.js']
 let mode = 'trails';
 let brushSize = 12;
 let speed = 5;
+let wobble = 3; // pen line: 0 very smooth, 5 raw pointer, 10 very jittery
 let hue = Math.random() * 360;
 let penColour = '#ffffff';
+let rainbowPen = false;
 let bgColour = '#141414';
 let currentEmoji = '🌟';
-let symmetry = false;
+let symMode = 'off'; // 'off' | 'lr' | 'four' | 'k6'
+let page = null; // colouring page drawn on the lines layer, if any
 let p5Instance;
 let isDrawing = false;
 let prevX, prevY;
 let t = 0;
-const history = [];
+const undoStack = [];
 const shapeModes = ['circle', 'square', 'triangle', 'star', 'heart'];
+const fxModes = ['trails', 'splatter', 'spirograph', 'bubbles', 'lightning', 'glitter', 'grass', 'ribbon'];
 
-function setMode(m, el) {
+const $ = (s) => document.querySelector(s);
+const $$ = (s) => [...document.querySelectorAll(s)];
+const stage = $('#stage');
+const shapeTrigger = $('#shape-trigger');
+const mirrorTrigger = $('#mirror-trigger');
+const textLayer = $('#texts');
+const linesCanvas = $('#lines');
+
+// ---------- Colouring pages ----------
+// Line art lives on its own canvas above the paint, so brushes never cover
+// the lines and the fill tool can use them as walls.
+// Each picture is drawn in a 100×100 box. `shape` hides any lines under it
+// (so later parts sit on top) and outlines it; `line` only outlines.
+const PAGES = {
+  fish(shape, line) {
+    shape(poly([[22, 50], [6, 34], [6, 66]]));
+    shape(poly([[40, 34], [52, 20], [62, 33]]));
+    shape(ellipse(50, 50, 32, 20));
+    line(arc(48, 50, 12, -0.8, 0.8));
+    shape(circle(70, 45, 4));
+    shape(circle(71, 45, 1.6));
+    shape(circle(84, 30, 3));
+    shape(circle(90, 20, 2.2));
+    shape(circle(86, 12, 1.6));
+    shape(poly([[8, 96], [14, 76], [20, 96]]));
+    shape(poly([[86, 96], [92, 72], [96, 96]]));
+  },
+  flower(shape) {
+    shape(circle(86, 14, 8));
+    shape(ellipse(39, 76, 11, 4.5, -0.5));
+    shape(ellipse(61, 68, 11, 4.5, 0.5));
+    shape(rect(48.5, 46, 3, 50));
+    for (let k = 0; k < 8; k++) {
+      const a = (Math.PI / 4) * k;
+      shape(ellipse(50 + Math.cos(a) * 17, 34 + Math.sin(a) * 17, 10, 6, a));
+    }
+    shape(circle(50, 34, 9));
+  },
+  house(shape, line) {
+    shape(circle(86, 14, 8));
+    shape(rect(64, 20, 8, 18));
+    shape(poly([[16, 46], [50, 18], [84, 46]]));
+    shape(rect(24, 46, 52, 42));
+    shape(rect(44, 63, 12, 25));
+    shape(circle(53, 76, 1.2));
+    for (const x of [30, 60]) {
+      shape(rect(x, 52, 10, 10));
+      line(poly([[x + 5, 52], [x + 5, 62]], false));
+      line(poly([[x, 57], [x + 10, 57]], false));
+    }
+    line(poly([[2, 88], [98, 88]], false));
+  },
+  rocket(shape) {
+    shape(poly([[42, 79], [50, 96], [58, 79]]));
+    shape(poly([[38, 56], [24, 82], [40, 76]]));
+    shape(poly([[62, 56], [76, 82], [60, 76]]));
+    const body = new Path2D();
+    body.moveTo(50, 8);
+    body.quadraticCurveTo(68, 28, 62, 79);
+    body.lineTo(38, 79);
+    body.quadraticCurveTo(32, 28, 50, 8);
+    shape(body);
+    shape(circle(50, 40, 7));
+    shape(rect(40, 62, 20, 4));
+    shape(star(14, 18, 5));
+    shape(star(86, 30, 4));
+    shape(star(18, 62, 3.5));
+    shape(star(84, 70, 5));
+  },
+  cat(shape, line) {
+    shape(ellipse(50, 84, 26, 14));
+    shape(poly([[28, 32], [30, 8], [46, 22]]));
+    shape(poly([[72, 32], [70, 8], [54, 22]]));
+    shape(ellipse(50, 46, 28, 25));
+    shape(ellipse(39, 41, 5, 6.5));
+    shape(ellipse(61, 41, 5, 6.5));
+    shape(ellipse(39, 42, 1.8, 4));
+    shape(ellipse(61, 42, 1.8, 4));
+    shape(poly([[47, 52], [53, 52], [50, 56]]));
+    const mouth = new Path2D();
+    mouth.moveTo(50, 56); mouth.quadraticCurveTo(46, 62, 42, 58);
+    mouth.moveTo(50, 56); mouth.quadraticCurveTo(54, 62, 58, 58);
+    line(mouth);
+    for (const [y, dy] of [[52, -3], [55, 0], [58, 3]]) {
+      line(poly([[34, y], [14, y + dy]], false));
+      line(poly([[66, y], [86, y + dy]], false));
+    }
+  },
+  butterfly(shape, line) {
+    shape(ellipse(31, 34, 19, 15, -0.4));
+    shape(ellipse(69, 34, 19, 15, 0.4));
+    shape(ellipse(35, 63, 13, 11, 0.4));
+    shape(ellipse(65, 63, 13, 11, -0.4));
+    for (const [x, y, r] of [[28, 32, 5], [72, 32, 5], [35, 64, 3.5], [65, 64, 3.5]]) shape(circle(x, y, r));
+    shape(ellipse(50, 50, 4, 24));
+    const feelers = new Path2D();
+    feelers.moveTo(49, 27); feelers.quadraticCurveTo(44, 16, 38, 12);
+    feelers.moveTo(51, 27); feelers.quadraticCurveTo(56, 16, 62, 12);
+    line(feelers);
+    shape(circle(38, 12, 2));
+    shape(circle(62, 12, 2));
+  },
+};
+
+function circle(x, y, r) { const p = new Path2D(); p.arc(x, y, r, 0, Math.PI * 2); return p; }
+function ellipse(x, y, rx, ry, rot = 0) { const p = new Path2D(); p.ellipse(x, y, rx, ry, rot, 0, Math.PI * 2); return p; }
+function rect(x, y, w, h) { const p = new Path2D(); p.rect(x, y, w, h); return p; }
+function arc(x, y, r, a0, a1) { const p = new Path2D(); p.arc(x, y, r, a0, a1); return p; }
+function poly(pts, closed = true) {
+  const p = new Path2D();
+  pts.forEach(([x, y], i) => (i ? p.lineTo(x, y) : p.moveTo(x, y)));
+  if (closed) p.closePath();
+  return p;
+}
+function star(x, y, r) {
+  const pts = [];
+  for (let i = 0; i < 10; i++) {
+    const a = (Math.PI * i) / 5 - Math.PI / 2, rr = i % 2 ? r * 0.45 : r;
+    pts.push([x + Math.cos(a) * rr, y + Math.sin(a) * rr]);
+  }
+  return poly(pts);
+}
+
+// The picture box is fixed when the page is picked, so a resize keeps the
+// lines lined up with the paint (which stays anchored top-left).
+let pageBox = null;
+function drawLines() {
+  if (!p5Instance) return;
+  const pd = p5Instance.pixelDensity();
+  const W = p5Instance.width, H = p5Instance.height;
+  linesCanvas.width = W * pd;
+  linesCanvas.height = H * pd;
+  const ctx = linesCanvas.getContext('2d');
+  ctx.clearRect(0, 0, linesCanvas.width, linesCanvas.height);
+  if (!page) return;
+  if (!pageBox) {
+    const s = Math.min(W, H) * 0.88;
+    pageBox = { x: (W - s) / 2, y: (H - s) / 2, s };
+  }
+  const k = pageBox.s / 100;
+  ctx.setTransform(pd * k, 0, 0, pd * k, pd * pageBox.x, pd * pageBox.y);
+  ctx.lineWidth = Math.max(3, pageBox.s / 140) / k;
+  ctx.lineJoin = ctx.lineCap = 'round';
+  ctx.strokeStyle = '#111';
+  const shape = (path) => {
+    ctx.globalCompositeOperation = 'destination-out';
+    ctx.fill(path);
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.stroke(path);
+  };
+  const line = (path) => ctx.stroke(path);
+  PAGES[page](shape, line);
+}
+
+function setPage(name) {
+  page = name;
+  pageBox = null;
+  drawLines();
+}
+
+// ---------- Actions ----------
+function setMode(m) {
+  if (mode === 'text' && m !== 'text') document.activeElement?.closest('.text-box') && document.activeElement.blur();
   mode = m;
-  document.querySelectorAll('.tool-btn[data-mode]').forEach(b => b.classList.remove('active'));
-  el.classList.add('active');
+  stage.dataset.mode = m;
+  pruneEmptyTexts();
+  $$('.tool:not(.menu-trigger)').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.mode === m)));
+  shapeTrigger.dataset.active = String(shapeModes.includes(m));
+  syncPanel();
 }
 
-function setEmoji(em, el) {
-  currentEmoji = em;
-  const trigger = document.getElementById('stamp-trigger');
-  if (trigger) trigger.textContent = em;
-  setMode('emoji', el);
+// ---------- Text boxes ----------
+// Text sits in DOM boxes above the canvas so it stays editable and movable.
+// Boxes only take the pointer in text mode, so brushes still reach the
+// canvas underneath. Save draws them onto the picture.
+let textFont = $('.font').dataset.font;
+let activeBox = null;
+const textSize = () => brushSize * 3;
+const textColour = () => (rainbowPen ? `hsl(${hue} 85% 55%)` : penColour);
+
+function makeTextBox({ x, y, text = '', size, colour, font }) {
+  const box = document.createElement('div');
+  box.className = 'text-box';
+  box.innerHTML = `
+    <div class="text-body" contenteditable="plaintext-only" spellcheck="false" aria-label="Text"></div>
+    <div class="text-handles">
+      <button class="text-handle text-move" aria-label="Move text"><i class="ph ph-arrows-out-cardinal"></i></button>
+      <button class="text-handle text-delete" aria-label="Delete text"><i class="ph ph-x"></i></button>
+    </div>`;
+  const body = box.querySelector('.text-body');
+  body.textContent = text;
+  Object.assign(box.dataset, { x, y, size, colour, font });
+  styleBox(box);
+  body.addEventListener('focus', () => (activeBox = box));
+  body.addEventListener('blur', () => {
+    if (!body.textContent.trim()) box.remove();
+  });
+  box.querySelector('.text-delete').addEventListener('click', () => {
+    pushHistory();
+    box.remove();
+  });
+  dragWith(box.querySelector('.text-move'), box);
+  textLayer.append(box);
+  return box;
 }
 
-function setShape(m, icon, el) {
-  const trigger = document.getElementById('shape-trigger');
-  if (trigger) trigger.textContent = icon;
-  setMode(m, el);
+function styleBox(box) {
+  const { x, y, size, colour, font } = box.dataset;
+  Object.assign(box.style, { left: x + 'px', top: y + 'px', fontSize: size + 'px', color: colour, fontFamily: font });
 }
 
-function toggleSym(el) {
-  symmetry = !symmetry;
-  el.classList.toggle('active', symmetry);
+// Move a box by dragging its handle, kept inside the stage.
+function dragWith(handle, box) {
+  handle.addEventListener('pointerdown', (e) => {
+    e.preventDefault();
+    handle.setPointerCapture(e.pointerId);
+    const startX = e.clientX, startY = e.clientY, x0 = +box.dataset.x, y0 = +box.dataset.y;
+    const move = (ev) => {
+      box.dataset.x = Math.round(Math.min(Math.max(x0 + ev.clientX - startX, 0), stage.clientWidth - 24));
+      box.dataset.y = Math.round(Math.min(Math.max(y0 + ev.clientY - startY, 0), stage.clientHeight - 24));
+      styleBox(box);
+    };
+    const end = () => {
+      handle.removeEventListener('pointermove', move);
+      handle.removeEventListener('pointerup', end);
+      handle.removeEventListener('pointercancel', end);
+    };
+    handle.addEventListener('pointermove', move);
+    handle.addEventListener('pointerup', end);
+    handle.addEventListener('pointercancel', end);
+  });
+}
+
+// Drop boxes left empty (backs up the blur check, which a lost window focus skips).
+function pruneEmptyTexts() {
+  textBoxes().forEach((b) => {
+    const body = b.querySelector('.text-body');
+    if (body !== document.activeElement && !body.textContent.trim()) b.remove();
+  });
+}
+
+function addTextAt(x, y) {
+  pruneEmptyTexts();
+  pushHistory();
+  const size = textSize();
+  const box = makeTextBox({ x: Math.round(x), y: Math.round(y - size * 0.7), size, colour: textColour(), font: textFont });
+  setTimeout(() => box.querySelector('.text-body').focus());
+}
+
+// Change the box being typed in (if any) when a text setting changes.
+function updateActiveBox(props) {
+  if (mode !== 'text' || !activeBox?.isConnected) return;
+  Object.assign(activeBox.dataset, props);
+  styleBox(activeBox);
+}
+
+const textBoxes = () => $$('.text-box');
+const readTexts = () => textBoxes().map((b) => ({ ...b.dataset, text: b.querySelector('.text-body').textContent }));
+function restoreTexts(list) {
+  textBoxes().forEach((b) => b.remove());
+  list.forEach((t) => makeTextBox(t));
 }
 
 function randomColour() {
   hue = Math.random() * 360;
 }
 
-// Snapshot the canvas so the last action can be undone.
+// Snapshot the paint (and which colouring page is showing) so it can be undone.
 function pushHistory() {
   if (!p5Instance) return;
-  history.push(p5Instance.get());
-  if (history.length > 12) history.shift();
+  undoStack.push({ img: p5Instance.get(), page, pageBox, texts: readTexts() });
+  if (undoStack.length > 12) undoStack.shift();
 }
 
 function undo() {
-  if (p5Instance && history.length) p5Instance.image(history.pop(), 0, 0);
+  const last = p5Instance && undoStack.pop();
+  if (!last) return;
+  p5Instance.image(last.img, 0, 0);
+  restoreTexts(last.texts);
+  if (last.page !== page || last.pageBox !== pageBox) {
+    page = last.page;
+    pageBox = last.pageBox;
+    drawLines();
+  }
 }
 
 function clearCanvas() {
   if (!p5Instance) return;
   pushHistory();
   p5Instance.background(bgColour);
+  restoreTexts([]);
+}
+
+function newPaper(colour, pageName = null) {
+  if (!p5Instance) return;
+  pushHistory();
+  bgColour = colour;
+  p5Instance.background(bgColour);
+  restoreTexts([]);
+  setPage(pageName);
 }
 
 function saveImage() {
-  const canvas = document.getElementById('c');
+  const out = document.createElement('canvas');
+  out.width = $('#c').width;
+  out.height = $('#c').height;
+  const ctx = out.getContext('2d');
+  ctx.drawImage($('#c'), 0, 0);
+  ctx.drawImage(linesCanvas, 0, 0);
+  // Draw each text box where it sits on screen.
+  const pd = out.width / stage.clientWidth;
+  const origin = stage.getBoundingClientRect();
+  ctx.scale(pd, pd);
+  ctx.textBaseline = 'top';
+  for (const box of textBoxes()) {
+    const body = box.querySelector('.text-body');
+    const r = body.getBoundingClientRect(), cs = getComputedStyle(body);
+    const size = parseFloat(cs.fontSize), lineH = parseFloat(cs.lineHeight) || size * 1.2;
+    ctx.font = `${cs.fontWeight} ${size}px ${cs.fontFamily}`;
+    ctx.fillStyle = cs.color;
+    const x = r.left - origin.left + parseFloat(cs.paddingLeft);
+    const y = r.top - origin.top + parseFloat(cs.paddingTop) + (lineH - size) / 2;
+    body.innerText.split('\n').forEach((line, i) => ctx.fillText(line, x, y + i * lineH));
+  }
   const link = document.createElement('a');
   link.download = 'my-art-' + Date.now() + '.png';
-  link.href = canvas.toDataURL('image/png');
+  link.href = out.toDataURL('image/png');
   link.click();
 }
 
-// Ignore pointer events that start on the toolbar panel.
-function onToolbar(e) {
-  return !!(e && e.target && e.target.closest && e.target.closest('#toolbar'));
+// Draw only when the press lands on the canvas with the main button.
+function fromCanvas(e) {
+  return !!e && e.target === $('#c') && !(e.button > 0);
 }
 
-// Bind ZUI tooltip triggers — ZUI's own init only runs on `astro:page-load`,
-// which this site does not emit (no <ClientRouter />).
-document.querySelectorAll('[data-tooltip-trigger]').forEach(trigger => {
-  const pop = document.getElementById(trigger.dataset.tooltipTrigger);
-  if (!pop) return;
-  const show = () => { try { pop.showPopover(); } catch {} };
-  const hide = () => { try { pop.hidePopover(); } catch {} };
-  trigger.addEventListener('mouseenter', show);
-  trigger.addEventListener('mouseleave', hide);
-  trigger.addEventListener('focusin', show);
-  trigger.addEventListener('focusout', hide);
+// ---------- Panel ----------
+function kindOf(m) {
+  if (m === 'pen' || m === 'neon') return 'pen';
+  if (['fill', 'eraser', 'emoji', 'text'].includes(m)) return m;
+  if (shapeModes.includes(m)) return 'shape';
+  return 'fx';
+}
+
+function syncPanel() {
+  const b = $(`.tool[data-mode="${mode}"]`) || $(`.shape-item[data-shape="${mode}"]`);
+  $('#tool-icon').className = b.querySelector('i').className;
+  $('#tool-name').textContent = b.dataset.name;
+  $('#tool-desc').textContent = b.dataset.desc;
+  $$('.field[data-for]').forEach((s) => (s.hidden = !s.dataset.for.split(' ').includes(kindOf(mode))));
+}
+
+const tools = $$('.tool:not(.menu-trigger)');
+tools.forEach((b) => b.addEventListener('click', () => setMode(b.dataset.mode)));
+
+// The shapes button opens a menu; it then stands in for the picked shape.
+const shapeItems = $$('.shape-item');
+function pickShape(item) {
+  const { shape, desc, name, icon } = item.dataset;
+  Object.assign(shapeTrigger.dataset, { mode: shape, desc, name });
+  shapeTrigger.querySelector('i').className = 'ph ' + icon;
+  markCurrent(shapeItems, item);
+  setMode(shape);
+}
+shapeItems.forEach((b) => b.addEventListener('click', () => pickShape(b)));
+
+// A menu hands focus back to its button, which would leave the button's
+// tooltip showing over the menu or the canvas — hide it on open and on pick.
+$$('.zui-menu').forEach((menu) => {
+  const tipId = menu.querySelector('[data-tooltip-trigger]').dataset.tooltipTrigger;
+  const hide = () => setTimeout(() => { try { document.getElementById(tipId).hidePopover(); } catch {} });
+  menu.querySelectorAll('.menu-trigger, .menu-item').forEach((el) => el.addEventListener('click', hide));
+});
+const markCurrent = (items, on) => items.forEach((x) => (x === on ? (x.dataset.current = 'true') : delete x.dataset.current));
+
+for (const [id, set] of [['size', (v) => { brushSize = v; updateActiveBox({ size: textSize() }); }], ['speed', (v) => (speed = v)]]) {
+  const el = $('#' + id), out = $('#' + id + '-v');
+  el.addEventListener('input', () => { set(+el.value); out.textContent = el.value; });
+}
+
+const WOBBLE_WORDS = ['Very smooth', 'Very smooth', 'Smooth', 'Smooth', 'Natural', 'Natural', 'Natural', 'Wobbly', 'Wobbly', 'Jittery', 'Very jittery'];
+$('#wobble').addEventListener('input', (e) => {
+  wobble = +e.target.value;
+  $('#wobble-v').textContent = WOBBLE_WORDS[wobble];
 });
 
+const checkOne = (els, on) => els.forEach((x) => x.setAttribute('aria-checked', String(x === on)));
+const swatches = $$('.swatch[data-colour]');
+swatches.forEach((b) => b.addEventListener('click', () => {
+  rainbowPen = b.dataset.colour === 'rainbow';
+  if (!rainbowPen) penColour = b.dataset.colour;
+  checkOne(swatches, b);
+  updateActiveBox({ colour: textColour() });
+}));
+$('#custom-colour').addEventListener('input', (e) => {
+  rainbowPen = false;
+  penColour = e.target.value;
+  checkOne(swatches, null);
+  updateActiveBox({ colour: textColour() });
+});
+
+const fontBtns = $$('.font');
+fontBtns.forEach((b) => b.addEventListener('click', () => {
+  textFont = b.dataset.font;
+  checkOne(fontBtns, b);
+  updateActiveBox({ font: textFont });
+}));
+
+const stickerBtns = $$('.sticker');
+stickerBtns.forEach((b) => b.addEventListener('click', () => {
+  currentEmoji = b.dataset.sticker;
+  stickerBtns.forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+}));
+
+const mirrorItems = $$('.menu-item[data-sym]');
+mirrorItems.forEach((b) => b.addEventListener('click', () => {
+  symMode = b.dataset.sym;
+  $('#guides').dataset.sym = symMode;
+  mirrorTrigger.dataset.active = String(symMode !== 'off');
+  markCurrent(mirrorItems, b);
+}));
+
+$$('.menu-item[data-page]').forEach((b) => b.addEventListener('click', () => {
+  newPaper('#ffffff', b.dataset.page);
+  setMode('fill');
+}));
+$$('.menu-item[data-paper]').forEach((b) => b.addEventListener('click', () => newPaper(b.dataset.paper)));
+
+const pickOne = (a) => a[Math.floor(Math.random() * a.length)];
+const actions = {
+  undo,
+  clear: clearCanvas,
+  save: saveImage,
+  shuffle: randomColour,
+  surprise() {
+    const choices = [...tools.filter((t) => !['eraser', 'fill', 'text'].includes(t.dataset.mode)), ...shapeItems];
+    const pick = pickOne(choices);
+    if (pick.dataset.shape) pickShape(pick);
+    else setMode(pick.dataset.mode);
+    pickOne(swatches).click();
+    if (mode === 'emoji') pickOne(stickerBtns).click();
+    randomColour();
+  },
+};
+$$('[data-action]').forEach((b) => b.addEventListener('click', () => actions[b.dataset.action]()));
+
+const magic = $$('.group[aria-label="Magic brushes"] .tool').map((b) => b.dataset.mode);
+document.addEventListener('keydown', (e) => {
+  if (e.target.closest('input, select, textarea, [contenteditable]')) return;
+  if ((e.metaKey || e.ctrlKey) && e.key === 'z') { e.preventDefault(); undo(); return; }
+  const n = +e.key;
+  if (n >= 1 && n <= magic.length) setMode(magic[n - 1]);
+});
+
+stage.dataset.mode = mode;
+syncPanel();
+
+// ---------- Drawing ----------
 new p5(function(p) {
   p5Instance = p;
 
   // Drawing coordinates — set per mirror pass by forEachMirror().
   // jx/jy are a random scatter offset applied to held stamps.
   let cx = 0, cy = 0, px = 0, py = 0, jx = 0, jy = 0;
-  // Smoothed pen width — eased toward the speed-based target each drag event.
-  let penW = brushSize, penPrevW = brushSize;
+  // Pen line: smoothed pointer (sx/sy), last drawn point (lx/ly), eased width.
+  let sx = 0, sy = 0, lx = 0, ly = 0, penBase = 0, penW = 0;
+
+  // Resize to the stage without losing the drawing.
+  function fit() {
+    const w = stage.clientWidth, h = stage.clientHeight;
+    if (w === p.width && h === p.height) return;
+    const snap = p.get();
+    p.resizeCanvas(w, h);
+    p.background(bgColour);
+    p.image(snap, 0, 0);
+    undoStack.length = 0; // snapshots no longer match canvas size
+    drawLines();
+  }
 
   p.setup = function() {
-    p.createCanvas(p.windowWidth, p.windowHeight, document.getElementById('c'));
+    p.createCanvas(stage.clientWidth, stage.clientHeight, $('#c'));
     p.colorMode(p.HSB, 360, 100, 100, 100);
     p.background(bgColour);
-  };
-
-  p.windowResized = function() {
-    p.resizeCanvas(p.windowWidth, p.windowHeight);
-    history.length = 0; // snapshots no longer match canvas size
+    drawLines();
+    new ResizeObserver(fit).observe(stage);
   };
 
   p.draw = function() {
@@ -213,51 +732,107 @@ new p5(function(p) {
     if (mode === 'spirograph' || mode === 'lightning') {
       forEachMirror(paintContinuous);
     } else if (mode === 'emoji' || shapeModes.includes(mode)) {
-      // Stamp frequency follows mouse speed: faster movement → more stamps.
-      // A slow trickle continues when the mouse is held still.
-      const spd = p.dist(p.pmouseX, p.pmouseY, p.mouseX, p.mouseY);
-      const interval = Math.round(p.constrain(p.map(spd, 0, 40, 16, 2), 2, 16));
-      if (p.frameCount % interval === 0) {
-        jx = p.random(-brushSize * 1.5, brushSize * 1.5);
-        jy = p.random(-brushSize * 1.5, brushSize * 1.5);
-        forEachMirror(stampTick);
+      // Holding still keeps a slow trickle of stamps going; dragging is
+      // handled by stampStep(). Speed 5 stamps every 16 frames.
+      const still = p.dist(p.pmouseX, p.pmouseY, p.mouseX, p.mouseY) < 1;
+      if (still && p.frameCount % Math.max(1, Math.round(80 / speed)) === 0) {
+        scatter();
+        forEachMirror(stampTick, sx, sy, sx, sy);
         jx = 0; jy = 0;
       }
     }
   };
 
   p.mousePressed = function(e) {
-    if (onToolbar(e)) return;
+    if (!fromCanvas(e)) return;
+    if (mode === 'text') {
+      e.preventDefault(); // keep focus off the canvas so the new box can take it
+      addTextAt(p.mouseX, p.mouseY);
+      return;
+    }
     isDrawing = true;
     prevX = p.mouseX; prevY = p.mouseY;
-    penW = penPrevW = brushSize;
+    sx = lx = p.mouseX; sy = ly = p.mouseY;
+    penBase = penW = brushSize;
     pushHistory();
     forEachMirror(paintDown);
   };
 
-  p.mouseReleased = function() { isDrawing = false; };
+  p.mouseReleased = function() {
+    // A smoothed pen trails the pointer, so finish the line where it let go.
+    if (isDrawing && (mode === 'pen' || mode === 'neon' || mode === 'eraser') && wobble < 5) {
+      forEachMirror(paintMove, p.mouseX, p.mouseY, lx, ly);
+    }
+    isDrawing = false;
+  };
 
   p.mouseDragged = function() {
     if (!isDrawing) return;
-    if (mode === 'pen' || mode === 'eraser') {
-      // Ease the pen width toward the speed-based target so it changes smoothly.
-      const d = p.dist(prevX, prevY, p.mouseX, p.mouseY);
-      const target = p.constrain(p.map(d, 0, 60, brushSize, brushSize * 0.25), brushSize * 0.25, brushSize);
-      penPrevW = penW;
-      penW = p.lerp(penW, target, 0.2);
-    }
-    forEachMirror(paintMove);
+    if (mode === 'pen' || mode === 'neon' || mode === 'eraser') penStep();
+    else if (mode === 'emoji' || shapeModes.includes(mode)) stampStep();
+    else forEachMirror(paintMove);
     prevX = p.mouseX; prevY = p.mouseY;
   };
 
-  // Run fn once per symmetry mirror, with cx/cy/px/py set for that pass.
-  function forEachMirror(fn) {
+  // Random offset for a stamp. Fast speeds scatter less, so stamps follow
+  // the line like a brush; slow speeds spread them out.
+  function scatter() {
+    const spread = brushSize * 1.5 * (10 - speed) / 9;
+    jx = p.random(-spread, spread);
+    jy = p.random(-spread, spread);
+  }
+
+  // Lay stamps along the drag path. The gap between them shrinks as Speed
+  // rises: 3 stamp-widths at 1, about one at 5, a fifth of one at 10.
+  function stampStep() {
+    const gap = Math.max(2, brushSize * 2.5 * 3 * Math.pow(0.75, speed - 1));
+    let d = p.dist(sx, sy, p.mouseX, p.mouseY);
+    while (d >= gap) {
+      sx += ((p.mouseX - sx) * gap) / d;
+      sy += ((p.mouseY - sy) * gap) / d;
+      d -= gap;
+      scatter();
+      forEachMirror(stampTick, sx, sy, sx, sy);
+    }
+    jx = 0; jy = 0;
+  }
+
+  // Below 5 the pen trails the pointer and eases its width (smooth);
+  // above 5 each point and width gets a random nudge (jittery).
+  function penStep() {
+    const smooth = Math.max(0, 5 - wobble) / 5;
+    const jitter = Math.max(0, wobble - 5) / 5;
+    const k = 1 - 0.75 * smooth;
+    const nx = p.lerp(sx, p.mouseX, k), ny = p.lerp(sy, p.mouseY, k);
+    const target = p.map(Math.min(p.dist(sx, sy, nx, ny), 60), 0, 60, brushSize, brushSize * 0.25);
+    penBase = p.lerp(penBase, target, 1 - 0.8 * smooth);
+    penW = Math.max(1, penBase * (1 + p.random(-0.5, 0.5) * jitter));
+    const j = jitter * brushSize * 0.6;
+    const tx = nx + p.random(-j, j), ty = ny + p.random(-j, j);
+    forEachMirror(paintMove, tx, ty, lx, ly);
+    sx = nx; sy = ny; lx = tx; ly = ty;
+  }
+
+  // Run fn once per mirror copy, with cx/cy/px/py set for that pass.
+  function forEachMirror(fn, mx = p.mouseX, my = p.mouseY, omx = prevX, omy = prevY) {
     const W = p.width, H = p.height;
-    const mx = p.mouseX, my = p.mouseY, omx = prevX, omy = prevY;
-    const passes = symmetry
-      ? [[mx, my, omx, omy], [W - mx, my, W - omx, omy],
-         [mx, H - my, omx, H - omy], [W - mx, H - my, W - omx, H - omy]]
-      : [[mx, my, omx, omy]];
+    let passes = [[mx, my, omx, omy]];
+    if (symMode === 'lr') passes.push([W - mx, my, W - omx, omy]);
+    if (symMode === 'four') passes.push([W - mx, my, W - omx, omy],
+      [mx, H - my, omx, H - omy], [W - mx, H - my, W - omx, H - omy]);
+    if (symMode === 'k6') {
+      // Snowflake: 6 turns round the centre, each also flipped.
+      const ox = W / 2, oy = H / 2;
+      const turn = (x, y, a, f) => {
+        const dx = (x - ox) * f, dy = y - oy;
+        return [ox + dx * Math.cos(a) - dy * Math.sin(a), oy + dx * Math.sin(a) + dy * Math.cos(a)];
+      };
+      passes = [];
+      for (let k = 0; k < 6; k++) {
+        const a = (Math.PI / 3) * k;
+        for (const f of [1, -1]) passes.push([...turn(mx, my, a, f), ...turn(omx, omy, a, f)]);
+      }
+    }
     for (const [a, b, c, d] of passes) {
       cx = a; cy = b; px = c; py = d;
       fn();
@@ -267,7 +842,10 @@ new p5(function(p) {
   function paintDown() {
     if (mode === 'bubbles') spawnBubble();
     if (mode === 'splatter') drawSplatter();
-    if (mode === 'pen') penDot(penColour);
+    if (mode === 'glitter') drawGlitter();
+    if (mode === 'pen') penDot(ink());
+    if (mode === 'neon') drawNeon();
+    if (mode === 'fill') floodFill(cx, cy);
     if (mode === 'eraser') penDot(bgColour);
     if (shapeModes.includes(mode)) drawShape(mode);
     if (mode === 'emoji') stampEmoji();
@@ -277,7 +855,11 @@ new p5(function(p) {
     if (mode === 'trails') drawTrail();
     if (mode === 'splatter') drawSplatter();
     if (mode === 'bubbles') spawnBubble();
-    if (mode === 'pen') drawPen(penColour);
+    if (mode === 'glitter') drawGlitter();
+    if (mode === 'grass') drawGrass();
+    if (mode === 'pen') drawPen(ink());
+    if (mode === 'neon') drawNeon();
+    if (mode === 'ribbon') drawRibbon();
     if (mode === 'eraser') drawPen(bgColour);
   }
 
@@ -291,27 +873,90 @@ new p5(function(p) {
     else drawShape(mode);
   }
 
+  // Pen colour, or a slowly shifting hue when the rainbow swatch is picked.
+  function ink() {
+    return rainbowPen ? p.color(hue, 85, 100) : penColour;
+  }
+
   function penDot(col) {
     p.noStroke();
     p.fill(col);
     p.ellipse(cx, cy, brushSize, brushSize);
   }
 
+  // Width comes from penStep(): slow movement → thick, fast → thin.
   function drawPen(col) {
-    // Pen size follows mouse speed: slow movement → thick, fast → thin.
-    const d = p.dist(px, py, cx, cy);
-    const w = p.constrain(p.map(d, 0, 60, brushSize, brushSize * 0.25), brushSize * 0.25, brushSize);
     p.stroke(col);
-    p.strokeWeight(w);
+    p.strokeWeight(penW);
     p.strokeCap(p.ROUND);
     p.line(px, py, cx, cy);
+  }
+
+  function drawNeon() {
+    const ctx = p.drawingContext;
+    const col = p.color(ink());
+    ctx.shadowBlur = brushSize * 1.5;
+    ctx.shadowColor = col.toString();
+    p.strokeCap(p.ROUND);
+    p.stroke(col);
+    p.strokeWeight(brushSize * 0.6);
+    p.line(px, py, cx, cy);
+    ctx.shadowBlur = 0;
+    p.stroke(0, 0, 100, 80);
+    p.strokeWeight(Math.max(1, brushSize * 0.2));
+    p.line(px, py, cx, cy);
+  }
+
+  const RIBBON = ['#ff4d4d', '#ff9f1c', '#ffd60a', '#52d273', '#2ec4f1', '#a66cff'];
+  function drawRibbon() {
+    const dx = cx - px, dy = cy - py, len = Math.hypot(dx, dy);
+    if (len < 0.5) return;
+    const nx = -dy / len, ny = dx / len;
+    const w = Math.max(2, (brushSize * 1.2) / RIBBON.length);
+    p.strokeCap(p.ROUND);
+    p.strokeWeight(w + 0.5);
+    RIBBON.forEach((c, i) => {
+      const o = (i - (RIBBON.length - 1) / 2) * w;
+      p.stroke(c);
+      p.line(px + nx * o, py + ny * o, cx + nx * o, cy + ny * o);
+    });
+  }
+
+  // Paint-bucket fill on the raw pixels. Colouring-page lines act as walls.
+  // ponytail: no anti-alias pass, so faint halos can stay round painted shapes
+  // (colouring-page lines sit on top and hide them there).
+  function floodFill(x0, y0) {
+    const ctx = p.drawingContext, pd = p.pixelDensity();
+    const W = ctx.canvas.width, H = ctx.canvas.height;
+    const sx = Math.floor(x0 * pd), sy = Math.floor(y0 * pd);
+    if (sx < 0 || sy < 0 || sx >= W || sy >= H) return;
+    const img = ctx.getImageData(0, 0, W, H), d = img.data;
+    const walls = page ? linesCanvas.getContext('2d').getImageData(0, 0, W, H).data : null;
+    const [fr, fg, fb] = p.color(ink()).levels;
+    const s0 = (sy * W + sx) * 4, tr = d[s0], tg = d[s0 + 1], tb = d[s0 + 2];
+    if (Math.abs(tr - fr) + Math.abs(tg - fg) + Math.abs(tb - fb) < 6) return;
+    const open = (i) => (!walls || walls[i * 4 + 3] < 40) &&
+      Math.abs(d[i * 4] - tr) + Math.abs(d[i * 4 + 1] - tg) + Math.abs(d[i * 4 + 2] - tb) <= 96;
+    const seen = new Uint8Array(W * H), stack = new Int32Array(W * H);
+    let top = 0;
+    const push = (i) => { if (!seen[i] && open(i)) { seen[i] = 1; stack[top++] = i; } };
+    push(sy * W + sx);
+    while (top) {
+      const i = stack[--top], k = i * 4, x = i % W;
+      d[k] = fr; d[k + 1] = fg; d[k + 2] = fb; d[k + 3] = 255;
+      if (x > 0) push(i - 1);
+      if (x < W - 1) push(i + 1);
+      if (i >= W) push(i - W);
+      if (i < W * H - W) push(i + W);
+    }
+    ctx.putImageData(img, 0, 0);
   }
 
   function drawShape(shape) {
     const s = brushSize * 2.5;
     const x = cx + jx, y = cy + jy;
     p.noStroke();
-    p.fill(penColour);
+    p.fill(ink());
     if (shape === 'circle') {
       p.ellipse(x, y, s, s);
     } else if (shape === 'square') {
@@ -438,45 +1083,172 @@ new p5(function(p) {
       p.line(mx, my, x2, y2);
     }
   }
+
+  function drawGlitter() {
+    const n = p.floor(speed * 0.8) + 2;
+    p.noStroke();
+    for (let i = 0; i < n; i++) {
+      const x = cx + p.random(-brushSize * 1.5, brushSize * 1.5);
+      const y = cy + p.random(-brushSize * 1.5, brushSize * 1.5);
+      const r = p.random(brushSize * 0.15, brushSize * 0.6);
+      p.fill((hue + p.random(-60, 60) + 360) % 360, 35, 100, 90);
+      polyStar(x, y, r * 0.25, r, 4);
+    }
+  }
+
+  function drawGrass() {
+    const n = p.floor(speed * 0.6) + 2;
+    p.noFill();
+    p.strokeCap(p.ROUND);
+    for (let i = 0; i < n; i++) {
+      const x = cx + p.random(-brushSize, brushSize);
+      const y = cy + p.random(-brushSize * 0.3, brushSize * 0.3);
+      const len = p.random(brushSize * 0.8, brushSize * 2.5);
+      const lean = p.random(-0.5, 0.5);
+      p.stroke(p.random(85, 140), p.random(55, 90), p.random(45, 90), 90);
+      p.strokeWeight(p.random(1, 2.5));
+      p.bezier(x, y, x, y - len * 0.5, x + lean * len * 0.5, y - len * 0.8, x + lean * len, y - len);
+    }
+  }
 });
 </script>
 
 <style>
-  #app { margin: 0; }
-  canvas#c { position: fixed; inset: 0; display: block; cursor: crosshair; z-index: 0; }
-
-  #toolbar { position: fixed; top: 0; left: 0; bottom: 0; z-index: 10; border-radius: 0; display: flex; }
-  .toolbar-body {
-    display: flex; flex-direction: column; align-items: center;
-    gap: 6px; padding: 8px 6px; height: 100%; overflow-y: auto;
-  }
-  .tool-group { display: flex; flex-direction: column; align-items: center; gap: 6px; }
-  .tool-sep { width: 24px; height: 0.5px; background: #333; flex: none; }
-  .tool-spacer { flex: 1 1 auto; min-height: 8px; }
-
-  .tool-btn {
-    width: 38px; height: 38px; flex: none;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 17px; line-height: 1;
-    border: 0.5px solid #444; border-radius: 8px;
-    background: #1a1a1a; color: #eee; cursor: pointer;
-    transition: background 0.15s;
-  }
-  .tool-btn:hover { background: #2a2a2a; }
-  .tool-btn.active { background: #2a2a2a; border-color: #666; }
-
-  .picker { width: 38px; height: 38px; }
-  .picker input[type=color] {
-    width: 100%; height: 100%; padding: 0; cursor: pointer;
-    border: 0.5px solid #444; border-radius: 8px; background: none;
+  /* Lab bar → tool bar → canvas + panel → footer, filling the window. */
+  .app {
+    flex: 1; min-height: 480px; display: grid; grid-template-rows: auto 1fr;
+    color: var(--color-text); background: var(--color-background);
   }
 
-  .slider-wrap { display: flex; flex-direction: column; align-items: center; gap: 4px; }
-  .slider-wrap input[type=range] {
-    writing-mode: vertical-lr; direction: rtl;
-    width: 8px; height: 72px;
+  .bar {
+    display: flex; align-items: center; gap: var(--space-xs); padding: var(--space-2xs) var(--space-md);
+    border-block-end: var(--border-style) 2px var(--color-border); flex-wrap: wrap;
   }
-  .slider-val { font-size: 11px; color: #888; }
+  .group { display: flex; gap: 2px; flex: none; }
+  .group + .group { padding-inline-start: var(--space-xs); border-inline-start: var(--border-style) 2px var(--color-border); }
+  .spacer { flex: 1; }
+  .tool {
+    width: 36px; height: 36px; flex: none; display: grid; place-items: center;
+    border: var(--border-style) 2px transparent; border-radius: var(--radius-md);
+    background: transparent; color: inherit; font-size: var(--step-1); cursor: pointer;
+  }
+  .tool:hover { border-color: var(--color-border); }
+  .menu-trigger { width: auto; gap: 1px; padding: 0 var(--space-3xs); display: flex; align-items: center; }
+  .menu-trigger .caret { font-size: var(--step--2); }
+  .menu-list { z-index: var(--z-3); min-width: 10rem; }
+  .menu-item { gap: var(--space-2xs); }
+  .menu-item i, .menu-emoji { font-size: var(--step-1); line-height: 1; }
+  .menu-item[data-current] { background: var(--color-accent); color: var(--color-black); }
+  .menu-paper { width: 1.25em; height: 1.25em; border: var(--border-style) 2px var(--color-border); background: var(--c); }
+  .tool[aria-pressed=true], .tool[data-active=true] { background: var(--color-accent); color: var(--color-black); border-color: var(--color-border); }
+  .act {
+    height: 36px; flex: none; display: flex; align-items: center; gap: var(--space-3xs); padding: 0 var(--space-xs);
+    border: var(--border-style) 2px var(--color-border); border-radius: var(--radius-md);
+    background: var(--color-surface); color: inherit; font: inherit; font-size: var(--step--1); font-weight: 700; cursor: pointer;
+  }
+  .act:hover { background: var(--color-background); }
+  .act span { white-space: nowrap; }
+  .primary { background: var(--color-accent); color: var(--color-black); }
+  .primary:hover { background: var(--color-accent); filter: brightness(1.08); }
 
-  .stamp-grid { display: grid; grid-template-columns: repeat(3, 38px); gap: 6px; }
+  .main { display: grid; grid-template-columns: 1fr 280px; min-height: 0; }
+  .stage { position: relative; min-height: 0; overflow: hidden; }
+  .stage canvas { position: absolute; inset: 0; }
+  #c { cursor: crosshair; touch-action: none; }
+  #lines { pointer-events: none; }
+  .stage[data-mode=text] #c { cursor: text; }
+  /* Faint lines through the centre showing where the mirror folds. */
+  .guides {
+    position: absolute; inset: 0; pointer-events: none;
+    --g: color-mix(in oklab, var(--color-text) 30%, transparent);
+    --v: linear-gradient(90deg, transparent calc(50% - 1px), var(--g) 0 calc(50% + 1px), transparent 0);
+  }
+  .guides[data-sym=lr] { background: var(--v); }
+  .guides[data-sym=four] { background: var(--v), linear-gradient(0deg, transparent calc(50% - 1px), var(--g) 0 calc(50% + 1px), transparent 0); }
+  .guides[data-sym=k6] { background: var(--v),
+    linear-gradient(30deg, transparent calc(50% - 1px), var(--g) 0 calc(50% + 1px), transparent 0),
+    linear-gradient(150deg, transparent calc(50% - 1px), var(--g) 0 calc(50% + 1px), transparent 0); }
+
+  .panel {
+    display: flex; flex-direction: column; gap: var(--space-sm); padding: var(--space-sm);
+    border-inline-start: var(--border-style) 2px var(--color-border); background: var(--color-surface);
+    overflow-y: auto; font-size: var(--step--1);
+  }
+  .head { display: flex; gap: var(--space-xs); align-items: flex-start; }
+  .head-icon {
+    width: 44px; height: 44px; flex: none; display: grid; place-items: center;
+    border: var(--border-style) 2px var(--color-border); background: var(--color-accent); color: var(--color-black); font-size: var(--step-2);
+  }
+  .head h2 { font-size: var(--step-1); margin: 0; line-height: 1.1; }
+  .head p { margin: var(--space-3xs) 0 0; opacity: 0.7; line-height: 1.35; }
+  .field { display: grid; gap: var(--space-3xs); }
+  .field[hidden] { display: none; }
+  .field label, .label { display: flex; justify-content: space-between; font-weight: 700; margin: 0; }
+  .field output { font-family: var(--font-code); font-weight: 400; opacity: 0.7; }
+  .field input[type=range] { width: 100%; accent-color: var(--color-accent); }
+  .range-ends { display: flex; justify-content: space-between; opacity: 0.65; font-size: var(--step--2); }
+  .row { display: flex; align-items: center; gap: var(--space-xs); }
+  .hint { opacity: 0.65; margin: 0; flex: 1; }
+  .rainbow, .swatch-rainbow { background: conic-gradient(red, yellow, lime, cyan, blue, magenta, red); }
+  .rainbow { width: 28px; height: 28px; flex: none; border: var(--border-style) 2px var(--color-border); border-radius: 50%; }
+  .small {
+    width: 30px; height: 30px; display: grid; place-items: center;
+    border: var(--border-style) 2px var(--color-border); background: transparent; color: inherit; cursor: pointer;
+  }
+  .swatches { display: grid; grid-template-columns: repeat(7, 1fr); gap: var(--space-3xs); }
+  .swatch {
+    position: relative; aspect-ratio: 1; display: grid; place-items: center; overflow: hidden;
+    border: var(--border-style) 2px var(--color-border); border-radius: 50%; background: var(--c); cursor: pointer;
+  }
+  .swatch[aria-checked=true] { outline: var(--border-style) 3px var(--color-accent); outline-offset: 2px; }
+  .swatch-custom { background: var(--color-background); }
+  .swatch-custom:focus-within { outline: var(--border-style) 3px var(--color-accent); outline-offset: 2px; }
+  .swatch-custom input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+  .stickers { display: grid; grid-template-columns: repeat(6, 1fr); gap: var(--space-4xs); }
+  .sticker {
+    aspect-ratio: 1; font-size: var(--step-1); cursor: pointer;
+    border: var(--border-style) 2px transparent; background: var(--color-background);
+  }
+  .sticker[aria-pressed=true] { border-color: var(--color-border); background: var(--color-accent); }
+  .choices { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-3xs); }
+  .choice {
+    display: flex; align-items: center; gap: var(--space-3xs); padding: var(--space-3xs) var(--space-2xs);
+    border: var(--border-style) 2px var(--color-border); background: transparent; color: inherit; font: inherit; cursor: pointer;
+  }
+  .choice span { font-size: var(--step-1); }
+  .choice:hover { background: var(--color-background); }
+  .font { justify-content: center; font-size: var(--step-0); font-weight: 700; }
+  .choice[aria-checked=true] { background: var(--color-accent); color: var(--color-black); }
+
+  @media (width < 1440px) {
+    .act span { display: none; }
+  }
+  @media (width < 760px) {
+    .main { grid-template-columns: 1fr; grid-template-rows: 1fr auto; }
+    .panel { max-height: 38dvh; border-inline-start: 0; border-block-start: var(--border-style) 2px var(--color-border); }
+  }
+</style>
+
+<style is:global>
+  /* Global: the script builds text boxes, so scoped styles would miss them. */
+  .texts { position: absolute; inset: 0; pointer-events: none; }
+  .text-box { position: absolute; font-weight: 700; line-height: 1.2; }
+  .text-body { padding: var(--space-4xs) var(--space-3xs); white-space: pre; outline: none; min-width: 1ch; }
+  /* Handles sit flush on the box's top-left corner, lined up with its outline. */
+  .text-handles { position: absolute; left: -2px; bottom: calc(100% + 2px); display: none; }
+  .text-handle {
+    width: 28px; height: 28px; display: grid; place-items: center; padding: 0;
+    border: var(--border-style) 2px var(--color-border); background: var(--color-surface); color: var(--color-text);
+    font-size: var(--step-0); line-height: 1; cursor: pointer;
+  }
+  .text-handle i { display: block; }
+  .text-handle + .text-handle { margin-inline-start: -2px; }
+  .text-move { cursor: grab; touch-action: none; }
+  .text-move:active { cursor: grabbing; }
+  .text-delete:hover { background: var(--color-error); color: var(--color-white); }
+  #stage[data-mode=text] .text-box { pointer-events: auto; }
+  #stage[data-mode=text] .text-body { outline: 2px dashed var(--color-gray-500); }
+  #stage[data-mode=text] .text-body:focus { outline: var(--border-style) 2px var(--color-accent); }
+  #stage[data-mode=text] .text-handles { display: flex; }
+
 </style>

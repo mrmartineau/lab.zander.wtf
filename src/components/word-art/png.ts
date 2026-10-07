@@ -67,6 +67,7 @@ const download = (blob: Blob, name: string) => {
 export interface SnapshotInput {
 	state: WAState
 	chars: string[]
+	brs: number[]
 	geo: LetterGeo[]
 	metrics: Metrics
 	wEm: number
@@ -97,7 +98,7 @@ export async function savePNG(input: SnapshotInput, name: string): Promise<'png'
 	const vars = Object.entries(rootVars(s, input.wEm))
 		.map(([k, v]) => `${k}: ${v};`)
 		.join(' ')
-	const { html } = exportCode(s, input.chars, input.geo, input.wEm)
+	const { html } = exportCode(s, input.chars, input.geo, input.wEm, input.brs)
 	const css = `${fonts}
 .wordart { ${vars} }
 ${baseCss('.wordart', 'none')}
@@ -135,7 +136,7 @@ export const fileNameFor = (text: string) =>
  * background (the see-through stage gives a transparent PNG).
  */
 export function saveStage(
-	wordart: { chars: () => string[]; geo: () => LetterGeo[]; metrics: () => Metrics; wEm: () => number },
+	wordart: { chars: () => string[]; brs: () => number[]; geo: () => LetterGeo[]; metrics: () => Metrics; wEm: () => number },
 	state: WAState,
 	stageEl: HTMLElement,
 ) {
@@ -147,6 +148,7 @@ export function saveStage(
 		{
 			state,
 			chars: wordart.chars(),
+			brs: wordart.brs(),
 			geo: wordart.geo(),
 			metrics: wordart.metrics(),
 			wEm: wordart.wEm(),

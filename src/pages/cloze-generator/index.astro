@@ -1,6 +1,6 @@
 ---
 import Layout from '../../layouts/Layout.astro'
-import { Badge, Button, Card, CardBody, CardHeader, CardTitle, Flex, Link, Text } from '@mrmartineau/zui/astro'
+import { Badge, Button, Card, CardBody, CardHeader, CardTitle, Flex, Text } from '@mrmartineau/zui/astro'
 
 export const title = 'Cloze test generator'
 export const description = 'Paste in some text, click words to hide them, then test your recall — a tool for language teachers.'
@@ -12,7 +12,6 @@ export const tags = ['tool', 'language']
 <Layout title="Cloze test generator — lab.zander.wtf">
 	<main class="page">
 		<header class="flow">
-			<Link href="/">← All lab items</Link>
 			<Flex align="center" gap="sm">
 				<h1>Cloze test generator</h1>
 				<Badge variant="fill" color="emerald">live</Badge>

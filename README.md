@@ -14,13 +14,13 @@ design.
 | `cloze-generator`     | Paste text, hide words, test recall — for language teachers |
 | `css-icons`           | Icons drawn with nothing but CSS — no SVG, no images    |
 | `data-transformation` | A React "dojo" for practising data-transform challenges |
-| `drawing-app`         | A small in-browser drawing app                          |
+| `drawing-app`         | Kid-friendly drawing app — magic brushes, fill, colouring pages, text, mirrors |
 | `keyboard-only`       | A cursorless page navigated entirely with the keyboard  |
 | `procedural-page`     | An endless page that generates itself as you scroll — seeded randomness, no AI |
 | `spotify-favourites`  | Browse most-explored Spotify artists & albums (ZUI)     |
 | `time`                | A quiz for learning to read the 24-hour clock           |
 | `wiki-trail`          | Follow Wikipedia links downward — old articles freeze into cards, the trail is the page |
-| `word-art`            | 90s WordArt rebuilt in CSS (Solid) — any Google Font, gradients, 3D, curves, copyable CSS, PNG export, shareable full-window view (`/word-art/view#…`) |
+| `word-art`            | 90s WordArt rebuilt in CSS (Solid) — any Google Font, gradients, 3D, curves, multi-line text, copyable CSS, CodePen, PNG export, saved styles, shareable full-window view (`/word-art/view#…`) |
 | `zui-components`      | A reference page showcasing ZUI components              |
 
 ## Project structure
@@ -29,7 +29,7 @@ design.
 src/
   components/            Per-item React/Solid/Astro components
   data/lab.ts            Lab item types + discovery helper (no manual registry)
-  layouts/Layout.astro   Minimal shell — ZUI CSS + Phosphor icons + body reset
+  layouts/Layout.astro   Shell — ZUI CSS, Phosphor icons, lab bar + footer
   pages/
     index.astro          Homepage — globs pages and reads their frontmatter
     <slug>/index.astro   One directory per lab item, named by its slug
@@ -81,7 +81,9 @@ In an `.md` page, put the same keys in the YAML frontmatter block.
 - **Icons are Phosphor** — `<i class="ph ph-icon-name"></i>`. The web font is
   loaded in `Layout.astro`.
 - Each lab item page may have a completely bespoke design. `Layout.astro` is
-  intentionally minimal.
+  intentionally minimal. On lab item pages it adds a small top bar
+  (`lab.zander.wtf / <slug>` with a dropdown to switch items) and a footer.
+  Full-screen pages pass `bare` to skip both.
 - Both React and Solid integrations are installed. They both compile JSX, so
   `astro.config.mjs` scopes them: Solid only handles `**/word-art/**`, React
   handles everything else. Add new Solid paths to both filters. Solid files
@@ -99,5 +101,15 @@ Requires Node `>=22.12.0`. Run from the project root:
 | `pnpm preview` | Preview the production build locally |
 
 Run `pnpm build` after changes to confirm the site compiles.
+
+## Deploys
+
+GitHub Actions (`.github/workflows/deploy.yml`) deploys to Cloudflare Workers:
+
+- Push to `main` → production deploy.
+- Pull request → preview version at `pr-<number>-lab-zander-wtf.<subdomain>.workers.dev`,
+  linked in a PR comment.
+
+Needs repo secrets `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`.
 
 See [AGENTS.md](./AGENTS.md) for full guidance on working in this repo.
