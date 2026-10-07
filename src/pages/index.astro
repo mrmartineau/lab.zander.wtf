@@ -23,50 +23,57 @@ const pad = (n: number) => String(n).padStart(2, '0')
 			<p>Ideas, experiments, toys and small tools. Some of them work.</p>
 		</header>
 
-		<div class="grid">
+		<!-- role=list: Safari drops list semantics once list-style is none -->
+		<ul class="grid" role="list">
 			{
 				newest ? (
-					<a class="tile hero" href={labHref(newest)}>
-						{newest.date && (
-							<span class="kicker">
-								Newest · <time datetime={newest.date}>{dateFmt.format(new Date(newest.date))}</time>
+					<li class="hero-cell">
+						<a class="tile hero" href={labHref(newest)}>
+							{newest.date && (
+								<span class="kicker">
+									Newest · <time datetime={newest.date}>{dateFmt.format(new Date(newest.date))}</time>
+								</span>
+							)}
+							<span class="num">{pad(items.length)}</span>
+							<span class="title">{newest.title}</span>
+							{newest.description && <span class="desc">{newest.description}</span>}
+							<span class="go">
+								Open <i class="ph ph-arrow-right" aria-hidden="true"></i>
 							</span>
-						)}
-						<span class="num">{pad(items.length)}</span>
-						<span class="title">{newest.title}</span>
-						{newest.description && <span class="desc">{newest.description}</span>}
-						<span class="go">
-							Open <i class="ph ph-arrow-right" aria-hidden="true"></i>
-						</span>
-					</a>
+						</a>
+					</li>
 				) : (
-					<p class="tile empty">No lab items yet.</p>
+					<li><p class="tile empty">No lab items yet.</p></li>
 				)
 			}
 			{
 				rest.map((item, i) => (
-					<a class:list={['tile', { archived: item.status === 'archived' }]} href={labHref(item)}>
-						<span class="row">
-							<span class="num">{pad(rest.length - i)}</span>
-							{item.status !== 'live' && (
-								<Badge color={statusColor[item.status]}>{item.status}</Badge>
-							)}
-						</span>
-						<span class="title">{item.title}</span>
-						{item.description && <span class="desc">{item.description}</span>}
-						<span class="foot">
-							<time datetime={item.date}>{item.date.slice(0, 4)}</time>
-							<span>{item.tags?.slice(0, 2).map((tag) => `#${tag}`).join(' ')}</span>
-						</span>
-					</a>
+					<li>
+						<a class:list={['tile', { archived: item.status === 'archived' }]} href={labHref(item)}>
+							<span class="row">
+								<span class="num">{pad(rest.length - i)}</span>
+								{item.status !== 'live' && (
+									<Badge color={statusColor[item.status]}>{item.status}</Badge>
+								)}
+							</span>
+							<span class="title">{item.title}</span>
+							{item.description && <span class="desc">{item.description}</span>}
+							<span class="foot">
+								<time datetime={item.date}>{item.date.slice(0, 4)}</time>
+								<span>{item.tags?.slice(0, 2).map((tag) => `#${tag}`).join(' ')}</span>
+							</span>
+						</a>
+					</li>
 				))
 			}
-			<a class="tile repo" href="https://github.com/mrmartineau/lab.zander.wtf">
-				<i class="ph ph-github-logo" aria-hidden="true"></i>
-				<span class="title">Source</span>
-				<span class="desc">Every experiment, on GitHub.</span>
-			</a>
-		</div>
+			<li>
+				<a class="tile repo" href="https://github.com/mrmartineau/lab.zander.wtf">
+					<i class="ph ph-github-logo" aria-hidden="true"></i>
+					<span class="title">Source</span>
+					<span class="desc">Every experiment, on GitHub.</span>
+				</a>
+			</li>
+		</ul>
 	</main>
 </Layout>
 
@@ -92,12 +99,19 @@ const pad = (n: number) => String(n).padStart(2, '0')
 		max-width: 30ch;
 	}
 	.grid {
+		margin: 0;
+		padding: 0;
+		list-style: none;
 		display: grid;
 		grid-template-columns: repeat(auto-fill, minmax(min(100%, 16rem), 1fr));
 		border-block-start: var(--border-style) 2px var(--color-border);
 		border-inline-start: var(--border-style) 2px var(--color-border);
 	}
+	.grid > li {
+		display: flex;
+	}
 	.tile {
+		flex: 1;
 		display: flex;
 		flex-direction: column;
 		gap: var(--space-2xs);
@@ -115,15 +129,17 @@ const pad = (n: number) => String(n).padStart(2, '0')
 		background: var(--color-accent);
 		color: var(--color-gray-950);
 	}
-	.hero {
+	.hero-cell {
 		grid-column: span 2;
 		grid-row: span 2;
+	}
+	.hero {
 		background: var(--color-theme);
 		color: var(--color-background);
 		justify-content: end;
 	}
 	@media (max-width: 36rem) {
-		.hero {
+		.hero-cell {
 			grid-column: auto;
 			grid-row: auto;
 		}
