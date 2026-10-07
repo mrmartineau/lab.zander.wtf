@@ -230,14 +230,44 @@ export default function Studio() {
 	}
 	createEffect(() => tab() === 'font' && loadChipFonts())
 
+	// Every Google Fonts family, most popular first. Google's own list has no
+	// CORS header, so a copy lives in the repo (from fonts.google.com/metadata/fonts).
+	const [allFonts, setAllFonts] = createSignal<string[]>(FONTS)
+	createEffect(() => tab() === 'font' && import('./google-fonts.json').then((m) => setAllFonts(m.default)))
+
 	/* ───────────── actions ───────────── */
 
 	const pop = () => wordart?.pop()
 
-	function applyPreset(i: number) {
-		setState(reconcile({ ...clone(PRESETS[i].state), text: state.text }))
+	function applyStyle(style: WAState) {
+		setState(reconcile({ ...clone(style), text: state.text }))
 		pop()
 	}
+
+	/* ───────────── saved styles ───────────── */
+
+	type Saved = { name: string; state: WAState }
+	const [saved, setSaved] = createSignal<Saved[]>([])
+	onMount(() => {
+		try {
+			const list = JSON.parse(localStorage.getItem('wa-saved') ?? '[]')
+			setSaved(list.map((x: Saved) => ({ name: String(x.name), state: merge(clone(DEFAULT_STATE), x.state) })))
+		} catch {}
+	})
+	function storeSaved(list: Saved[]) {
+		setSaved(list)
+		try {
+			localStorage.setItem('wa-saved', JSON.stringify(list))
+		} catch {
+			notify("Couldn't save — this browser has storage turned off")
+		}
+	}
+	function saveStyle() {
+		const n = Math.max(0, ...saved().map((x) => Number(x.name.match(/\d+$/)?.[0] ?? 0))) + 1
+		storeSaved([{ name: `My style ${n}`, state: clone(unwrap(state)) }, ...saved()])
+		notify('Style saved!')
+	}
+	const removeStyle = (x: Saved) => storeSaved(saved().filter((y) => y !== x))
 	function surprise() {
 		setState(reconcile(surpriseState(state.text)))
 		pop()
@@ -259,7 +289,7 @@ export default function Studio() {
 	}
 	const code = () => {
 		if (!wordart) return { css: '', html: '' }
-		return exportCode(unwrap(state), wordart.chars(), wordart.geo(), wordart.wEm())
+		return exportCode(unwrap(state), wordart.chars(), wordart.geo(), wordart.wEm(), wordart.brs())
 	}
 	// CodePen's prefill API: POST this JSON to /pen/define and it opens a new pen
 	const codePen = () => {
@@ -315,6 +345,7 @@ ${html}
 				{
 					state: unwrap(state),
 					chars: wordart.chars(),
+					brs: wordart.brs(),
 					geo: wordart.geo(),
 					metrics: wordart.metrics(),
 					wEm: wordart.wEm(),
@@ -360,7 +391,7 @@ ${html}
 		const onKey = (e: KeyboardEvent) => {
 			if (e.key === 'Escape' && full() && !document.fullscreenElement) return setFull(false)
 			if (!(e.metaKey || e.ctrlKey) || e.key.toLowerCase() !== 'z') return
-			if ((e.target as HTMLElement).matches('input[type=text], input:not([type])')) return
+			if ((e.target as HTMLElement).matches('input[type=text], input:not([type]), textarea')) return
 			e.preventDefault()
 			e.shiftKey ? redo() : undo()
 		}
@@ -379,10 +410,26 @@ ${html}
 		<label class="wa-range">
 			<span>
 				{p.label}{' '}
-				<output>
-					{getPath(state, p.path)}
-					{p.unit ?? ''}
-				</output>
+				<span class="wa-range-value">
+					<Show when={getPath(state, p.path) !== getPath(DEFAULT_STATE, p.path)}>
+						<button
+							type="button"
+							class="wa-reset"
+							title={`Reset ${p.label.toLowerCase()}`}
+							aria-label={`Reset ${p.label.toLowerCase()}`}
+							onClick={(e) => {
+								e.preventDefault()
+								set(p.path, getPath(DEFAULT_STATE, p.path))
+							}}
+						>
+							<i class="ph ph-arrow-counter-clockwise" />
+						</button>
+					</Show>
+					<output>
+						{getPath(state, p.path)}
+						{p.unit ?? ''}
+					</output>
+				</span>
 			</span>
 			<input
 				type="range"
@@ -417,6 +464,19 @@ ${html}
 			</div>
 		</Show>
 	)
+
+	const Tile = (p: { name: string; style: WAState }) => {
+		loadFont(p.style.font, p.style.weight).then(() => setFontTick((t) => t + 1))
+		// Only the text is live, so tiles don't churn while you edit
+		const [tile, setTile] = createStore(clone(p.style))
+		createEffect(() => setTile('text', state.text || 'WordArt'))
+		return (
+			<button type="button" class="wa-tile" onClick={() => applyStyle(p.style)}>
+				<WordArt class="wa-tile-stage" state={tile} fontTick={fontTick()} maxScale={4} />
+				<span>{p.name}</span>
+			</button>
+		)
+	}
 
 	/* ───────────── 3D dial ───────────── */
 
@@ -477,13 +537,13 @@ ${html}
 					<label class="wa-sr" for="wa-text">
 						Your words
 					</label>
-					<input
+					<textarea
 						id="wa-text"
-						class="zui-input wa-text"
-						type="text"
-						maxlength="48"
+						class="zui-textarea wa-text"
+						rows="1"
+						maxlength="120"
 						autocomplete="off"
-						placeholder="Type something…"
+						placeholder="Type something… press Enter for a new line"
 						value={state.text}
 						onInput={(e) => setState('text', e.currentTarget.value)}
 					/>
@@ -568,22 +628,41 @@ ${html}
 				</div>
 
 				<Pane id="gallery">
+					<div class="wa-codehead">
+						<span>My styles</span>
+						<button class="zui-button zui-button-size-sm" type="button" onClick={saveStyle}>
+							<i class="ph ph-heart" /> Save this style
+						</button>
+					</div>
+					<Show
+						when={saved().length}
+						fallback={<p class="wa-hint">Like what you made? Save it here and come back to it any time.</p>}
+					>
+						<div class="wa-gallery">
+							<For each={saved()}>
+								{(x) => (
+									<div class="wa-saved">
+										<Tile name={x.name} style={x.state} />
+										<button
+											type="button"
+											class="wa-saved-x"
+											title={`Delete ${x.name}`}
+											aria-label={`Delete ${x.name}`}
+											onClick={() => removeStyle(x)}
+										>
+											<i class="ph ph-x" />
+										</button>
+									</div>
+								)}
+							</For>
+						</div>
+					</Show>
+					<div class="wa-codehead">
+						<span>Gallery</span>
+					</div>
 					<p class="wa-hint">Pick a style to start from. Your words stay the same.</p>
 					<div class="wa-gallery">
-						<For each={PRESETS}>
-							{(pr, i) => {
-								loadFont(pr.state.font, pr.state.weight).then(() => setFontTick((t) => t + 1))
-								// Only the text is live, so tiles don't churn while you edit
-								const [tile, setTile] = createStore(clone(pr.state))
-								createEffect(() => setTile('text', state.text || 'WordArt'))
-								return (
-									<button type="button" class="wa-tile" onClick={() => applyPreset(i())}>
-										<WordArt class="wa-tile-stage" state={tile} fontTick={fontTick()} maxScale={4} />
-										<span>{pr.name}</span>
-									</button>
-								)
-							}}
-						</For>
+						<For each={PRESETS}>{(pr) => <Tile name={pr.name} style={pr.state} />}</For>
 					</div>
 				</Pane>
 
@@ -604,7 +683,7 @@ ${html}
 								onInput={(e) => {
 									setFontDraft(e.currentTarget.value)
 									// Picking from the datalist applies straight away
-									if (FONTS.includes(e.currentTarget.value)) useFont(e.currentTarget.value)
+									if (allFonts().includes(e.currentTarget.value)) useFont(e.currentTarget.value)
 								}}
 								onKeyDown={(e) => e.key === 'Enter' && useFont(fontDraft())}
 							/>
@@ -622,7 +701,7 @@ ${html}
 							</button>
 						</div>
 						<datalist id="wa-fontlist">
-							<For each={FONTS}>{(f) => <option value={f} />}</For>
+							<For each={allFonts()}>{(f) => <option value={f} />}</For>
 						</datalist>
 						<p class="wa-fontstatus" data-state={fontStatus()?.state} aria-live="polite">
 							<Show when={fontStatus()}>
@@ -642,7 +721,7 @@ ${html}
 							</Show>
 						</p>
 						<p class="wa-hint">
-							Type any family from{' '}
+							Start typing to search all {allFonts().length.toLocaleString()} families on{' '}
 							<a href="https://fonts.google.com" target="_blank" rel="noopener">
 								fonts.google.com
 							</a>

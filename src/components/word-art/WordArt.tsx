@@ -1,11 +1,13 @@
 /** @jsxImportSource solid-js */
 import { createEffect, createMemo, createSignal, Index, on, onCleanup, onMount } from 'solid-js'
-import { baseCss, bounds, graphemes, layout, rootVars, type LetterGeo, type Metrics, type WAState } from './engine'
+import { baseCss, bounds, label, layout, rootVars, splitText, type LetterGeo, type Metrics, type WAState } from './engine'
 
 let uid = 0
 
 export interface WordArtApi {
 	chars: () => string[]
+	/** Line breaks before each letter */
+	brs: () => number[]
 	geo: () => LetterGeo[]
 	wEm: () => number
 	metrics: () => Metrics
@@ -32,8 +34,10 @@ export default function WordArt(props: {
 	let host!: HTMLDivElement
 	let root!: HTMLSpanElement
 
-	const chars = createMemo(() => graphemes(props.state.text || ' '))
-	const [metrics, setMetrics] = createSignal<Metrics>({ lefts: [], widths: [], W: 1, H: 1 })
+	const split = createMemo(() => splitText(props.state.text))
+	const chars = () => split().chars
+	const brs = () => split().brs
+	const [metrics, setMetrics] = createSignal<Metrics>({ lefts: [], widths: [], tops: [], line: [], lh: 1, W: 1, H: 1 })
 	const [box, setBox] = createSignal({ w: 0, h: 0 })
 
 	const geo = createMemo(() => layout(props.state, metrics()))
@@ -42,11 +46,15 @@ export default function WordArt(props: {
 	const css = createMemo(() => baseCss(`.${id}`, props.state.anim, id))
 
 	const measure = () => {
-		const spans = [...root.children] as HTMLElement[]
+		const spans = [...root.querySelectorAll<HTMLElement>(':scope > span')]
+		let n = 0
 		// offsetLeft/Width ignore transforms, so the bent word measures as flat
 		setMetrics({
 			lefts: spans.map((el) => el.offsetLeft),
 			widths: spans.map((el) => el.offsetWidth),
+			tops: spans.map((el) => el.offsetTop),
+			line: brs().map((b) => (n += b ? 1 : 0)),
+			lh: spans[0]?.offsetHeight || props.state.size,
 			W: root.offsetWidth || 1,
 			H: root.offsetHeight || props.state.size,
 		})
@@ -56,7 +64,7 @@ export default function WordArt(props: {
 	createEffect(
 		on(
 			() => [
-				chars().join('\u0000'),
+				props.state.text,
 				props.state.font,
 				props.state.size,
 				props.state.weight,
@@ -73,6 +81,7 @@ export default function WordArt(props: {
 		onCleanup(() => ro.disconnect())
 		props.ref?.({
 			chars,
+			brs,
 			geo,
 			wEm,
 			metrics,
@@ -103,12 +112,15 @@ export default function WordArt(props: {
 		<div ref={host} class={props.class}>
 			<style>{css()}</style>
 			<div class="wa-fit" style={{ transform: fit() }}>
-				<span ref={root} class={id} role="img" aria-label={props.state.text} style={vars()}>
+				<span ref={root} class={id} role="img" aria-label={label(props.state.text)} style={vars()}>
 					<Index each={chars()}>
 						{(c, i) => (
+							<>
+							{Array.from({ length: brs()[i] ?? 0 }, () => <br />)}
 							<span data-c={c()} style={geo()[i]?.style ?? `--i:${i};--x:0em`} aria-hidden="true">
 								<span>{c()}</span>
 							</span>
+							</>
 						)}
 					</Index>
 				</span>

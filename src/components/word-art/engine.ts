@@ -219,6 +219,7 @@ export function baseCss(sel: string, anim: Anim, k = 'wa'): string {
 		'display: inline-block;',
 		'position: relative;',
 		'white-space: nowrap;',
+		'text-align: center;',
 		'line-height: 1.15;',
 		'filter: var(--wa-drop);',
 	]
@@ -262,9 +263,14 @@ export function baseCss(sel: string, anim: Anim, k = 'wa'): string {
 export interface Metrics {
 	lefts: number[]
 	widths: number[]
-	/** Word width */
+	tops: number[]
+	/** Which line of text each letter is on */
+	line: number[]
+	/** Letter box height */
+	lh: number
+	/** Block width */
 	W: number
-	/** Line box height */
+	/** Block height */
 	H: number
 }
 
@@ -280,12 +286,70 @@ export interface LetterGeo {
 const seg =
 	typeof Intl !== 'undefined' && 'Segmenter' in Intl ? new Intl.Segmenter(undefined, { granularity: 'grapheme' }) : null
 export const graphemes = (t: string) => (seg ? [...seg.segment(t)].map((x) => x.segment) : [...t])
+/** Screen-reader text: line breaks read as spaces. */
+export const label = (t: string) => t.replace(/\s*\n\s*/g, ' ')
 
 const escAttr = (s: string) => s.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
 
+/**
+ * Split text into letters plus line breaks: `brs[i]` is how many breaks go
+ * before letter `i`. Newlines never become letters.
+ */
+export function splitText(text: string) {
+	const chars: string[] = []
+	const brs: number[] = []
+	let pending = 0
+	for (const c of graphemes(text || ' ')) {
+		if (c === '\n' || c === '\r\n') pending++
+		else {
+			chars.push(c)
+			brs.push(chars.length > 1 ? pending : 0)
+			pending = 0
+		}
+	}
+	return { chars, brs }
+}
+
 /** Work out each letter's transform from flat layout measurements (px). */
 export function layout(s: WAState, m: Metrics): LetterGeo[] {
-	const { lefts, widths, W } = m
+	const geo: LetterGeo[] = []
+	// The longest line takes the full bend; the others share its centre, like
+	// rainbow bands, so short lines don't curl up tighter than long ones.
+	let ref = 0
+	let refW = 0
+	const lineW: number[] = []
+	m.lefts.forEach((l, i) => {
+		const k = m.line[i]
+		if (lineW[k] === undefined) lineW[k] = -l
+		if (m.line[i + 1] !== k) {
+			lineW[k] += l + m.widths[i]
+			if (lineW[k] > refW) [refW, ref] = [lineW[k], m.tops[i]]
+		}
+	})
+	const phi = (s.shape.curve * Math.PI) / 180
+	const R = Math.abs(s.shape.curve) < 1 ? Infinity : refW / phi
+	for (let a = 0; a < m.lefts.length; ) {
+		let b = a + 1
+		while (b < m.lefts.length && m.line[b] === m.line[a]) b++
+		const x0 = m.lefts[a]
+		const widths = m.widths.slice(a, b)
+		const lefts = m.lefts.slice(a, b).map((l) => l - x0)
+		geo.push(...layoutLine(s, lefts, widths, lefts.at(-1)! + widths.at(-1)!, a, x0, R - (m.tops[a] - ref)))
+		a = b
+	}
+	return geo
+}
+
+/** One line's letters; `i0` and `x0` place it inside the whole block, `Rc` is its shared-centre radius. */
+function layoutLine(
+	s: WAState,
+	lefts: number[],
+	widths: number[],
+	W: number,
+	i0: number,
+	x0: number,
+	Rc: number,
+): LetterGeo[] {
 	const size = s.size
 	const { curve, wave, freq, bulge, taper } = s.shape
 	const tp = taper / 100
@@ -311,7 +375,9 @@ export function layout(s: WAState, m: Metrics): LetterGeo[] {
 
 	const A = (wave / 100) * size * 0.6
 	const phi = (curve * Math.PI) / 180
-	const R = Math.abs(curve) < 1 ? Infinity : Wn / phi
+	// Never bend a line more than the slider says (lines past the centre flip)
+	const own = Wn / phi
+	const R = Math.abs(curve) < 1 ? Infinity : Math.sign(Rc) === Math.sign(own) && Math.abs(Rc) > Math.abs(own) ? Rc : own
 
 	return lefts.map((l, i) => {
 		const dx = centres[i] - Wn / 2
@@ -333,7 +399,7 @@ export function layout(s: WAState, m: Metrics): LetterGeo[] {
 		if (Math.abs(tx) > 0.05 || Math.abs(py) > 0.05) parts.push(`translate(${em(tx, size)}, ${em(py, size)})`)
 		if (Math.abs(rot) > 0.0005) parts.push(`rotate(${n(rot, 4)}rad)`)
 		if (Math.abs(sx[i] - 1) > 0.001 || Math.abs(sy[i] - 1) > 0.001) parts.push(`scale(${n(sx[i])}, ${n(sy[i])})`)
-		const style = `--i:${i};--x:${em(l, size)}${parts.length ? `;transform:${parts.join(' ')}` : ''}`
+		const style = `--i:${i0 + i};--x:${em(x0 + l, size)}${parts.length ? `;transform:${parts.join(' ')}` : ''}`
 		return { style, tx, ty: py, rot, sx: sx[i], sy: sy[i] }
 	})
 }
@@ -368,14 +434,14 @@ export function bounds(s: WAState, m: Metrics, geo: LetterGeo[]) {
 	geo.forEach((g, i) => {
 		const w = m.widths[i]
 		const lcx = m.lefts[i] + w / 2
-		const lcy = m.H / 2
+		const lcy = m.tops[i] + m.lh / 2
 		const cos = Math.cos(g.rot)
 		const sin = Math.sin(g.rot)
 		for (const [ax, ay] of [
-			[-w / 2, -m.H / 2],
-			[w / 2, -m.H / 2],
-			[-w / 2, m.H / 2],
-			[w / 2, m.H / 2],
+			[-w / 2, -m.lh / 2],
+			[w / 2, -m.lh / 2],
+			[-w / 2, m.lh / 2],
+			[w / 2, m.lh / 2],
 		]) {
 			const sxp = ax * g.sx
 			const syp = ay * g.sy
@@ -404,7 +470,13 @@ export function bounds(s: WAState, m: Metrics, geo: LetterGeo[]) {
 /* ───────────────────────────── Export ───────────────────────────── */
 
 /** Standalone, copy-pasteable HTML + CSS. */
-export function exportCode(s: WAState, chars: string[], geo: LetterGeo[], wEm: number): { html: string; css: string } {
+export function exportCode(
+	s: WAState,
+	chars: string[],
+	geo: LetterGeo[],
+	wEm: number,
+	brs: number[] = [],
+): { html: string; css: string } {
 	const vars = Object.entries(rootVars(s, wEm))
 		.map(([k, v]) => `  ${k}: ${v};`)
 		.join('\n')
@@ -416,10 +488,11 @@ export function exportCode(s: WAState, chars: string[], geo: LetterGeo[], wEm: n
 	const letters = chars
 		.map((c, i) => {
 			const e = escAttr(c)
-			return `<span data-c="${e}" style="${geo[i]?.style ?? ''}" aria-hidden="true"><span>${e}</span></span>`
+			const br = '<br />'.repeat(brs[i] ?? 0)
+			return `${br}<span data-c="${e}" style="${geo[i]?.style ?? ''}" aria-hidden="true"><span>${e}</span></span>`
 		})
 		.join('')
-	return { css, html: `<span class="wordart" role="img" aria-label="${escAttr(s.text)}">${letters}</span>` }
+	return { css, html: `<span class="wordart" role="img" aria-label="${escAttr(label(s.text))}">${letters}</span>` }
 }
 
 /* ───────────────────────────── Share ───────────────────────────── */

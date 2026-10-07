@@ -1,6 +1,6 @@
 ---
 import Layout from '../../layouts/Layout.astro'
-import { Badge, Link } from '@mrmartineau/zui/astro'
+import { Badge } from '@mrmartineau/zui/astro'
 import Studio from '../../components/word-art/Studio'
 
 export const title = 'WordArt Studio'
@@ -16,7 +16,6 @@ export const tags = ['tool', 'css', 'typography', 'fun', 'solid']
 		<header class="wa-header">
 			<!-- The page title is WordArt too, so it needs its font -->
 			<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Luckiest+Guy&display=swap" />
-			<Link href="/">← All lab items</Link>
 			<div class="wa-title">
 				<h1>WordArt <span>Studio</span></h1>
 				<Badge variant="fill" color="emerald">live</Badge>
@@ -250,6 +249,9 @@ export const tags = ['tool', 'css', 'typography', 'fun', 'solid']
 		font-size: var(--step-2);
 		padding-block: var(--space-xs);
 		font-weight: var(--font-weight-bold);
+		/* Grows a line each time you press Enter */
+		field-sizing: content;
+		resize: none;
 	}
 	.wa-dice {
 		--zui-btn-accent: var(--color-fuchsia-500);
@@ -424,6 +426,37 @@ export const tags = ['tool', 'css', 'typography', 'fun', 'solid']
 		scale: 1.04;
 		border-color: var(--color-accent);
 	}
+	.wa-saved {
+		position: relative;
+		display: grid;
+	}
+	.wa-saved-x {
+		position: absolute;
+		top: var(--space-3xs);
+		right: var(--space-3xs);
+		display: grid;
+		place-items: center;
+		width: 1.5rem;
+		height: 1.5rem;
+		padding: 0;
+		border: 0;
+		border-radius: var(--radius-full);
+		background: oklch(from var(--color-black) l c h / 55%);
+		color: var(--color-white);
+		font-size: var(--step--1);
+		cursor: pointer;
+		opacity: 0;
+		transition: opacity 0.15s;
+	}
+	.wa-saved:hover .wa-saved-x,
+	.wa-saved-x:focus-visible {
+		opacity: 1;
+	}
+	@media (hover: none) {
+		.wa-saved-x {
+			opacity: 1;
+		}
+	}
 	.wa-tile-stage {
 		position: relative;
 		overflow: hidden;
@@ -516,6 +549,29 @@ export const tags = ['tool', 'css', 'typography', 'fun', 'solid']
 	.wa-range > span {
 		display: flex;
 		justify-content: space-between;
+	}
+	.wa-range-value {
+		display: flex;
+		align-items: center;
+		gap: var(--space-4xs);
+	}
+	.wa-reset {
+		display: grid;
+		place-items: center;
+		padding: var(--space-5xs);
+		border: 0;
+		border-radius: var(--radius-full);
+		background: transparent;
+		color: var(--color-muted);
+		font-size: var(--step-0);
+		cursor: pointer;
+	}
+	.wa-reset:hover {
+		color: var(--color-text);
+		background: oklch(from var(--color-text) l c h / 8%);
+	}
+	.wa-reset:focus-visible {
+		outline: var(--focus-ring);
 	}
 	.wa-range output {
 		font-family: var(--font-code);
