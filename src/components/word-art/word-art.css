@@ -1,0 +1,929 @@
+/* Shared by the studio and the viewer. Everything is wa- prefixed. */
+.wa-app {
+	--wa-gap: var(--space-md);
+	min-height: 100dvh;
+	padding: var(--space-md) var(--space-md) var(--space-2xl);
+	max-width: 96rem;
+	margin-inline: auto;
+	display: flex;
+	flex-direction: column;
+	gap: var(--wa-gap);
+}
+
+.wa-header {
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-2xs);
+}
+.wa-title {
+	display: flex;
+	align-items: center;
+	gap: var(--space-sm);
+}
+.wa-title h1 {
+	margin: 0;
+	font-size: var(--step-4);
+	line-height: 1;
+	font-family: 'Luckiest Guy', var(--font-display);
+	letter-spacing: 0.02em;
+	background: linear-gradient(
+		90deg,
+		var(--color-red-500),
+		var(--color-orange-400),
+		var(--color-yellow-400),
+		var(--color-green-500),
+		var(--color-sky-500),
+		var(--color-violet-500)
+	);
+	-webkit-background-clip: text;
+	background-clip: text;
+	color: transparent;
+	filter: drop-shadow(0.06em 0.06em 0 var(--color-indigo-900));
+}
+.wa-title h1 span {
+	font-style: italic;
+}
+.wa-intro {
+	margin: 0;
+	max-width: 60ch;
+	color: var(--color-muted);
+}
+
+.wa-workspace {
+	display: grid;
+	gap: var(--wa-gap);
+	grid-template-columns: minmax(0, 1fr);
+}
+@media (min-width: 64rem) {
+	.wa-workspace {
+		grid-template-columns: minmax(0, 1.4fr) minmax(22rem, 1fr);
+		align-items: start;
+	}
+	.wa-left {
+		position: sticky;
+		top: var(--space-md);
+	}
+}
+
+.wa-left {
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-sm);
+	min-width: 0;
+}
+
+/* ── Stage ── */
+.wa-stage {
+	position: relative;
+	overflow: hidden;
+	height: clamp(14rem, min(52vh, 80vw), 36rem);
+	border-radius: var(--radius-2xl);
+	box-shadow: var(--shadow-lg), inset 0 0 0 1px oklch(from var(--color-text) l c h / 10%);
+	background: var(--wa-stage-bg);
+	transition: background var(--ease-out) 0.3s;
+}
+.wa-stage[data-bg='night'] {
+	--wa-stage-bg: radial-gradient(circle at 50% 25%, var(--color-indigo-800), var(--color-slate-950) 75%);
+}
+.wa-stage[data-bg='sky'] {
+	--wa-stage-bg: linear-gradient(var(--color-sky-400), var(--color-sky-100));
+}
+.wa-stage[data-bg='paper'] {
+	--wa-stage-bg: radial-gradient(circle, var(--color-stone-50), var(--color-stone-200));
+}
+.wa-stage[data-bg='grass'] {
+	--wa-stage-bg: linear-gradient(var(--color-sky-300) 0 62%, var(--color-lime-400) 62%, var(--color-green-600));
+}
+.wa-stage[data-bg='checker'] {
+	--wa-stage-bg: repeating-conic-gradient(var(--color-neutral-200) 0 25%, var(--color-neutral-50) 0 50%) 0 0 / 1.5rem
+		1.5rem;
+}
+/* Twinkly stars on the night stage */
+.wa-stage[data-bg='night']::before {
+	content: '';
+	position: absolute;
+	inset: 0;
+	pointer-events: none;
+	background-image:
+		radial-gradient(1px 1px at 12% 18%, var(--color-white) 50%, transparent),
+		radial-gradient(1.5px 1.5px at 78% 12%, var(--color-white) 50%, transparent),
+		radial-gradient(1px 1px at 33% 72%, var(--color-white) 50%, transparent),
+		radial-gradient(1px 1px at 88% 64%, var(--color-white) 50%, transparent),
+		radial-gradient(1.5px 1.5px at 55% 40%, var(--color-white) 50%, transparent),
+		radial-gradient(1px 1px at 22% 46%, var(--color-white) 50%, transparent),
+		radial-gradient(1px 1px at 66% 88%, var(--color-white) 50%, transparent);
+	opacity: 0.7;
+	animation: wa-twinkle 4s ease-in-out infinite alternate;
+}
+@keyframes wa-twinkle {
+	to {
+		opacity: 0.25;
+	}
+}
+.wa-stage-inner {
+	position: absolute;
+	inset: 0;
+}
+
+/* Full screen: the real thing, or a page-covering fallback (iPhone) */
+.wa-stage:fullscreen,
+.wa-stage.is-full {
+	height: 100%;
+	border-radius: 0;
+	box-shadow: none;
+}
+.wa-stage.is-full {
+	position: fixed;
+	inset: 0;
+	z-index: var(--z-8);
+	height: auto;
+}
+:root.wa-locked {
+	overflow: hidden;
+}
+/* The sticky column is its own stacking context, so lift it too */
+.wa-left:has(.is-full) {
+	z-index: var(--z-8);
+}
+
+/* Floating buttons on the stage */
+.wa-stage-tools {
+	position: absolute;
+	top: var(--space-xs);
+	right: var(--space-xs);
+	z-index: 1;
+	display: flex;
+	gap: var(--space-3xs);
+}
+.wa-tool {
+	display: grid;
+	place-items: center;
+	width: 2.5rem;
+	height: 2.5rem;
+	padding: 0;
+	border: 0;
+	border-radius: var(--radius-full);
+	background: oklch(from var(--color-black) l c h / 35%);
+	color: var(--color-white);
+	font-size: var(--step-1);
+	cursor: pointer;
+	backdrop-filter: blur(6px);
+	transition:
+		scale 0.15s var(--ease-spring),
+		background 0.15s;
+}
+.wa-tool:hover {
+	scale: 1.1;
+	background: oklch(from var(--color-black) l c h / 55%);
+}
+.wa-tool:focus-visible {
+	outline: var(--focus-ring);
+}
+.wa-stage:is(:fullscreen, .is-full) .wa-stage-tools {
+	top: var(--space-md);
+	right: var(--space-md);
+	gap: var(--space-xs);
+}
+.wa-stage:is(:fullscreen, .is-full) .wa-tool {
+	width: 3.5rem;
+	height: 3.5rem;
+	font-size: var(--step-3);
+}
+.wa-spin {
+	animation: wa-roll 0.8s linear infinite;
+}
+
+.wa-fit {
+	position: absolute;
+	top: 0;
+	left: 0;
+	width: max-content;
+	transform-origin: 0 0;
+	/* Smooths the auto-zoom as sliders change the word's size */
+	transition: transform 0.2s var(--ease-out);
+}
+/* ── Text row ── */
+.wa-textrow {
+	display: flex;
+	gap: var(--space-xs);
+	flex-wrap: wrap;
+}
+.wa-text {
+	flex: 1 1 14rem;
+	font-size: var(--step-2);
+	padding-block: var(--space-xs);
+	font-weight: var(--font-weight-bold);
+	/* Grows a line each time you press Enter */
+	field-sizing: content;
+	resize: none;
+}
+.wa-dice {
+	--zui-btn-accent: var(--color-fuchsia-500);
+	--zui-btn-accent-hover: var(--color-fuchsia-600);
+	flex: 0 0 auto;
+}
+.wa-dice:hover i {
+	animation: wa-roll 0.6s var(--ease-spring);
+}
+@keyframes wa-roll {
+	to {
+		rotate: 360deg;
+	}
+}
+
+.wa-toolbar {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	gap: var(--space-sm);
+	flex-wrap: wrap;
+}
+.wa-actions {
+	display: flex;
+	gap: var(--space-3xs);
+	flex-wrap: wrap;
+}
+.wa-bgs {
+	display: flex;
+	gap: var(--space-2xs);
+}
+.wa-bg {
+	width: 2rem;
+	height: 2rem;
+	border-radius: var(--radius-full);
+	border: 2px var(--border-style) var(--color-border);
+	cursor: pointer;
+	padding: 0;
+	transition: scale 0.2s var(--ease-spring);
+}
+.wa-bg:hover {
+	scale: 1.12;
+}
+.wa-bg[aria-checked='true'] {
+	outline: 3px var(--border-style) var(--color-accent);
+	outline-offset: 2px;
+}
+.wa-bg[data-stage='night'] {
+	background: radial-gradient(circle at 50% 25%, var(--color-indigo-800), var(--color-slate-950));
+}
+.wa-bg[data-stage='sky'] {
+	background: linear-gradient(var(--color-sky-400), var(--color-sky-100));
+}
+.wa-bg[data-stage='paper'] {
+	background: var(--color-stone-100);
+}
+.wa-bg[data-stage='grass'] {
+	background: linear-gradient(var(--color-sky-300) 55%, var(--color-lime-400) 55%);
+}
+.wa-bg[data-stage='checker'] {
+	background: repeating-conic-gradient(var(--color-neutral-300) 0 25%, var(--color-neutral-50) 0 50%) 0 0 / 0.75rem
+		0.75rem;
+}
+
+/* ── Panel ── */
+.wa-panel {
+	background: var(--color-surface);
+	border: 1px var(--border-style) var(--color-border);
+	border-radius: var(--radius-2xl);
+	padding: var(--space-sm);
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-sm);
+	min-width: 0;
+}
+.wa-tabs {
+	display: grid;
+	grid-template-columns: repeat(4, 1fr);
+	gap: var(--space-3xs);
+}
+@media (min-width: 40rem) {
+	.wa-tabs {
+		grid-template-columns: repeat(8, 1fr);
+	}
+}
+@media (min-width: 64rem) {
+	.wa-tabs {
+		grid-template-columns: repeat(4, 1fr);
+	}
+}
+@media (min-width: 80rem) {
+	.wa-tabs {
+		grid-template-columns: repeat(8, 1fr);
+	}
+}
+.wa-tab {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: var(--space-5xs);
+	padding: var(--space-2xs) var(--space-4xs);
+	border: 0;
+	border-radius: var(--radius-lg);
+	background: transparent;
+	color: var(--color-muted);
+	font: inherit;
+	font-size: var(--step--1);
+	font-weight: var(--font-weight-medium);
+	cursor: pointer;
+	transition:
+		background 0.15s,
+		color 0.15s;
+}
+.wa-tab i {
+	font-size: var(--step-2);
+}
+.wa-tab:hover {
+	background: oklch(from var(--color-text) l c h / 6%);
+	color: var(--color-text);
+}
+.wa-tab[aria-selected='true'] {
+	background: var(--color-accent);
+	color: var(--color-background);
+}
+.wa-tab[aria-selected='true'] i {
+	animation: wa-bounce 0.4s var(--ease-spring);
+}
+@keyframes wa-bounce {
+	50% {
+		translate: 0 -0.2em;
+	}
+}
+
+.wa-pane {
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-sm);
+}
+.wa-pane[hidden] {
+	display: none;
+}
+.wa-hint {
+	margin: 0;
+	font-size: var(--step--1);
+	color: var(--color-muted);
+}
+
+/* Gallery */
+.wa-gallery {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(9rem, 1fr));
+	gap: var(--space-xs);
+}
+.wa-tile {
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-4xs);
+	padding: var(--space-4xs);
+	border: 2px var(--border-style) transparent;
+	border-radius: var(--radius-xl);
+	background: oklch(from var(--color-text) l c h / 5%);
+	color: var(--color-text);
+	font: inherit;
+	font-size: var(--step--1);
+	cursor: pointer;
+	transition:
+		scale 0.2s var(--ease-spring),
+		border-color 0.2s;
+}
+.wa-tile:hover,
+.wa-tile:focus-visible {
+	scale: 1.04;
+	border-color: var(--color-accent);
+}
+.wa-saved {
+	position: relative;
+	display: grid;
+}
+.wa-saved-x {
+	position: absolute;
+	top: var(--space-3xs);
+	right: var(--space-3xs);
+	display: grid;
+	place-items: center;
+	width: 1.5rem;
+	height: 1.5rem;
+	padding: 0;
+	border: 0;
+	border-radius: var(--radius-full);
+	background: oklch(from var(--color-black) l c h / 55%);
+	color: var(--color-white);
+	font-size: var(--step--1);
+	cursor: pointer;
+	opacity: 0;
+	transition: opacity 0.15s;
+}
+.wa-saved:hover .wa-saved-x,
+.wa-saved-x:focus-visible {
+	opacity: 1;
+}
+@media (hover: none) {
+	.wa-saved-x {
+		opacity: 1;
+	}
+}
+.wa-tile-stage {
+	position: relative;
+	overflow: hidden;
+	aspect-ratio: 16 / 10;
+	border-radius: var(--radius-lg);
+	background: radial-gradient(circle at 50% 25%, var(--color-indigo-800), var(--color-slate-950) 80%);
+	pointer-events: none;
+}
+
+/* Fonts */
+.wa-field {
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-3xs);
+}
+.wa-fontrow {
+	display: flex;
+	gap: var(--space-3xs);
+}
+.wa-fontrow .zui-input {
+	flex: 1;
+	min-width: 0;
+}
+.wa-fontstatus {
+	margin: 0;
+	min-height: 1.4em;
+	font-size: var(--step--1);
+	display: flex;
+	align-items: center;
+	gap: var(--space-4xs);
+}
+.wa-fontstatus[data-state='ok'] {
+	color: var(--color-success);
+}
+.wa-fontstatus[data-state='error'] {
+	color: var(--color-error);
+}
+.wa-fontstatus[data-state='loading'] {
+	color: var(--color-muted);
+}
+.wa-fonts {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--space-3xs);
+	max-height: 15rem;
+	overflow-y: auto;
+	padding: var(--space-4xs);
+	border-radius: var(--radius-lg);
+	background: oklch(from var(--color-text) l c h / 4%);
+}
+.wa-chip {
+	padding: var(--space-4xs) var(--space-xs);
+	border: 1px var(--border-style) var(--color-border);
+	border-radius: var(--radius-full);
+	background: var(--color-surface);
+	color: var(--color-text);
+	font-size: var(--step-0);
+	cursor: pointer;
+	transition: scale 0.15s var(--ease-spring);
+}
+.wa-chip:hover {
+	scale: 1.06;
+	border-color: var(--color-accent);
+}
+.wa-chip[aria-pressed='true'] {
+	background: var(--color-accent);
+	border-color: var(--color-accent);
+	color: var(--color-background);
+}
+
+/* Sliders */
+.wa-sliders {
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-xs);
+}
+.wa-two {
+	display: grid;
+	grid-template-columns: 1fr 1fr;
+}
+.wa-range {
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-5xs);
+	flex: 1;
+	min-width: 0;
+	font-size: var(--step--1);
+	font-weight: var(--font-weight-medium);
+}
+.wa-range > span {
+	display: flex;
+	justify-content: space-between;
+}
+.wa-range-value {
+	display: flex;
+	align-items: center;
+	gap: var(--space-4xs);
+}
+.wa-reset {
+	display: grid;
+	place-items: center;
+	padding: var(--space-5xs);
+	border: 0;
+	border-radius: var(--radius-full);
+	background: transparent;
+	color: var(--color-muted);
+	font-size: var(--step-0);
+	cursor: pointer;
+}
+.wa-reset:hover {
+	color: var(--color-text);
+	background: oklch(from var(--color-text) l c h / 8%);
+}
+.wa-reset:focus-visible {
+	outline: var(--focus-ring);
+}
+.wa-range output {
+	font-family: var(--font-code);
+	color: var(--color-muted);
+	font-variant-numeric: tabular-nums;
+}
+.wa-range input[type='range'] {
+	width: 100%;
+	accent-color: var(--color-accent);
+	height: 1.5rem;
+}
+
+/* Segmented control */
+.wa-seg {
+	display: grid;
+	grid-template-columns: repeat(4, 1fr);
+	gap: var(--space-4xs);
+	padding: var(--space-4xs);
+	border-radius: var(--radius-lg);
+	background: oklch(from var(--color-text) l c h / 6%);
+}
+.wa-seg label {
+	position: relative;
+}
+.wa-seg input {
+	position: absolute;
+	opacity: 0;
+	inset: 0;
+}
+.wa-seg span {
+	display: flex;
+	justify-content: center;
+	align-items: center;
+	gap: var(--space-4xs);
+	padding: var(--space-3xs);
+	border-radius: var(--radius-md);
+	font-size: var(--step--1);
+	cursor: pointer;
+}
+.wa-seg input:checked + span {
+	background: var(--color-surface);
+	box-shadow: var(--shadow-sm);
+	font-weight: var(--font-weight-bold);
+}
+.wa-seg input:focus-visible + span {
+	outline: var(--focus-ring);
+}
+
+.wa-gradbar {
+	height: var(--space-md);
+	border-radius: var(--radius-full);
+	box-shadow: inset 0 0 0 1px oklch(from var(--color-text) l c h / 15%);
+}
+
+/* Colour stops */
+.wa-stops {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var(--space-2xs);
+}
+.wa-stop {
+	position: relative;
+}
+.wa-app input[type='color'] {
+	width: 2.75rem;
+	height: 2.75rem;
+	padding: 0;
+	border: 3px var(--border-style) var(--color-surface);
+	border-radius: var(--radius-full);
+	box-shadow: 0 0 0 1px var(--color-border), var(--shadow-sm);
+	background: none;
+	cursor: pointer;
+	flex: 0 0 auto;
+}
+.wa-app input[type='color']::-webkit-color-swatch-wrapper {
+	padding: 0;
+}
+.wa-app input[type='color']::-webkit-color-swatch {
+	border: 0;
+	border-radius: var(--radius-full);
+}
+.wa-app input[type='color']::-moz-color-swatch {
+	border: 0;
+	border-radius: var(--radius-full);
+}
+.wa-stop-x {
+	position: absolute;
+	top: calc(var(--space-3xs) * -1);
+	right: calc(var(--space-3xs) * -1);
+	display: grid;
+	place-items: center;
+	width: 1.1rem;
+	height: 1.1rem;
+	padding: 0;
+	border: 0;
+	border-radius: var(--radius-full);
+	background: var(--color-text);
+	color: var(--color-background);
+	font-size: var(--step--2);
+	cursor: pointer;
+	opacity: 0;
+	transition: opacity 0.15s;
+}
+.wa-stop:hover .wa-stop-x,
+.wa-stop-x:focus-visible {
+	opacity: 1;
+}
+@media (hover: none) {
+	.wa-stop-x {
+		opacity: 1;
+	}
+}
+.wa-swatches {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--space-4xs);
+	flex-basis: 100%;
+}
+.wa-swatch {
+	width: 1.5rem;
+	height: 1.5rem;
+	padding: 0;
+	border: 0;
+	border-radius: var(--radius-md);
+	background: var(--sw);
+	box-shadow: inset 0 0 0 1px oklch(from var(--color-text) l c h / 20%);
+	cursor: pointer;
+	transition: scale 0.15s var(--ease-spring);
+}
+.wa-swatch:hover {
+	scale: 1.2;
+}
+.wa-stopactions {
+	display: flex;
+	gap: var(--space-3xs);
+	flex-wrap: wrap;
+}
+.wa-colorrow,
+.wa-dialrow {
+	display: flex;
+	align-items: center;
+	gap: var(--space-sm);
+}
+
+/* 3D dial */
+.wa-dial {
+	--a: 45deg;
+	position: relative;
+	flex: 0 0 auto;
+	width: 5rem;
+	height: 5rem;
+	border-radius: var(--radius-full);
+	background: conic-gradient(from 90deg, var(--color-accent), var(--color-fuchsia-400), var(--color-amber-400), var(--color-accent));
+	box-shadow: var(--shadow-md);
+	cursor: grab;
+	touch-action: none;
+}
+.wa-dial::after {
+	content: '';
+	position: absolute;
+	inset: 0.6rem;
+	border-radius: inherit;
+	background: var(--color-surface);
+}
+.wa-dial-hand {
+	position: absolute;
+	top: 50%;
+	left: 50%;
+	width: 50%;
+	height: 0.3rem;
+	margin-top: -0.15rem;
+	transform-origin: 0 50%;
+	rotate: var(--a);
+	border-radius: var(--radius-full);
+	background: var(--color-text);
+	z-index: 1;
+}
+.wa-dial-hand::after {
+	content: '';
+	position: absolute;
+	right: 0;
+	top: 50%;
+	width: 0.9rem;
+	height: 0.9rem;
+	translate: 30% -50%;
+	border-radius: var(--radius-full);
+	background: var(--color-text);
+}
+.wa-dial:focus-visible {
+	outline: var(--focus-ring);
+	outline-offset: var(--focus-ring-offset);
+}
+
+/* Shape + motion pickers */
+.wa-shapes {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(5rem, 1fr));
+	gap: var(--space-3xs);
+}
+.wa-shape {
+	position: relative;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: var(--space-5xs);
+	padding: var(--space-xs) var(--space-4xs);
+	border: 2px var(--border-style) transparent;
+	border-radius: var(--radius-lg);
+	background: oklch(from var(--color-text) l c h / 5%);
+	color: var(--color-text);
+	font: inherit;
+	font-size: var(--step--1);
+	cursor: pointer;
+	transition:
+		scale 0.15s var(--ease-spring),
+		border-color 0.15s;
+}
+.wa-shape i {
+	font-size: var(--step-3);
+}
+.wa-shape:hover {
+	scale: 1.05;
+	border-color: var(--color-accent);
+}
+.wa-shape input {
+	position: absolute;
+	opacity: 0;
+	inset: 0;
+	cursor: pointer;
+}
+.wa-shape:has(input:checked) {
+	background: var(--color-accent);
+	color: var(--color-background);
+}
+.wa-shape:has(input:focus-visible) {
+	outline: var(--focus-ring);
+}
+
+/* Code */
+.wa-codeblock {
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-3xs);
+}
+.wa-codehead {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	font-weight: var(--font-weight-bold);
+}
+.wa-codeblock pre {
+	margin: 0;
+	max-height: 18rem;
+	overflow: auto;
+	font-size: var(--step--2);
+}
+.wa-codeblock code {
+	white-space: pre-wrap;
+	word-break: break-all;
+}
+
+/* Toast */
+.wa-toast {
+	position: fixed;
+	left: 50%;
+	bottom: var(--space-lg);
+	z-index: var(--z-9);
+	translate: -50% 150%;
+	padding: var(--space-2xs) var(--space-md);
+	border-radius: var(--radius-full);
+	background: var(--color-text);
+	color: var(--color-background);
+	font-weight: var(--font-weight-bold);
+	box-shadow: var(--shadow-xl);
+	opacity: 0;
+	transition:
+		translate 0.35s var(--ease-spring),
+		opacity 0.2s;
+	pointer-events: none;
+}
+.wa-toast.is-on {
+	translate: -50% 0;
+	opacity: 1;
+}
+
+.wa-sr {
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	overflow: hidden;
+	clip-path: inset(50%);
+	white-space: nowrap;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.wa-stage::before,
+	.wa-spin {
+		animation: none;
+	}
+}
+
+/* ── Viewer (/word-art/view) ── */
+html:has(.wa-view) {
+	overflow: hidden;
+	/* ZUI reserves a scrollbar gutter, which a fixed full-window stage would show */
+	scrollbar-gutter: auto;
+}
+.wa-view {
+	position: fixed;
+	inset: 0;
+	height: auto;
+	border-radius: 0;
+	box-shadow: none;
+}
+.wa-view.is-idle {
+	cursor: none;
+}
+.wa-view-bar {
+	position: absolute;
+	left: 50%;
+	bottom: var(--space-md);
+	z-index: 1;
+	translate: -50% 0;
+	/* left: 50% would otherwise cap the width at half the screen */
+	width: max-content;
+	max-width: calc(100vw - var(--space-md) * 2);
+	display: flex;
+	flex-wrap: wrap;
+	justify-content: center;
+	gap: var(--space-3xs);
+	padding: var(--space-3xs);
+	border-radius: var(--radius-full);
+	background: oklch(from var(--color-black) l c h / 35%);
+	backdrop-filter: blur(8px);
+	transition:
+		opacity 0.4s var(--ease-out),
+		translate 0.4s var(--ease-out);
+}
+.wa-view.is-idle .wa-view-bar {
+	opacity: 0;
+	translate: -50% var(--space-md);
+	pointer-events: none;
+}
+/* Must out-rank the idle rule above, or keyboard focus lands on a hidden bar */
+.wa-view.is-idle .wa-view-bar:focus-within {
+	opacity: 1;
+	translate: -50% 0;
+	pointer-events: auto;
+}
+.wa-view-btn {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--space-4xs);
+	padding: var(--space-2xs) var(--space-sm);
+	border: 0;
+	border-radius: var(--radius-full);
+	background: transparent;
+	color: var(--color-white);
+	font: inherit;
+	font-size: var(--step--1);
+	font-weight: var(--font-weight-medium);
+	text-decoration: none;
+	white-space: nowrap;
+	cursor: pointer;
+	transition: background 0.15s;
+}
+.wa-view-btn:hover {
+	background: oklch(from var(--color-white) l c h / 15%);
+}
+.wa-view-btn:focus-visible {
+	outline: var(--focus-ring);
+}
+.wa-view-btn i {
+	font-size: var(--step-1);
+}
+.wa-view-loading {
+	position: absolute;
+	inset: 0;
+	display: grid;
+	place-items: center;
+	margin: 0;
+	color: var(--color-white);
+	font-size: var(--step-1);
+	opacity: 0.8;
+}
+@media (prefers-reduced-motion: reduce) {
+	.wa-view-bar {
+		transition: none;
+	}
+}

@@ -11,11 +11,12 @@ import {
 	gradient,
 	loadFont,
 	merge,
+	STAGES,
 	type FillType,
 	type WAState,
 } from './engine'
 import { FONTS, PRESETS, SWATCHES } from './presets'
-import { savePNG } from './png'
+import { fileNameFor, saveStage } from './png'
 import WordArt, { type WordArtApi } from './WordArt'
 
 // Page styles for exports, so the word sits centred on a night sky
@@ -47,13 +48,6 @@ const SHAPES: { name: string; icon: string; shape: Partial<WAState['shape']> }[]
 	{ name: 'Rainbow', icon: 'ph-cloud-sun', shape: { curve: 140, wave: 0, bulge: 40, taper: 0 } },
 ]
 
-const STAGES = [
-	{ id: 'night', label: 'Night' },
-	{ id: 'sky', label: 'Sky' },
-	{ id: 'paper', label: 'Paper' },
-	{ id: 'grass', label: 'Grass' },
-	{ id: 'checker', label: 'See-through' },
-]
 
 const FILLS: { id: FillType; label: string; icon: string }[] = [
 	{ id: 'solid', label: 'Solid', icon: 'ph-square' },
@@ -133,7 +127,6 @@ export default function Studio() {
 	const set = (path: string, v: unknown) => (setState as any)(...path.split('.'), v)
 
 	const [tab, setTab] = createSignal<Tab>('gallery')
-	const [stage, setStage] = createSignal('night')
 	const [fontTick, setFontTick] = createSignal(0)
 	const [fontStatus, setFontStatus] = createSignal<{ state: 'loading' | 'ok' | 'error'; font: string } | null>(null)
 	const [fontDraft, setFontDraft] = createSignal(state.font)
@@ -156,27 +149,34 @@ export default function Studio() {
 		setCanRedo(future.length > 0)
 	}
 
+	/** Record the current state as a history step, if it changed. */
+	function commit() {
+		clearTimeout(commitTimer)
+		const now = JSON.stringify(state)
+		if (now === committed) return
+		if (committed) past.push(committed)
+		if (past.length > 100) past.shift()
+		future.length = 0
+		committed = now
+		syncHistory()
+	}
+
 	// Reading the whole store via JSON tracks every field
 	createEffect(() => {
-		const now = JSON.stringify(state)
+		JSON.stringify(state)
 		clearTimeout(commitTimer)
-		commitTimer = window.setTimeout(() => {
-			if (now === committed) return
-			if (committed) past.push(committed)
-			if (past.length > 100) past.shift()
-			future.length = 0
-			committed = now
-			syncHistory()
-		}, 350)
+		commitTimer = window.setTimeout(commit, 350)
 		clearTimeout(hashTimer)
 		hashTimer = window.setTimeout(() => history.replaceState(null, '', `#${encodeState(unwrap(state))}`), 300)
 	})
 
 	function travel(from: string[], to: string[]) {
+		// Land any edit still inside the debounce window first, so undo steps
+		// back from it rather than skipping over it.
+		commit()
 		const snap = from.pop()
 		if (!snap) return
-		clearTimeout(commitTimer)
-		to.push(JSON.stringify(state))
+		to.push(committed)
 		committed = snap
 		setState(reconcile(JSON.parse(snap)))
 		syncHistory()
@@ -240,7 +240,7 @@ export default function Studio() {
 	const pop = () => wordart?.pop()
 
 	function applyStyle(style: WAState) {
-		setState(reconcile({ ...clone(style), text: state.text }))
+		setState(reconcile({ ...clone(style), text: state.text, bg: state.bg }))
 		pop()
 	}
 
@@ -269,7 +269,7 @@ export default function Studio() {
 	}
 	const removeStyle = (x: Saved) => storeSaved(saved().filter((y) => y !== x))
 	function surprise() {
-		setState(reconcile(surpriseState(state.text)))
+		setState(reconcile({ ...surpriseState(state.text), bg: state.bg }))
 		pop()
 	}
 
@@ -284,7 +284,10 @@ export default function Studio() {
 			await navigator.clipboard.writeText(text)
 			notify(`${what} copied!`)
 		} catch {
-			notify(`Couldn't copy ${what} — select it and copy by hand`)
+			// No clipboard access: show the text somewhere it can be selected. The
+			// address bar is the studio, not the share link, so don't point there.
+			if (text.startsWith('http')) window.prompt(`Copy this ${what.toLowerCase()}:`, text)
+			else notify(`Couldn't copy ${what} — select it and copy by hand`)
 		}
 	}
 	const code = () => {
@@ -321,42 +324,18 @@ ${html}
 		setTimeout(() => URL.revokeObjectURL(a.href), 1000)
 	}
 
-	function chooseStage(id: string) {
-		setStage(id)
-		try {
-			localStorage.setItem('wa-stage', id)
-		} catch {}
-	}
-
 	/* ───────────── PNG + full screen ───────────── */
 
 	let stageEl!: HTMLDivElement
 	const [full, setFull] = createSignal(false)
 	const [saving, setSaving] = createSignal(false)
-	const fileName = () =>
-		state.text.replace(/[^\w-]+/g, '-').replace(/^-+|-+$/g, '').toLowerCase() || 'wordart'
+	const fileName = () => fileNameFor(state.text)
 
 	async function savePicture() {
 		if (!wordart || saving()) return
 		setSaving(true)
 		try {
-			const cs = getComputedStyle(stageEl)
-			const kind = await savePNG(
-				{
-					state: unwrap(state),
-					chars: wordart.chars(),
-					brs: wordart.brs(),
-					geo: wordart.geo(),
-					metrics: wordart.metrics(),
-					wEm: wordart.wEm(),
-					// The see-through stage makes a transparent PNG
-					background:
-						stage() === 'checker'
-							? null
-							: `background-color: ${cs.backgroundColor}; background-image: ${cs.backgroundImage};`,
-				},
-				fileName(),
-			)
+			const kind = await saveStage(wordart, unwrap(state), stageEl)
 			notify(kind === 'png' ? 'Picture saved!' : "Saved as SVG — this browser can't make PNGs")
 		} catch {
 			notify("Couldn't save the picture")
@@ -364,6 +343,10 @@ ${html}
 			setSaving(false)
 		}
 	}
+
+	/** The read-only, full-window view of this piece — the link to share. */
+	// Reads through the store proxy, so the "View it" href stays in sync
+	const viewUrl = () => `${location.origin}/word-art/view#${encodeState(state)}`
 
 	// Real full screen where the browser allows it (not iPhone Safari); else
 	// the stage just covers the page.
@@ -380,10 +363,6 @@ ${html}
 	onMount(() => {
 		const fromHash = decodeState(location.hash.slice(1))
 		if (fromHash) setState(reconcile(fromHash))
-		try {
-			const saved = localStorage.getItem('wa-stage')
-			if (saved) setStage(saved)
-		} catch {}
 		const onFull = () => setFull(document.fullscreenElement === stageEl)
 		document.addEventListener('fullscreenchange', onFull)
 		const onFonts = () => setFontTick((t) => t + 1)
@@ -492,7 +471,7 @@ ${html}
 	return (
 		<div class="wa-workspace">
 			<section class="wa-left" aria-label="Preview">
-				<div ref={stageEl} class="wa-stage" classList={{ 'is-full': full() }} data-bg={stage()}>
+				<div ref={stageEl} class="wa-stage" classList={{ 'is-full': full() }} data-bg={state.bg}>
 					<WordArt
 						class="wa-stage-inner"
 						state={state}
@@ -561,10 +540,10 @@ ${html}
 									class="wa-bg"
 									data-stage={b.id}
 									role="radio"
-									aria-checked={stage() === b.id}
+									aria-checked={state.bg === b.id}
 									title={b.label}
 									aria-label={b.label}
-									onClick={() => chooseStage(b.id)}
+									onClick={() => setState('bg', b.id)}
 								/>
 							)}
 						</For>
@@ -587,13 +566,13 @@ ${html}
 						<button
 							class="zui-button zui-button-variant-outline zui-button-size-sm"
 							type="button"
-							onClick={() => {
-								history.replaceState(null, '', `#${encodeState(unwrap(state))}`)
-								copy(location.href, 'Link')
-							}}
+							onClick={() => copy(viewUrl(), 'Share link')}
 						>
 							<i class="ph ph-link" /> Copy link
 						</button>
+						<a class="zui-button zui-button-size-sm" href={viewUrl()} target="_blank" rel="noopener">
+							<i class="ph ph-frame-corners" /> View it
+						</a>
 					</div>
 				</div>
 			</section>

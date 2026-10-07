@@ -93,7 +93,8 @@ export async function savePNG(input: SnapshotInput, name: string): Promise<'png'
 	const W = Math.ceil((w0 + pad * 2) * scale)
 	const H = Math.ceil((h0 + pad * 2) * scale)
 
-	const fonts = await embeddedFont(s.font, s.text)
+	// Best effort: without the font the picture still renders, in the fallback face
+	const fonts = await embeddedFont(s.font, s.text).catch(() => '')
 	const vars = Object.entries(rootVars(s, input.wEm))
 		.map(([k, v]) => `${k}: ${v};`)
 		.join(' ')
@@ -104,7 +105,7 @@ ${baseCss('.wordart', 'none')}
 .snap { position: relative; width: ${W}px; height: ${H}px; overflow: hidden; ${input.background ?? ''} }
 .place { position: absolute; left: 0; top: 0; width: max-content; transform-origin: 0 0; transform: translate(${(pad - b.x0) * scale}px, ${(pad - b.y0) * scale}px) scale(${scale}); }`
 
-	const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}"><foreignObject width="100%" height="100%"><div xmlns="http://www.w3.org/1999/xhtml" class="snap"><style><![CDATA[${css}]]></style><div class="place">${html}</div></div></foreignObject></svg>`
+	const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}"><foreignObject width="100%" height="100%"><div xmlns="http://www.w3.org/1999/xhtml" class="snap"><style><![CDATA[${css.replace(/]]>/g, ']]]]><![CDATA[>')}]]></style><div class="place">${html}</div></div></foreignObject></svg>`
 	const svgBlob = new Blob([svg], { type: 'image/svg+xml' })
 
 	const img = new Image()
@@ -124,4 +125,38 @@ ${baseCss('.wordart', 'none')}
 		download(svgBlob, `${name}.svg`)
 		return 'svg'
 	}
+}
+
+/** Safe file name from the words, e.g. "Hello Leo!" → "hello-leo". */
+export const fileNameFor = (text: string) =>
+	text.replace(/[^\w-]+/g, '-').replace(/^-+|-+$/g, '').toLowerCase() || 'wordart'
+
+/**
+ * Save what's on a stage: the live WordArt's layout plus the stage's resolved
+ * background (the see-through stage gives a transparent PNG).
+ */
+export function saveStage(
+	wordart: { chars: () => string[]; brs: () => number[]; geo: () => LetterGeo[]; metrics: () => Metrics; wEm: () => number },
+	state: WAState,
+	stageEl: HTMLElement,
+) {
+	const cs = getComputedStyle(stageEl)
+	// The night stage's stars are a ::before layer; stack them on top of the background
+	const deco = getComputedStyle(stageEl, '::before')
+	const stars = deco.content !== 'none' && deco.backgroundImage !== 'none' ? `${deco.backgroundImage}, ` : ''
+	return savePNG(
+		{
+			state,
+			chars: wordart.chars(),
+			brs: wordart.brs(),
+			geo: wordart.geo(),
+			metrics: wordart.metrics(),
+			wEm: wordart.wEm(),
+			background:
+				state.bg === 'checker'
+					? null
+					: `background-color: ${cs.backgroundColor}; background-image: ${stars}${cs.backgroundImage};`,
+		},
+		fileNameFor(state.text),
+	)
 }
