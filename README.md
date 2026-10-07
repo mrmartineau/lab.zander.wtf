@@ -100,4 +100,14 @@ Requires Node `>=22.12.0`. Run from the project root:
 
 Run `pnpm build` after changes to confirm the site compiles.
 
+## Deploys
+
+GitHub Actions (`.github/workflows/deploy.yml`) deploys to Cloudflare Workers:
+
+- Push to `main` → production deploy.
+- Pull request → preview version at `pr-<number>-lab-zander-wtf.<subdomain>.workers.dev`,
+  linked in a PR comment.
+
+Needs repo secrets `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`.
+
 See [AGENTS.md](./AGENTS.md) for full guidance on working in this repo.
