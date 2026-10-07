@@ -17,7 +17,9 @@ const viewport = lockZoom
 <html lang="en">
 	<head>
 		<meta charset="utf-8" />
-<link rel="icon" type="image/svg+xml" href="https://zander.wtf/favicon.svg" />
+		<title>{title}</title>
+		<meta content="Ideas, experiments, toys and small tools. Some of them work." name="description" />
+		<link rel="icon" type="image/svg+xml" href="https://zander.wtf/favicon.svg" />
 		<meta name="viewport" content={viewport} />
 		{
 			/* iOS Safari ignores the viewport flags above, so block its pinch
@@ -39,7 +41,6 @@ const viewport = lockZoom
 			rel="stylesheet"
 			href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/regular/style.css"
 		/>
-		<title>{title}</title>
 	</head>
 	<body class:list={[{ 'lock-zoom': lockZoom }]}>
 		<slot />
@@ -47,6 +48,26 @@ const viewport = lockZoom
 </html>
 
 <style>
+	:root {
+  /* Colours — black + one yellow accent on off-white */
+  --color-accent: light-dark(var(--color-yellow-400), var(--color-yellow-400));
+  --color-theme: light-dark(#111111, #fafafa);
+  --color-background: light-dark(#faf9f0, #111111);
+  --color-surface: light-dark(#ffffff, #1a1a1a);
+  --color-border: light-dark(#111111, #fafafa);
+  --color-text: light-dark(#111111, #fafafa);
+
+  /* Typography — geometric sans + mono code */
+  --font-display: 'Space Grotesk', var(--font-stack-sans);
+  --font-body: 'Space Grotesk', var(--font-stack-sans);
+  --font-code: 'Space Mono', var(--font-stack-mono);
+
+  /* Shape — hard corners */
+  --radius-scale: 0;
+  --line-height: var(--line-height-md);
+  --border-style: solid;
+}
+
 	body {
 		margin: 0;
 		min-height: 100dvh;
