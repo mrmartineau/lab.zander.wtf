@@ -18,6 +18,10 @@ import { FONTS, PRESETS, SWATCHES } from './presets'
 import { savePNG } from './png'
 import WordArt, { type WordArtApi } from './WordArt'
 
+// Page styles for exports, so the word sits centred on a night sky
+const PAGE_CSS =
+	'body { margin: 0; min-height: 100vh; display: grid; place-items: center; overflow: hidden; background: radial-gradient(circle at 50% 30%, #2a1d6b, #0b0820); }'
+
 const TABS = [
 	{ id: 'gallery', label: 'Gallery', icon: 'ph-squares-four' },
 	{ id: 'font', label: 'Font', icon: 'ph-text-aa' },
@@ -257,6 +261,11 @@ export default function Studio() {
 		if (!wordart) return { css: '', html: '' }
 		return exportCode(unwrap(state), wordart.chars(), wordart.geo(), wordart.wEm())
 	}
+	// CodePen's prefill API: POST this JSON to /pen/define and it opens a new pen
+	const codePen = () => {
+		const { css, html } = code()
+		return JSON.stringify({ title: `WordArt: ${state.text}`, html, css: `${css}\n${PAGE_CSS}` })
+	}
 	function download() {
 		const { css, html } = code()
 		const doc = `<!doctype html>
@@ -267,7 +276,7 @@ export default function Studio() {
 <title>${state.text.replace(/</g, '&lt;')}</title>
 <style>
 ${css}
-body { margin: 0; min-height: 100vh; display: grid; place-items: center; overflow: hidden; background: radial-gradient(circle at 50% 30%, #2a1d6b, #0b0820); }
+${PAGE_CSS}
 </style>
 </head>
 <body>
@@ -924,6 +933,12 @@ ${html}
 					<button class="zui-button zui-button-variant-outline" type="button" onClick={download}>
 						<i class="ph ph-download-simple" /> Download as .html
 					</button>
+					<form action="https://codepen.io/pen/define" method="post" target="_blank">
+						<input type="hidden" name="data" value={codePen()} />
+						<button class="zui-button zui-button-variant-outline" type="submit">
+							<i class="ph ph-codepen-logo" /> Open in CodePen
+						</button>
+					</form>
 				</Pane>
 			</section>
 
