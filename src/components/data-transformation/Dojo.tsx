@@ -240,9 +240,6 @@ export default function Dojo() {
 						)
 					})}
 				</ol>
-				<a className="dtd-back zui-link" href="/">
-					← All lab items
-				</a>
 			</aside>
 
 			<main className="dtd-main">

@@ -13,7 +13,7 @@ lists every lab item; each item is its own page with a bespoke design.
 ```
 src/
   data/lab.ts            Lab item types + discovery helper (no manual registry)
-  layouts/Layout.astro   Minimal shell — ZUI CSS + Phosphor icons + body reset
+  layouts/Layout.astro   Shell — ZUI CSS, Phosphor icons, lab bar + footer
   pages/
     index.astro          Homepage — globs pages and reads their frontmatter
     <slug>/index.astro   One directory per lab item, named by its slug
@@ -73,6 +73,9 @@ In an **`.md`** page, put the same keys in the YAML frontmatter block.
   loaded in `Layout.astro`; never inline SVG.
 - Each lab item page may have a **completely bespoke design**. `Layout.astro` is
   intentionally minimal so pages can opt in for the ZUI baseline or skip it.
+  On lab item pages it adds a small top bar (`lab.zander.wtf / <slug>` with a
+  dropdown to switch items) and a footer, so pages need no back link.
+  Full-screen pages pass `<Layout bare>` to skip both.
 - Component classes use the `zui-` prefix; utility classes have no prefix.
 
 ## Commands

@@ -1,13 +1,23 @@
 ---
 import '@mrmartineau/zui/css'
+import { buildLabItems } from '../data/lab'
 
 interface Props {
 	title?: string
 	/** Disable pinch / double-tap zoom — for game-like, app-like pages. */
 	lockZoom?: boolean
+	/** Skip the lab bar and footer — for full-screen pages. */
+	bare?: boolean
 }
 
-const { title = 'lab.zander.wtf', lockZoom = false } = Astro.props
+const { title = 'lab.zander.wtf', lockZoom = false, bare = false } = Astro.props
+
+// Lab item pages (`/<slug>`) get a bar with a quick switcher and a footer.
+const slug = Astro.url.pathname.split('/').filter(Boolean)[0]
+const showChrome = Boolean(slug) && !bare
+const items = showChrome
+	? buildLabItems(import.meta.glob('../pages/*/index.{astro,md}', { eager: true }))
+	: []
 const viewport = lockZoom
 	? 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no'
 	: 'width=device-width, initial-scale=1'
@@ -42,8 +52,44 @@ const viewport = lockZoom
 			href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/regular/style.css"
 		/>
 	</head>
-	<body class:list={[{ 'lock-zoom': lockZoom }]}>
+	<body class:list={[{ 'lock-zoom': lockZoom, 'has-chrome': showChrome }]}>
+		{
+			showChrome && (
+				<nav class="lab-bar" aria-label="Lab">
+					<a class="lab-home" href="/">
+						lab<span>.</span>zander<span>.</span>wtf
+					</a>
+					<span class="lab-sep" aria-hidden="true">/</span>
+					<label class="lab-switch">
+						<span class="sr-only">Switch lab item</span>
+						<select class="lab-select">
+							{items.map((item) => (
+								<option value={item.slug} selected={item.slug === slug}>
+									{item.slug}
+								</option>
+							))}
+						</select>
+						<i class="ph ph-caret-down" aria-hidden="true"></i>
+					</label>
+				</nav>
+			)
+		}
 		<slot />
+		{
+			showChrome && (
+				<footer class="lab-footer">
+					<span>© {new Date().getFullYear()} Zander Martineau</span>
+					<a href="https://zander.wtf">zander.wtf</a>
+				</footer>
+			)
+		}
+		<script>
+			document
+				.querySelector<HTMLSelectElement>('.lab-select')
+				?.addEventListener('change', (e) => {
+					location.href = `/${(e.target as HTMLSelectElement).value}`
+				})
+		</script>
 	</body>
 </html>
 
@@ -71,6 +117,89 @@ const viewport = lockZoom
 	body {
 		margin: 0;
 		min-height: 100dvh;
+	}
+	.lab-bar {
+		display: flex;
+		align-items: baseline;
+		gap: var(--space-2xs);
+		padding: var(--space-xs) var(--space-md);
+		border-block-end: var(--border-style) 2px var(--color-border);
+		font-size: var(--step-0);
+		font-weight: 700;
+		letter-spacing: -0.02em;
+	}
+	.lab-home {
+		color: inherit;
+		text-decoration: none;
+	}
+	.lab-home span {
+		color: var(--color-accent);
+	}
+	.lab-home:hover {
+		text-decoration: underline;
+		text-decoration-color: var(--color-accent);
+		text-decoration-thickness: 3px;
+	}
+	.lab-sep {
+		opacity: 0.4;
+	}
+	.lab-switch {
+		position: relative;
+		display: inline-flex;
+		align-items: center;
+		min-width: 0;
+	}
+	.lab-select {
+		appearance: none;
+		min-width: 0;
+		max-width: 100%;
+		padding: 0 calc(1em + var(--space-3xs)) 0 0;
+		border: 0;
+		background: transparent;
+		color: inherit;
+		font: inherit;
+		font-family: var(--font-code);
+		font-weight: 400;
+		/* Size to the chosen slug, not the longest option. */
+		field-sizing: content;
+		text-overflow: ellipsis;
+		cursor: pointer;
+	}
+	.lab-select:focus-visible {
+		outline: var(--border-style) 2px var(--color-accent);
+		outline-offset: 2px;
+	}
+	.lab-switch i {
+		position: absolute;
+		inset-inline-end: 0;
+		pointer-events: none;
+	}
+	/* Push the footer to the bottom on short pages. */
+	body.has-chrome {
+		display: flex;
+		flex-direction: column;
+	}
+	.lab-footer {
+		margin-block-start: auto;
+		display: flex;
+		flex-wrap: wrap;
+		justify-content: space-between;
+		gap: var(--space-2xs);
+		padding: var(--space-sm) var(--space-md);
+		border-block-start: var(--border-style) 2px var(--color-border);
+		font-family: var(--font-code);
+		font-size: var(--step--1);
+	}
+	.lab-footer a {
+		color: inherit;
+	}
+	.sr-only {
+		position: absolute;
+		width: 1px;
+		height: 1px;
+		overflow: hidden;
+		clip-path: inset(50%);
+		white-space: nowrap;
 	}
 	/* Disable the double-tap-to-zoom gesture on zoom-locked pages. */
 	body.lock-zoom {

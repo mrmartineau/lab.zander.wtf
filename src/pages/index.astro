@@ -1,141 +1,197 @@
 ---
 import Layout from '../layouts/Layout.astro'
-import { Badge, Text } from '@mrmartineau/zui/astro'
+import { Badge } from '@mrmartineau/zui/astro'
 import { buildLabItems, labHref, statusColor } from '../data/lab'
 
 // Discover every `src/pages/<slug>/index.{astro,md}` and read its frontmatter.
 const modules = import.meta.glob('./*/index.{astro,md}', { eager: true })
 const items = buildLabItems(modules)
+const [newest, ...rest] = items
+
 const dateFmt = new Intl.DateTimeFormat('en-GB', {
 	day: 'numeric',
 	month: 'short',
 	year: 'numeric',
 })
+const pad = (n: number) => String(n).padStart(2, '0')
 ---
 
 <Layout title="lab.zander.wtf">
 	<main class="page">
-		<header class="flow">
-			<h1>lab.zander.wtf</h1>
-			<Text size="1">Ideas, experiments, toys and small tools. Some of them work.</Text>
-			<a
-				class="repo-link"
-				href="https://github.com/mrmartineau/lab.zander.wtf"
-				aria-label="View source on GitHub"
-			>
-				<i class="ph ph-github-logo"></i>
-			</a>
+		<header class="head">
+			<h1>lab<span>.</span>zander<span>.</span>wtf</h1>
+			<p>Ideas, experiments, toys and small tools. Some of them work.</p>
 		</header>
 
-		{
-			items.length === 0 ? (
-				<p class="empty">No lab items yet.</p>
-			) : (
-				<ul class="list">
-					{items.map((item) => (
-						<li class="item">
-							<a class="item-link" href={labHref(item)}>
-								<span class="item-head">
-									<span class="item-title">{item.title}</span>
-									<Badge color={statusColor[item.status]}>
-										{item.status}
-									</Badge>
-								</span>
-								{item.description && (
-									<span class="item-desc">{item.description}</span>
-								)}
-								<span class="item-meta">
-									{item.date && (
-										<time datetime={item.date}>
-											{dateFmt.format(new Date(item.date))}
-										</time>
-									)}
-									{item.tags?.map((tag) => (
-										<span class="tag">#{tag}</span>
-									))}
-								</span>
-							</a>
-						</li>
-					))}
-				</ul>
-			)
-		}
+		<div class="grid">
+			{
+				newest ? (
+					<a class="tile hero" href={labHref(newest)}>
+						{newest.date && (
+							<span class="kicker">
+								Newest · <time datetime={newest.date}>{dateFmt.format(new Date(newest.date))}</time>
+							</span>
+						)}
+						<span class="num">{pad(items.length)}</span>
+						<span class="title">{newest.title}</span>
+						{newest.description && <span class="desc">{newest.description}</span>}
+						<span class="go">
+							Open <i class="ph ph-arrow-right" aria-hidden="true"></i>
+						</span>
+					</a>
+				) : (
+					<p class="tile empty">No lab items yet.</p>
+				)
+			}
+			{
+				rest.map((item, i) => (
+					<a class:list={['tile', { archived: item.status === 'archived' }]} href={labHref(item)}>
+						<span class="row">
+							<span class="num">{pad(rest.length - i)}</span>
+							{item.status !== 'live' && (
+								<Badge color={statusColor[item.status]}>{item.status}</Badge>
+							)}
+						</span>
+						<span class="title">{item.title}</span>
+						{item.description && <span class="desc">{item.description}</span>}
+						<span class="foot">
+							<time datetime={item.date}>{item.date.slice(0, 4)}</time>
+							<span>{item.tags?.slice(0, 2).map((tag) => `#${tag}`).join(' ')}</span>
+						</span>
+					</a>
+				))
+			}
+			<a class="tile repo" href="https://github.com/mrmartineau/lab.zander.wtf">
+				<i class="ph ph-github-logo" aria-hidden="true"></i>
+				<span class="title">Source</span>
+				<span class="desc">Every experiment, on GitHub.</span>
+			</a>
+		</div>
 	</main>
 </Layout>
 
 <style>
 	.page {
-		max-width: 44rem;
-		margin-inline: auto;
-		padding: var(--space-xl) var(--space-md);
+		padding: var(--space-lg) var(--space-md) var(--space-xl);
 		display: flex;
 		flex-direction: column;
 		gap: var(--space-lg);
 	}
-	h1 {
+	.head h1 {
 		margin: 0;
-		font-size: var(--step-4);
+		font-size: clamp(var(--step-4), 11vw, 10rem);
+		line-height: 0.85;
+		letter-spacing: -0.04em;
 	}
-	.list {
-		list-style: none;
-		margin: 0;
-		padding: 0;
+	.head h1 span {
+		color: var(--color-accent);
+	}
+	.head p {
+		margin: var(--space-sm) 0 0;
+		font-size: var(--step-1);
+		max-width: 30ch;
+	}
+	.grid {
+		display: grid;
+		grid-template-columns: repeat(auto-fill, minmax(min(100%, 16rem), 1fr));
+		border-block-start: var(--border-style) 2px var(--color-border);
+		border-inline-start: var(--border-style) 2px var(--color-border);
+	}
+	.tile {
 		display: flex;
 		flex-direction: column;
-	}
-	.item + .item {
-		border-block-start: var(--border-style) 1px var(--color-border);
-	}
-	.item-link {
-		display: flex;
-		flex-direction: column;
-		gap: var(--space-3xs);
-		padding: var(--space-sm) var(--space-2xs);
-		text-decoration: none;
+		gap: var(--space-2xs);
+		min-height: 14rem;
+		margin: 0;
+		padding: var(--space-sm);
+		border-block-end: var(--border-style) 2px var(--color-border);
+		border-inline-end: var(--border-style) 2px var(--color-border);
 		color: inherit;
-		border-radius: var(--radius-md);
+		text-decoration: none;
 		transition: background-color 150ms var(--ease);
 	}
-	.item-link:hover {
-		background: var(--color-surface);
+	a.tile:hover,
+	a.tile:focus-visible {
+		background: var(--color-accent);
+		color: var(--color-gray-950);
 	}
-	.item-head {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		gap: var(--space-sm);
+	.hero {
+		grid-column: span 2;
+		grid-row: span 2;
+		background: var(--color-theme);
+		color: var(--color-background);
+		justify-content: end;
 	}
-	.item-title {
+	@media (max-width: 36rem) {
+		.hero {
+			grid-column: auto;
+			grid-row: auto;
+		}
+	}
+	.hero .num {
+		font-size: var(--step-6);
+	}
+	.hero .title {
+		font-size: var(--step-4);
+	}
+	.hero .desc {
+		font-size: var(--step-1);
+		max-width: 40ch;
+	}
+	.kicker {
+		font-family: var(--font-code);
+		font-size: var(--step--1);
+		color: var(--color-accent);
+	}
+	.hero:hover .kicker,
+	.hero:focus-visible .kicker {
+		color: inherit;
+	}
+	.go {
+		margin-block-start: var(--space-sm);
 		font-weight: 600;
 		display: inline-flex;
-		align-items: center;
 		gap: var(--space-3xs);
+		align-items: center;
 	}
-	.item-desc {
-		color: var(--color-text);
-		opacity: 0.7;
-		font-size: var(--step--1);
-	}
-	.item-meta {
+	.row {
 		display: flex;
-		flex-wrap: wrap;
-		gap: var(--space-2xs);
+		justify-content: space-between;
+		align-items: start;
+	}
+	.num {
+		font-family: var(--font-code);
+		font-size: var(--step-3);
+		line-height: 1;
+	}
+	.title {
+		font-size: var(--step-1);
+		font-weight: 700;
+		line-height: 1.1;
+	}
+	.desc {
 		font-size: var(--step--1);
-		opacity: 0.5;
+		opacity: 0.75;
+	}
+	.foot {
+		margin-block-start: auto;
+		display: flex;
+		justify-content: space-between;
+		gap: var(--space-2xs);
+		font-family: var(--font-code);
+		font-size: var(--step--2);
+		opacity: 0.6;
+	}
+	.archived {
+		opacity: 0.55;
+	}
+	.repo {
+		justify-content: end;
+	}
+	.repo i {
+		font-size: var(--step-4);
 	}
 	.empty {
 		opacity: 0.6;
-	}
-	.repo-link {
-		display: inline-flex;
-		align-items: center;
-		width: fit-content;
-		font-size: var(--step-2);
-		color: var(--color-text);
-		opacity: 0.7;
-		text-decoration: none;
-	}
-	.repo-link:hover {
-		opacity: 1;
 	}
 </style>
