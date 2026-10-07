@@ -91,7 +91,7 @@ Always run `npm run build` after changes to confirm the site compiles.
 ## Notes
 
 - The React and Solid integrations are installed. Both compile JSX, so
-  `astro.config.mjs` scopes them: Solid only handles `**/word-art/**`, React
+  `astro.config.mjs` scopes them: Solid only handles `**/word-art/**` and `**/playground/**`, React
   everything else — add new Solid paths to both filters. Solid files start with
   `/** @jsxImportSource solid-js */` because tsconfig defaults to React.
 - **Keep `README.md` up to date.** Whenever a change affects project structure,

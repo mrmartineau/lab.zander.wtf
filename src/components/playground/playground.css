@@ -1,0 +1,217 @@
+/* Creative Coding Playground. Everything is gs- prefixed. */
+.gs-page {
+	padding: var(--space-md);
+}
+.gs-header {
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-2xs);
+	margin-block-end: var(--space-md);
+}
+.gs-header h1 {
+	margin: 0;
+	font-size: var(--step-3);
+	line-height: 1;
+}
+.gs-header p {
+	margin: 0;
+	font-size: var(--step--1);
+	opacity: 0.7;
+}
+
+.gs {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) minmax(18rem, 22rem);
+	gap: var(--space-md);
+	align-items: start;
+}
+
+/* The stage stays in view while the controls scroll past it */
+.gs-stage {
+	position: sticky;
+	top: var(--space-md);
+	height: calc(100dvh - var(--space-md) * 2);
+	display: grid;
+	place-items: center;
+	background: var(--color-surface);
+	border: var(--border-style) 2px var(--color-border);
+	padding: var(--space-md);
+}
+.gs-canvas {
+	display: block;
+	box-shadow: var(--shadow-lg);
+}
+.gs-error {
+	position: absolute;
+	margin: var(--space-md);
+	font-family: var(--font-code);
+}
+
+.gs-side {
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-sm);
+	min-width: 0;
+}
+
+.gs-modes {
+	display: grid;
+	grid-template-columns: repeat(3, 1fr);
+	border: var(--border-style) 2px var(--color-border);
+}
+.gs-mode {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: var(--space-3xs);
+	padding: var(--space-xs);
+	border: 0;
+	background: var(--color-surface);
+	color: var(--color-text);
+	font: inherit;
+	font-size: var(--step--1);
+	cursor: pointer;
+}
+.gs-mode i {
+	font-size: var(--step-2);
+}
+.gs-mode:hover {
+	background: var(--color-background);
+}
+.gs-mode[aria-checked='true'] {
+	background: var(--color-accent);
+	color: var(--color-black);
+}
+.gs-mode:focus-visible {
+	outline: var(--border-style) 2px var(--color-accent);
+	outline-offset: -4px;
+}
+
+.gs-actions {
+	display: grid;
+	grid-template-columns: repeat(3, 1fr);
+	gap: var(--space-2xs);
+}
+.gs-actions .zui-button {
+	justify-content: center;
+}
+.gs-save {
+	grid-column: 1 / -1;
+	display: grid;
+	grid-template-columns: 1fr auto;
+	gap: var(--space-2xs);
+}
+
+/* Tweakpane: fill the column, square corners, site fonts */
+.gs-pane {
+	--tp-base-border-radius: 0px;
+	--tp-blade-border-radius: 0px;
+	--tp-base-font-family: var(--font-code);
+	--tp-blade-value-width: 60%;
+}
+.gs-pane .tp-dfwv,
+.gs-pane > .tp-rotv {
+	position: static;
+	width: 100%;
+}
+
+.gs-shelf h2 {
+	display: flex;
+	align-items: center;
+	gap: var(--space-3xs);
+	margin: 0 0 var(--space-2xs);
+	font-size: var(--step-0);
+}
+.gs-grid {
+	display: grid;
+	grid-template-columns: repeat(3, 1fr);
+	gap: var(--space-2xs);
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+.gs-card {
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-3xs);
+	min-width: 0;
+}
+.gs-thumb {
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-3xs);
+	padding: 0;
+	border: 0;
+	background: none;
+	color: inherit;
+	font: inherit;
+	text-align: start;
+	cursor: pointer;
+}
+.gs-thumb img,
+.gs-thumb-empty {
+	display: block;
+	width: 100%;
+	aspect-ratio: 1;
+	object-fit: cover;
+	border: var(--border-style) 2px var(--color-border);
+	background: var(--color-surface);
+}
+.gs-thumb:hover img,
+.gs-thumb:focus-visible img {
+	border-color: var(--color-accent);
+}
+.gs-name {
+	width: 100%;
+	min-width: 0;
+	padding: 0;
+	border: 0;
+	background: none;
+	color: inherit;
+	font-family: var(--font-code);
+	font-size: var(--step--1);
+}
+.gs-parts {
+	display: flex;
+	justify-content: space-between;
+}
+.gs-parts button {
+	padding: var(--space-3xs);
+	border: 0;
+	background: none;
+	color: inherit;
+	cursor: pointer;
+}
+.gs-parts button:hover {
+	color: var(--color-accent);
+}
+
+.gs-toast {
+	position: fixed;
+	inset-block-end: var(--space-md);
+	inset-inline-start: 50%;
+	translate: -50% 0;
+	z-index: var(--z-toast, 50);
+	padding: var(--space-2xs) var(--space-sm);
+	background: var(--color-theme);
+	color: var(--color-background);
+	font-family: var(--font-code);
+	font-size: var(--step--1);
+	pointer-events: none;
+}
+.gs-toast:empty {
+	display: none;
+}
+
+@media (max-width: 52rem) {
+	.gs {
+		grid-template-columns: minmax(0, 1fr);
+	}
+	/* On phones the picture pins to the top and the controls scroll under it */
+	.gs-stage {
+		top: 0;
+		z-index: 1;
+		height: min(100vw, 60dvh);
+		padding: var(--space-xs);
+	}
+}

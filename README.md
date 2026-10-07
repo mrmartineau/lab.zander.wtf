@@ -15,6 +15,7 @@ design.
 | `css-icons`           | Icons drawn with nothing but CSS — no SVG, no images    |
 | `data-transformation` | A React "dojo" for practising data-transform challenges |
 | `drawing-app`         | Kid-friendly drawing app — magic brushes, fill, colouring pages, text, mirrors |
+| `playground`          | Creative Coding Playground (Solid + Tweakpane + WebGL shaders) — grainy blobs, silk folds, conic gradients, shards, arcs, bird swarms; favourites, share links, PNG export up to 8192px |
 | `keyboard-only`       | A cursorless page navigated entirely with the keyboard  |
 | `procedural-page`     | An endless page that generates itself as you scroll — seeded randomness, no AI |
 | `spotify-favourites`  | Browse most-explored Spotify artists & albums (ZUI)     |
@@ -85,7 +86,7 @@ In an `.md` page, put the same keys in the YAML frontmatter block.
   (`lab.zander.wtf / <slug>` with a dropdown to switch items) and a footer.
   Full-screen pages pass `bare` to skip both.
 - Both React and Solid integrations are installed. They both compile JSX, so
-  `astro.config.mjs` scopes them: Solid only handles `**/word-art/**`, React
+  `astro.config.mjs` scopes them: Solid only handles `**/word-art/**` and `**/playground/**`, React
   handles everything else. Add new Solid paths to both filters. Solid files
   also start with `/** @jsxImportSource solid-js */` (tsconfig defaults to React).
 

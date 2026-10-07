@@ -23,7 +23,8 @@
     "astro": "^7.3.6",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
-    "solid-js": "^1.9.15"
+    "solid-js": "^1.9.15",
+    "tweakpane": "^4.0.5"
   },
   "devDependencies": {
     "@types/react": "^19.3.0",

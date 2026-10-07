@@ -1,0 +1,28 @@
+---
+import Layout from '../../layouts/Layout.astro'
+import { Badge } from '@mrmartineau/zui/astro'
+import Studio from '../../components/playground/Studio'
+import '../../components/playground/playground.css'
+
+export const title = 'Creative Coding Playground'
+export const description = 'Grainy abstract images from WebGL shaders.'
+export const date = '2026-10-07'
+export const status = 'live'
+export const tags = ['generative', 'webgl', 'shaders', 'tool', 'solid']
+---
+
+<Layout title="Creative Coding Playground — lab.zander.wtf">
+	<main class="gs-page">
+		<header class="gs-header">
+			<div style="display: flex; align-items: center; gap: var(--space-sm)">
+				<h1>Creative Coding Playground</h1>
+				<Badge variant="fill" color="emerald">live</Badge>
+			</div>
+			<p>{description}</p>
+		</header>
+
+		<Studio client:only="solid-js">
+			<p slot="fallback">Warming up the GPU…</p>
+		</Studio>
+	</main>
+</Layout>
