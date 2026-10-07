@@ -101,6 +101,16 @@
 	grid-template-columns: 1fr auto;
 	gap: var(--space-2xs);
 }
+/* Button on its own row, then size, frame rate and loop length */
+.gs-video {
+	grid-column: 1 / -1;
+	display: grid;
+	grid-template-columns: repeat(3, 1fr);
+	gap: var(--space-2xs);
+}
+.gs-video > .zui-button {
+	grid-column: 1 / -1;
+}
 
 /* Tweakpane: fill the column, square corners, site fonts */
 .gs-pane {

@@ -12,6 +12,7 @@ const HEAD = `#version 300 es
 precision highp float;
 out vec4 o;
 uniform vec2 u_res, u_offset;
+uniform float u_flip;
 uniform float u_phase, u_seed;
 uniform vec3 u_c1, u_c2, u_c3, u_c4, u_bg;
 uniform float u_lightAngle, u_lightHeight, u_soft, u_ambient;
@@ -239,6 +240,8 @@ vec3 scene(vec2 p) {
 const MAIN = `
 void main() {
 	vec2 fc = gl_FragCoord.xy + u_offset;
+	// Upside down for readPixels, whose rows run bottom-up
+	if (u_flip > .5) fc.y = u_res.y - fc.y;
 	// Sizes are in units of 1/1000 of the image height, so exports match the preview
 	float px = u_res.y / 1000.;
 	float cell = max(u_dotSize * px, 2.);
@@ -266,6 +269,7 @@ const rgb = (hex: string) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 
 export class Renderer {
 	readonly gl: WebGL2RenderingContext
 	private progs = new Map<Mode, Prog>()
+	private flip = false
 
 	/** `keep` preserves the drawing buffer, for canvases read back with toBlob / toDataURL. */
 	constructor(
@@ -313,6 +317,7 @@ export class Renderer {
 		gl.viewport(0, 0, tw, th)
 		gl.uniform2f(loc('u_res'), w, h)
 		gl.uniform2f(loc('u_offset'), x, y)
+		gl.uniform1f(loc('u_flip'), this.flip ? 1 : 0)
 		for (const [k, v] of Object.entries(params)) {
 			const l = loc(`u_${k}`)
 			if (!l) continue
@@ -349,6 +354,15 @@ export class Renderer {
 				ctx.putImageData(img, x, h - y - th)
 			}
 		return out
+	}
+
+	/** Draw a whole `w`×`h` frame and read it into `buf` as top-down RGBA, ready for a video encoder. */
+	pixels(params: Params, w: number, h: number, buf: Uint8Array) {
+		const { gl } = this
+		this.flip = true
+		this.draw(params, w, h)
+		this.flip = false
+		gl.readPixels(0, 0, w, h, gl.RGBA, gl.UNSIGNED_BYTE, buf)
 	}
 
 	dispose() {

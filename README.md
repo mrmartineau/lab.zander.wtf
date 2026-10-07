@@ -15,7 +15,7 @@ design.
 | `css-icons`           | Icons drawn with nothing but CSS — no SVG, no images    |
 | `data-transformation` | A React "dojo" for practising data-transform challenges |
 | `drawing-app`         | Kid-friendly drawing app — magic brushes, fill, colouring pages, text, mirrors |
-| `playground`          | Creative Coding Playground (Solid + Tweakpane + WebGL shaders) — grainy blobs, silk folds, conic gradients, shards, arcs, bird swarms; favourites, share links, PNG export up to 8192px |
+| `playground`          | Creative Coding Playground (Solid + Tweakpane + WebGL shaders) — grainy blobs, silk folds, conic gradients, shards, arcs, bird swarms; favourites, share links, PNG export up to 8192px, looping MP4 export up to 4K |
 | `keyboard-only`       | A cursorless page navigated entirely with the keyboard  |
 | `procedural-page`     | An endless page that generates itself as you scroll — seeded randomness, no AI |
 | `spotify-favourites`  | Browse most-explored Spotify artists & albums (ZUI)     |

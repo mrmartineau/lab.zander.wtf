@@ -1,5 +1,6 @@
 /** @jsxImportSource solid-js */
 import { createSignal, For, onCleanup, onMount, Show } from 'solid-js'
+import { BufferTarget, Mp4OutputFormat, Output, Quality, VideoSample, VideoSampleSource, canEncodeVideo } from 'mediabunny'
 import { Pane, type BindingApi, type FolderApi } from 'tweakpane'
 import {
 	DEFAULTS,
@@ -19,10 +20,25 @@ import {
 } from './engine'
 import { Renderer } from './gl'
 
+const yieldToPage = () =>
+	new Promise<void>((r) => {
+		const c = new MessageChannel()
+		c.port1.onmessage = () => r()
+		c.port2.postMessage(null)
+	})
+
 type Fav = { id: string; name: string; params: Params; thumb: string }
 // Old name kept so favourites saved before the rename still load
 const FAV_KEY = 'grain-studio-favourites'
 const SIZES = [2048, 4096, 8192]
+/** Video sizes as pixel counts, so every aspect gets the same detail as 16:9 at that size. */
+const VIDEO_SIZES = [
+	{ label: '1080p', area: 1920 * 1080 },
+	{ label: '4K', area: 3840 * 2160 },
+]
+const FRAME_RATES = [30, 60]
+/** Seconds per loop; 0 means one loop at the preview's Speed. */
+const DURATIONS = [0, 5, 10, 20, 30]
 const TITLES: Record<string, string> = {
 	...Object.fromEntries(MODES.map((m) => [m.id, m.label])),
 	light: 'Light',
@@ -39,6 +55,12 @@ export default function Studio() {
 	const [thumbs, setThumbs] = createSignal<string[]>([])
 	const [size, setSize] = createSignal(4096)
 	const [busy, setBusy] = createSignal(false)
+	const [vSize, setVSize] = createSignal(VIDEO_SIZES[0].area)
+	const [fps, setFps] = createSignal(30)
+	const [duration, setDuration] = createSignal(10)
+	/** 0–1 while a video renders, otherwise null. */
+	const [progress, setProgress] = createSignal<number | null>(null)
+	let cancelVideo = false
 	const [toast, setToast] = createSignal('')
 	const [error, setError] = createSignal('')
 
@@ -137,16 +159,86 @@ export default function Studio() {
 			const out = offscreen().render(params, ...dims(size(), params))
 			const blob = await new Promise<Blob | null>((res) => out.toBlob(res, 'image/png'))
 			if (!blob) throw new Error('toBlob failed')
-			const a = document.createElement('a')
-			a.href = URL.createObjectURL(blob)
-			a.download = `playground-${params.mode}-${params.seed}.png`
-			a.click()
-			setTimeout(() => URL.revokeObjectURL(a.href), 1000)
-			notify('Saved')
+			download(blob, 'png')
 		} catch {
 			notify("Couldn't save — try a smaller size")
 		} finally {
 			setBusy(false)
+		}
+	}
+
+	function download(blob: Blob, ext: string) {
+		const a = document.createElement('a')
+		a.href = URL.createObjectURL(blob)
+		a.download = `playground-${params.mode}-${params.seed}.${ext}`
+		a.click()
+		setTimeout(() => URL.revokeObjectURL(a.href), 1000)
+		notify('Saved')
+	}
+
+	/**
+	 * One full Evolve loop, frame by frame, as an H.264 MP4. Frames are rendered
+	 * offscreen, not recorded live, so slow scenes take longer but never drop frames.
+	 */
+	async function saveVideo() {
+		const [a, b] = params.aspect.split(':').map(Number)
+		// H.264 needs even sides
+		const even = (n: number) => Math.round(n / 2) * 2
+		const h = even(Math.sqrt((vSize() * b) / a))
+		const w = even((h * a) / b)
+		const rate = fps()
+		const frames = Math.round((duration() || 100 / params.speed) * rate)
+		// Grain is noise, and noise needs bits: about 0.3 bits per pixel
+		const quality = new Quality({ bitrate: Math.min(w * h * rate * 0.3, 80e6) })
+		if (!(await canEncodeVideo('avc', { width: w, height: h, quality, frameRate: rate }))) {
+			notify(`This browser can't encode ${w}×${h} video — try 1080p`)
+			return
+		}
+		// One full-size draw and one readPixels per frame. Measured at 1080p: about
+		// 50ms a frame. The PNG tile path took 500ms, and handing the encoder the
+		// WebGL canvas took 250ms whenever the tab was in the background.
+		// Video stays ≤ 4K, inside the drawing-buffer limit, so no tiles are needed.
+		const gl = new Renderer(document.createElement('canvas'))
+		const buf = new Uint8Array(w * h * 4)
+		gl.draw(params, w, h)
+		if (gl.gl.drawingBufferWidth !== w || gl.gl.drawingBufferHeight !== h) {
+			gl.dispose()
+			notify(`This GPU can't draw ${w}×${h} — try 1080p`)
+			return
+		}
+		const output = new Output({ format: new Mp4OutputFormat({ fastStart: 'in-memory' }), target: new BufferTarget() })
+		const source = new VideoSampleSource({ codec: 'avc', quality })
+		output.addVideoTrack(source, { frameRate: rate })
+		cancelVideo = false
+		setProgress(0)
+		try {
+			await output.start()
+			const p = { ...params }
+			const start = params.phase
+			for (let i = 0; i < frames; i++) {
+				if (cancelVideo) {
+					await output.cancel()
+					notify('Video cancelled')
+					return
+				}
+				p.phase = (start + (i / frames) * 100) % 100
+				gl.pixels(p, w, h, buf)
+				const sample = new VideoSample(buf, { format: 'RGBA', codedWidth: w, codedHeight: h, timestamp: i / rate, duration: 1 / rate })
+				await source.add(sample)
+				sample.close()
+				setProgress(i / frames)
+				// Let the page paint progress and take a Cancel click. Not setTimeout:
+				// background tabs slow that to once a second, and exports run long
+				// enough that people switch tabs.
+				if (i % 4 === 0) await yieldToPage()
+			}
+			await output.finalize()
+			download(new Blob([output.target.buffer!], { type: 'video/mp4' }), 'mp4')
+		} catch {
+			notify("Couldn't save the video — try 1080p")
+		} finally {
+			gl.dispose()
+			setProgress(null)
 		}
 	}
 
@@ -289,7 +381,7 @@ export default function Studio() {
 						<i class="ph ph-link" aria-hidden="true" /> Share
 					</button>
 					<div class="gs-save">
-						<button type="button" class="zui-button" disabled={busy()} onClick={save}>
+						<button type="button" class="zui-button" disabled={busy() || progress() !== null} onClick={save}>
 							<i class={`ph ${busy() ? 'ph-hourglass' : 'ph-download-simple'}`} aria-hidden="true" />
 							{busy() ? 'Rendering…' : 'Save PNG'}
 						</button>
@@ -302,6 +394,51 @@ export default function Studio() {
 								{(s) => (
 									<option value={s} selected={s === size()}>
 										{s}px
+									</option>
+								)}
+							</For>
+						</select>
+					</div>
+					<div class="gs-video">
+						<Show
+							when={progress() !== null}
+							fallback={
+								<button type="button" class="zui-button" disabled={busy()} onClick={saveVideo}>
+									<i class="ph ph-film-slate" aria-hidden="true" /> Save MP4
+								</button>
+							}
+						>
+							<button type="button" class="zui-button zui-button-variant-outline" onClick={() => (cancelVideo = true)}>
+								<i class="ph ph-x" aria-hidden="true" /> Cancel · {Math.round(progress()! * 100)}%
+							</button>
+						</Show>
+						<select class="zui-select" aria-label="Video size" onChange={(e) => setVSize(Number(e.currentTarget.value))}>
+							<For each={VIDEO_SIZES}>
+								{(v) => (
+									<option value={v.area} selected={v.area === vSize()}>
+										{v.label}
+									</option>
+								)}
+							</For>
+						</select>
+						<select class="zui-select" aria-label="Frame rate" onChange={(e) => setFps(Number(e.currentTarget.value))}>
+							<For each={FRAME_RATES}>
+								{(r) => (
+									<option value={r} selected={r === fps()}>
+										{r} fps
+									</option>
+								)}
+							</For>
+						</select>
+						<select
+							class="zui-select"
+							aria-label="Loop length"
+							onChange={(e) => setDuration(Number(e.currentTarget.value))}
+						>
+							<For each={DURATIONS}>
+								{(d) => (
+									<option value={d} selected={d === duration()}>
+										{d ? `${d}s loop` : 'Speed'}
 									</option>
 								)}
 							</For>
