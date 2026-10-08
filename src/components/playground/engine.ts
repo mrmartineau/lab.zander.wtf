@@ -96,16 +96,18 @@ export const SPEC = {
 } satisfies Record<string, Spec>
 
 export type Key = keyof typeof SPEC
-export type Params = { [K in Key]: (typeof SPEC)[K]['v'] }
+/** x, y pairs per item, added to where the seed put it. Replace, never mutate: copies of Params share it. */
+export type Nudge = Partial<Record<Mode, number[]>>
+export type Params = { [K in Key]: (typeof SPEC)[K]['v'] } & { nudge: Nudge }
 
 const ENTRIES = Object.entries(SPEC) as [Key, Spec][]
-export const DEFAULTS = Object.fromEntries(ENTRIES.map(([k, s]) => [k, s.v])) as Params
+export const DEFAULTS = { ...Object.fromEntries(ENTRIES.map(([k, s]) => [k, s.v])), nudge: {} } as Params
 
 export const keysOf = (group: Group) => ENTRIES.filter(([, s]) => s.group === group).map(([k]) => k)
 
 /** Keys a favourite can apply on its own, so one piece's colours can go on another's shape. */
 export const PARTS = {
-	shape: (p: Params): Key[] => ['mode', 'seed', ...keysOf(p.mode), ...keysOf('light')],
+	shape: (p: Params): (keyof Params)[] => ['mode', 'seed', 'nudge', ...keysOf(p.mode), ...keysOf('light')],
 	colour: (): Key[] => keysOf('colour'),
 	finish: (): Key[] => keysOf('finish'),
 }
@@ -125,6 +127,13 @@ export function sanitise(raw: unknown): Params {
 			if (/^#[0-9a-f]{6}$/i.test(v)) out[k] = v.toLowerCase()
 		} else out[k] = v
 	}
+	const nudge: Nudge = {}
+	const raws = (raw as Record<string, unknown>).nudge as Record<string, unknown> | undefined
+	for (const m of MODE_IDS) {
+		const a = raws?.[m]
+		if (Array.isArray(a)) nudge[m] = a.slice(0, 100).map((v) => (Number.isFinite(v) ? Math.min(3, Math.max(-3, v)) : 0))
+	}
+	out.nudge = nudge
 	return out as Params
 }
 
@@ -135,6 +144,8 @@ export function encode(p: Params): string {
 		const v = typeof p[k] === 'number' ? +(p[k] as number).toFixed(4) : p[k]
 		if (v !== s.v) diff[k] = v
 	}
+	const moved = Object.entries(p.nudge).filter(([, a]) => a?.some(Boolean))
+	if (moved.length) diff.nudge = Object.fromEntries(moved.map(([m, a]) => [m, a!.map((v) => +v.toFixed(3))]))
 	if (!Object.keys(diff).length) return ''
 	return btoa(JSON.stringify(diff)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
 }
@@ -220,6 +231,7 @@ export function randomise(p: Params): Partial<Params> {
 	const pal = PALETTES[Math.floor(Math.random() * PALETTES.length)]
 	const next: Record<string, unknown> = {
 		seed: Math.floor(Math.random() * 1000),
+		nudge: {},
 		c1: pal[0], c2: pal[1], c3: pal[2], c4: pal[3], bg: pal[4],
 	}
 	for (const k of [...keysOf(p.mode), ...keysOf('light')]) {
@@ -229,4 +241,77 @@ export function randomise(p: Params): Partial<Params> {
 		next[k] = s.step ? Math.round(v / s.step) * s.step : +v.toFixed(3)
 	}
 	return next as Partial<Params>
+}
+
+/* ───────────── dragging ───────────── */
+
+const fract = (x: number) => x - Math.floor(x)
+/** The shader's hash() and rnd(), so the page knows where the shader put each item. */
+function hash(x: number, y: number) {
+	let [a, b, c] = [fract(x * 0.1031), fract(y * 0.1031), fract(x * 0.1031)]
+	const d = a * (b + 33.33) + b * (c + 33.33) + c * (a + 33.33)
+	a += d
+	b += d
+	c += d
+	return fract((a + b) * c)
+}
+const rnd = (i: number, k: number, seed: number) => hash(i * 7.13 + k * 1.37, seed * 3.71 + k)
+
+/** An item in scene units (image height is 1, y up). `k` turns a screen move into a nudge; `z` is depth. */
+type Handle = { x: number; y: number; r: number; z: number; k: number }
+
+/** Where each draggable item sits on screen. Mirrors the scene() positions in gl.ts — change both together. */
+function handles(p: Params, aspect: number): Handle[] {
+	const n = p.nudge[p.mode] ?? []
+	const nx = (i: number) => n[i * 2] ?? 0
+	const ny = (i: number) => n[i * 2 + 1] ?? 0
+	const T = (p.phase * Math.PI * 2) / 100
+	const rs = (i: number, k: number) => rnd(i, k, p.seed) * 2 - 1
+	const loop = (count: number, at: (i: number) => Handle) => Array.from({ length: count }, (_, i) => at(i))
+	switch (p.mode) {
+		case 'blobs':
+			return loop(p.blobCount, (i) => {
+				const x = rs(i, 1) * p.blobSpread * 0.78 * aspect + 0.08 * Math.sin(T + i * 2.4) + nx(i)
+				const y = rs(i, 2) * p.blobSpread * 0.78 + 0.08 * Math.cos(2 * T + i * 1.3) + ny(i)
+				const z = rs(i, 3) * 0.2 + 0.08 * Math.sin(T + i)
+				// Perspective of the camera at z = 2.5 with focal length 1.6
+				const s = 1.6 / (2.5 - z)
+				return { x: x * s, y: y * s, r: p.blobSize * (0.6 + 0.8 * rnd(i, 4, p.seed)) * s, z, k: 1 / s }
+			})
+		case 'conic':
+			return loop(p.conicPoints, (i) => ({
+				x: rs(i, 1) * p.conicSpread + 0.05 * Math.sin(T + i * 2) + nx(i),
+				y: rs(i, 2) * p.conicSpread + 0.05 * Math.cos(T + i * 3) + ny(i),
+				r: 0.08, z: 0, k: 1,
+			}))
+		case 'shards':
+			return loop(p.shardLayers, (i) => ({ x: rs(i, 1) * p.shardSpread + nx(i), y: rs(i, 2) * p.shardSpread + ny(i), r: 0.08, z: 0, k: 1 }))
+		// One item each, so a drag anywhere moves it
+		case 'arcs':
+			return [{ x: nx(0), y: p.arcY + ny(0), r: Infinity, z: 0, k: 1 }]
+		case 'swarm':
+			return [{ x: nx(0), y: ny(0), r: Infinity, z: 0, k: 1 }]
+		default:
+			return []
+	}
+}
+
+/** The item under (`x`, `y`): the front-most blob, else the nearest. */
+export function grab(p: Params, aspect: number, x: number, y: number) {
+	let best: { i: number; k: number; z: number; d: number } | null = null
+	handles(p, aspect).forEach((h, i) => {
+		const d = Math.hypot(x - h.x, y - h.y)
+		if (d > h.r) return
+		if (!best || h.z > best.z || (h.z === best.z && d < best.d)) best = { i, k: h.k, z: h.z, d }
+	})
+	return best as { i: number; k: number } | null
+}
+
+/** `p.nudge` with item `i` of the current mode moved by (`dx`, `dy`). */
+export function nudged(p: Params, i: number, dx: number, dy: number): Nudge {
+	const a = [...(p.nudge[p.mode] ?? [])]
+	while (a.length < i * 2 + 2) a.push(0)
+	a[i * 2] += dx
+	a[i * 2 + 1] += dy
+	return { ...p.nudge, [p.mode]: a }
 }

@@ -17,6 +17,8 @@ uniform float u_phase, u_seed;
 uniform vec3 u_c1, u_c2, u_c3, u_c4, u_bg;
 uniform float u_lightAngle, u_lightHeight, u_soft, u_ambient;
 uniform float u_grain, u_grainSize, u_dots, u_dotSize, u_vignette, u_exposure, u_saturation;
+// Offsets for items dragged on the canvas, one per blob, point or layer (MAX_BLOBS is the most)
+uniform vec2 u_nudge[50];
 #define PI 3.14159265
 #define TAU 6.28318531
 // Evolve runs 0–100; T makes one full loop over it, so animations repeat seamlessly.
@@ -98,7 +100,7 @@ vec3 scene(vec2 p) {
 		vec3 wobble = .08 * vec3(sin(T + f * 2.4), cos(2. * T + f * 1.3), sin(T + f));
 		// Spread 1 reaches the frame edges (the camera sees ±.78 at z = 0)
 		vec2 xy = r.xy * u_blobSpread * .78 * vec2(u_res.x / u_res.y, 1);
-		B[i] = vec4(vec3(xy, r.z * .2) + wobble, u_blobSize * (.6 + .8 * rnd(f, 4.)));
+		B[i] = vec4(vec3(xy + u_nudge[i], r.z * .2) + wobble, u_blobSize * (.6 + .8 * rnd(f, 4.)));
 	}
 	vec3 bg = mix(u_bg, u_bg * .9, smoothstep(-.8, .8, p.x - p.y));
 	vec3 ro = vec3(0, 0, 2.5), rd = normalize(vec3(p, -1.6));
@@ -157,7 +159,7 @@ vec3 scene(vec2 p) {
 	for (int i = 0; i < 6; i++) {
 		float f = float(i);
 		if (f >= u_conicPoints) break;
-		vec2 c = (vec2(rnd(f, 1.), rnd(f, 2.)) * 2. - 1.) * u_conicSpread + .05 * vec2(sin(T + f * 2.), cos(T + f * 3.));
+		vec2 c = (vec2(rnd(f, 1.), rnd(f, 2.)) * 2. - 1.) * u_conicSpread + .05 * vec2(sin(T + f * 2.), cos(T + f * 3.)) + u_nudge[i];
 		vec2 d = p - c;
 		float r = length(d);
 		float a = atan(d.y, d.x) + rnd(f, 3.) * TAU + u_conicTwist * r + T * (mod(f, 2.) * 2. - 1.);
@@ -177,7 +179,7 @@ vec3 scene(vec2 p) {
 	for (int i = 0; i < 5; i++) {
 		float f = float(i);
 		if (f >= u_shardLayers) break;
-		vec2 d = p - (vec2(rnd(f, 1.), rnd(f, 2.)) * 2. - 1.) * u_shardSpread;
+		vec2 d = p - (vec2(rnd(f, 1.), rnd(f, 2.)) * 2. - 1.) * u_shardSpread - u_nudge[i];
 		float r = length(d);
 		// Turning by whole spikes per loop keeps the animation seamless
 		float a = atan(d.y, d.x) + u_shardSpin * r + T * (f + 1.) / u_shardCount;
@@ -200,7 +202,7 @@ vec3 band(float r) {
 	return mix(u_bg, col, smoothstep(-.02 - u_arcBlur * .3, .02 + u_arcBlur * .3, x0));
 }
 vec3 scene(vec2 p) {
-	float r = length(p - vec2(0, u_arcY));
+	float r = length(p - vec2(0, u_arcY) - u_nudge[0]);
 	return vec3(band(r - u_arcChroma).r, band(r).g, band(r + u_arcChroma).b);
 }`,
 
@@ -227,7 +229,7 @@ vec3 scene(vec2 p) {
 			float h1 = hash(c + u_seed), h2 = hash(c.yx - u_seed), h3 = hash(c * 1.7 + 3.1);
 			vec2 jitter = (vec2(h1, h2) - .5) * u_swarmScatter;
 			vec2 pos = c + .5 + jitter + .25 * vec2(sin(T + h1 * TAU), cos(T + h2 * TAU));
-			float d = flock(pos / n);
+			float d = flock(pos / n - u_nudge[0]);
 			if (h3 > d) continue;
 			float r = u_swarmSize * (.4 + .6 * d) * (.6 + .8 * h2);
 			float m = 1. - smoothstep(r - 1. / ppc, r + 1. / ppc, length(g - pos));
@@ -320,10 +322,13 @@ export class Renderer {
 		gl.uniform1f(loc('u_flip'), this.flip ? 1 : 0)
 		for (const [k, v] of Object.entries(params)) {
 			const l = loc(`u_${k}`)
-			if (!l) continue
+			if (!l || typeof v === 'object') continue
 			if (typeof v === 'string') gl.uniform3f(l, ...rgb(v))
 			else gl.uniform1f(l, Number(v))
 		}
+		const nudge = new Float32Array(100)
+		nudge.set((params.nudge[params.mode] ?? []).slice(0, 100))
+		gl.uniform2fv(loc('u_nudge'), nudge)
 		gl.drawArrays(gl.TRIANGLES, 0, 3)
 	}
 

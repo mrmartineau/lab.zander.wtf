@@ -12,6 +12,8 @@ import {
 	decode,
 	dims,
 	encode,
+	grab,
+	nudged,
 	randomise,
 	sanitise,
 	type Key,
@@ -130,13 +132,49 @@ export default function Studio() {
 		queueHash()
 	}
 
-	const pick = (p: Params, keys: Key[]) => Object.fromEntries(keys.map((k) => [k, p[k]])) as Partial<Params>
+	const pick = (p: Params, keys: (keyof Params)[]) => Object.fromEntries(keys.map((k) => [k, p[k]])) as Partial<Params>
 
 	let toastTimer = 0
 	function notify(msg: string) {
 		setToast(msg)
 		clearTimeout(toastTimer)
 		toastTimer = window.setTimeout(() => setToast(''), 1800)
+	}
+
+	/* ───────────── dragging ───────────── */
+
+	/** The pointer in the shader's scene units: image height is 1, centre is 0, y up. */
+	function at(e: PointerEvent): [number, number] {
+		const r = canvas.getBoundingClientRect()
+		return [(e.clientX - r.left - r.width / 2) / r.height, (r.height / 2 - e.clientY + r.top) / r.height]
+	}
+	let drag: { i: number; k: number; x: number; y: number } | null = null
+	const under = (e: PointerEvent) => grab(params, px[0] / px[1], ...at(e))
+
+	function onDown(e: PointerEvent) {
+		const h = under(e)
+		if (!h) return
+		canvas.setPointerCapture(e.pointerId)
+		const [x, y] = at(e)
+		drag = { ...h, x, y }
+		canvas.style.cursor = 'grabbing'
+	}
+	function onMove(e: PointerEvent) {
+		if (!drag) {
+			canvas.style.cursor = under(e) ? 'grab' : ''
+			return
+		}
+		const [x, y] = at(e)
+		params.nudge = nudged(params, drag.i, (x - drag.x) * drag.k, (y - drag.y) * drag.k)
+		drag.x = x
+		drag.y = y
+		dirty = true
+	}
+	function onUp() {
+		if (!drag) return
+		drag = null
+		canvas.style.cursor = 'grab'
+		queueHash()
 	}
 
 	/* ───────────── actions ───────────── */
@@ -284,6 +322,17 @@ export default function Studio() {
 			const b = f.addBinding(params, key, opts)
 			if (key === 'phase') phase = b
 		}
+		for (const m of MODES) {
+			if (m.id === 'folds') continue
+			folders
+				.get(m.id)
+				?.addButton({ title: 'Reset positions' })
+				.on('click', () => {
+					params.nudge = { ...params.nudge, [m.id]: [] }
+					dirty = true
+					queueHash()
+				})
+		}
 		showFolders()
 		pane.on('change', () => {
 			if (params.aspect !== shownAspect) fit()
@@ -344,7 +393,14 @@ export default function Studio() {
 	return (
 		<div class="gs">
 			<div class="gs-stage" ref={stage}>
-				<canvas ref={canvas} class="gs-canvas" />
+				<canvas
+					ref={canvas}
+					class="gs-canvas"
+					onPointerDown={onDown}
+					onPointerMove={onMove}
+					onPointerUp={onUp}
+					onPointerCancel={onUp}
+				/>
 				<Show when={error()}>
 					<p class="gs-error">
 						<i class="ph ph-warning" /> {error()}

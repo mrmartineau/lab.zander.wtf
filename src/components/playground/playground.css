@@ -40,6 +40,8 @@
 .gs-canvas {
 	display: block;
 	box-shadow: var(--shadow-lg);
+	/* Items on the canvas are draggable, so a touch must not scroll the page */
+	touch-action: none;
 }
 .gs-error {
 	position: absolute;
