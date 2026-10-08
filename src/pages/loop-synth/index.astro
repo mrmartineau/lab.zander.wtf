@@ -1,0 +1,711 @@
+---
+import Layout from '../../layouts/Layout.astro'
+import { Badge, Button, Field, Input, Label, Select } from '@mrmartineau/zui/astro'
+import { MAX_STEPS, ROWS, SLOTS, STEP_OPTIONS, WAVES } from '../../components/loop-synth/song'
+
+export const title = 'Loop Synth'
+export const description =
+	'Draw tunes on a grid, chain patterns into loops, save and export them. All sound made live with the Web Audio API.'
+export const date = '2026-10-08'
+export const status = 'live'
+export const tags = ['audio', 'web-audio', 'music', 'tool']
+
+const colours = ['rose', 'orange', 'amber', 'lime', 'emerald', 'sky', 'indigo', 'fuchsia']
+const colour = (r: number) => (r < colours.length ? `var(--color-${colours[r]}-400)` : 'var(--color-text)')
+const sliders = [
+	{ id: 'bpm', label: 'Tempo', min: 60, max: 180 },
+	{ id: 'delay', label: 'Delay', min: 0, max: 100 },
+	{ id: 'reverb', label: 'Reverb', min: 0, max: 100 },
+]
+---
+
+<Layout title="Loop Synth — lab.zander.wtf">
+	<main class="ls-page">
+		<header class="ls-header">
+			<div class="flex items-center gap-sm">
+				<h1>Loop Synth</h1>
+				<Badge variant="fill" color="emerald">live</Badge>
+			</div>
+			<p>{description}</p>
+		</header>
+
+		<div class="ls-toolbar">
+			<Button id="ls-play-song" class="ls-play"><i class="ph ph-play"></i> Play song</Button>
+			<Button id="ls-play-pattern" class="ls-play" variant="outline"
+				><i class="ph ph-repeat"></i> <span>Loop A</span></Button
+			>
+			<Button
+				id="ls-follow"
+				class="ls-play"
+				variant="outline"
+				aria-pressed="false"
+				title="Show the pattern that is playing"
+				><i class="ph ph-crosshair"></i> Follow</Button
+			>
+			{
+				sliders.map((s) => (
+					<Field orientation="horizontal">
+						<Label for={`ls-${s.id}`}>{s.label}</Label>
+						<span class="ls-range">
+							<input id={`ls-${s.id}`} type="range" min={s.min} max={s.max} step="1" />
+							<output id={`ls-${s.id}-out`} for={`ls-${s.id}`} />
+						</span>
+					</Field>
+				))
+			}
+			<Field orientation="horizontal">
+				<Label for="ls-wave">Sound</Label>
+				<Select id="ls-wave">{WAVES.map((w) => <option value={w}>{w}</option>)}</Select>
+			</Field>
+		</div>
+
+		<section class="ls-panel" aria-label="Pattern editor">
+			<div class="ls-row-head">
+				<div class="ls-slots" role="group" aria-label="Pattern to edit">
+					{
+						SLOTS.map((s, i) => (
+							<Button class="ls-slot" variant="outline" size="sm" data-slot={i}>
+								{s}
+							</Button>
+						))
+					}
+				</div>
+				<div class="ls-actions">
+					<Field orientation="horizontal">
+						<Label for="ls-steps">Steps</Label>
+						<Select id="ls-steps">{STEP_OPTIONS.map((n) => <option value={n}>{n}</option>)}</Select>
+					</Field>
+					<Button id="ls-copy" variant="ghost" size="sm"><i class="ph ph-copy"></i> Copy</Button>
+					<Button id="ls-paste" variant="ghost" size="sm" disabled
+						><i class="ph ph-clipboard-text"></i> Paste</Button
+					>
+					<Button id="ls-clear" variant="ghost" size="sm"><i class="ph ph-eraser"></i> Clear</Button>
+				</div>
+			</div>
+
+			<div class="ls-scroll">
+				<div class="ls-grid" id="ls-grid">
+					{
+						ROWS.map((row, r) => (
+							<>
+								<span class:list={['ls-label', { 'ls-drum': 'drum' in row }]} data-row={r}>
+									{row.name}
+								</span>
+								{Array.from({ length: MAX_STEPS }, (_, c) => (
+									<button
+										class:list={[
+											'ls-cell',
+											{ 'ls-beat': c % 4 === 0, 'ls-extra': c >= 16 },
+										]}
+										style={`--c: ${colour(r)}`}
+										data-row={r}
+										data-col={c}
+										aria-pressed="false"
+										aria-label={`${row.name}, step ${c + 1}`}
+									/>
+								))}
+							</>
+						))
+					}
+				</div>
+			</div>
+		</section>
+
+		<section class="ls-panel" aria-labelledby="ls-song-title">
+			<div class="ls-row-head">
+				<h2 id="ls-song-title">Song</h2>
+				<p class="zui-color-muted">Patterns play left to right, then loop. Click one to change it.</p>
+			</div>
+			<div class="ls-chain-row">
+				<ol id="ls-chain" class="ls-chain"></ol>
+				<Button id="ls-add" variant="outline" size="sm" icon aria-label="Add a bar"
+					><i class="ph ph-plus"></i></Button
+				>
+				<Button id="ls-remove" variant="outline" size="sm" icon aria-label="Remove the last bar"
+					><i class="ph ph-minus"></i></Button
+				>
+			</div>
+			<div class="ls-actions">
+				<Button id="ls-wav" variant="outline" size="sm"><i class="ph ph-waveform"></i> Export WAV</Button>
+				<Button id="ls-midi" variant="outline" size="sm"><i class="ph ph-piano-keys"></i> Export MIDI</Button>
+				<Button id="ls-share" variant="outline" size="sm"><i class="ph ph-link"></i> Copy link</Button>
+			</div>
+		</section>
+
+		<section class="ls-panel" aria-labelledby="ls-comp-title">
+			<div class="ls-row-head">
+				<h2 id="ls-comp-title">Compositions</h2>
+				<p class="zui-color-muted">Saved in this browser. Same name overwrites.</p>
+			</div>
+			<form id="ls-save" class="ls-save">
+				<Field>
+					<Label for="ls-name">Name</Label>
+					<Input id="ls-name" maxlength="60" placeholder="Untitled tune" autocomplete="off" />
+				</Field>
+				<Button type="submit"><i class="ph ph-floppy-disk"></i> Save</Button>
+				<span id="ls-status" class="zui-color-muted" role="status"></span>
+			</form>
+			<ul id="ls-comps" class="ls-comps"></ul>
+		</section>
+	</main>
+</Layout>
+
+<script>
+	import {
+		DEFAULT_SONG,
+		MAX_CHAIN,
+		ROWS,
+		SLOTS,
+		decodeSong,
+		encodeSong,
+		isOn,
+		toggle,
+		type Song,
+	} from '../../components/loop-synth/song'
+	import { playRow, render, start } from '../../components/loop-synth/synth'
+	import { midi, wav } from '../../components/loop-synth/export'
+
+	const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T
+
+	const song = decodeSong(location.hash.slice(1)) ?? structuredClone(DEFAULT_SONG)
+	let edit = song.chain[0]
+	let mode: 'song' | 'pattern' | null = null
+	let stop: (() => void) | null = null
+	let clip: number[] | null = null
+
+	const cells = [...document.querySelectorAll<HTMLButtonElement>('.ls-cell')]
+	const slots = [...document.querySelectorAll<HTMLButtonElement>('.ls-slot')]
+	const playSong = $<HTMLButtonElement>('ls-play-song')
+	const playPattern = $<HTMLButtonElement>('ls-play-pattern')
+	const grid = $('ls-grid')
+	const chain = $<HTMLOListElement>('ls-chain')
+	const wave = $<HTMLSelectElement>('ls-wave')
+	const steps = $<HTMLSelectElement>('ls-steps')
+	const nameInput = $<HTMLInputElement>('ls-name')
+	const status = $('ls-status')
+
+	const save = () => history.replaceState(null, '', `#${encodeSong(song)}`)
+
+	/* ───────────── render ───────────── */
+
+	function renderGrid() {
+		const p = song.patterns[edit]
+		for (const cell of cells) {
+			cell.ariaPressed = String(isOn(p, +cell.dataset.row!, +cell.dataset.col!))
+		}
+		slots.forEach((s, i) => (s.ariaPressed = String(i === edit)))
+		grid.dataset.steps = String(song.steps)
+		playPattern.querySelector('span')!.textContent = `Loop ${SLOTS[edit]}`
+	}
+
+	function renderChain() {
+		chain.replaceChildren(
+			...song.chain.map((slot, i) => {
+				const li = document.createElement('li')
+				const b = document.createElement('button')
+				b.className = 'zui-button zui-button-variant-outline zui-button-size-sm ls-link'
+				b.textContent = SLOTS[slot]
+				b.ariaLabel = `Bar ${i + 1}: pattern ${SLOTS[slot]}`
+				b.onclick = () => {
+					song.chain[i] = (slot + 1) % SLOTS.length
+					renderChain()
+					save()
+				}
+				li.append(b)
+				return li
+			}),
+		)
+		$<HTMLButtonElement>('ls-add').disabled = song.chain.length >= MAX_CHAIN
+		$<HTMLButtonElement>('ls-remove').disabled = song.chain.length <= 1
+	}
+
+	/* ───────────── controls ───────────── */
+
+	type Knob = 'bpm' | 'delay' | 'reverb'
+	const knobs = (['bpm', 'delay', 'reverb'] as Knob[]).map((key) => {
+		const input = $<HTMLInputElement>(`ls-${key}`)
+		const out = $<HTMLOutputElement>(`ls-${key}-out`)
+		const show = () => (out.value = key === 'bpm' ? `${song[key]} BPM` : `${song[key]}%`)
+		input.oninput = () => {
+			song[key] = +input.value
+			show()
+			save()
+		}
+		return () => {
+			input.value = String(song[key])
+			show()
+		}
+	})
+
+	function renderControls() {
+		knobs.forEach((sync) => sync())
+		wave.value = song.wave
+		steps.value = String(song.steps)
+	}
+
+	wave.onchange = () => {
+		song.wave = wave.value as Song['wave']
+		save()
+	}
+	steps.onchange = () => {
+		song.steps = +steps.value as Song['steps']
+		renderGrid()
+		save()
+	}
+
+	/* ───────────── playback ───────────── */
+
+	function clearPlayhead() {
+		document.querySelectorAll('.is-now').forEach((el) => el.classList.remove('is-now'))
+	}
+
+	const follow = $<HTMLButtonElement>('ls-follow')
+	follow.onclick = () => (follow.ariaPressed = String(follow.ariaPressed !== 'true'))
+
+	function onStep(link: number, col: number) {
+		clearPlayhead()
+		chain.children[link]?.classList.add('is-now')
+		if (link !== -1 && song.chain[link] !== edit) {
+			if (follow.ariaPressed !== 'true') return
+			edit = song.chain[link]
+			renderGrid()
+		}
+		for (const cell of cells) if (+cell.dataset.col! === col) cell.classList.add('is-now')
+	}
+
+	// Media keys only reach a page that is playing a media element, and Web
+	// Audio doesn't count, so this silent loop plays alongside the music.
+	// ponytail: silent stand-in; if a browser ignores silent media, route the
+	// real output through it (MediaStreamDestination → srcObject) instead.
+	// Chrome ignores media under 5 seconds, hence 6.
+	const silence = new Audio(
+		URL.createObjectURL(new Blob([wav([new Float32Array(6 * 8000)], 8000)], { type: 'audio/wav' })),
+	)
+	silence.loop = true
+
+	let resumeAt = 0 // step a pause stopped at
+	let lastMode: NonNullable<typeof mode> = 'song'
+
+	/** Switches playback; returns the step the old playback stopped at. */
+	function setPlaying(next: typeof mode, from = 0) {
+		const at = stop?.() ?? 0
+		stop = null
+		clearPlayhead()
+		mode = next
+		if (mode) {
+			lastMode = mode
+			stop = start(song, onStep, mode === 'pattern' ? () => edit : undefined, from)
+			silence.play().catch(() => {})
+		} else silence.pause()
+		if ('mediaSession' in navigator) {
+			navigator.mediaSession.playbackState = mode ? 'playing' : 'paused'
+			navigator.mediaSession.metadata = new MediaMetadata({
+				title: nameInput.value.trim() || 'Untitled tune',
+				artist: 'Loop Synth',
+			})
+		}
+		playSong.innerHTML =
+			mode === 'song' ? '<i class="ph ph-stop"></i> Stop' : '<i class="ph ph-play"></i> Play song'
+		playPattern.querySelector('i')!.className = mode === 'pattern' ? 'ph ph-stop' : 'ph ph-repeat'
+		playPattern.ariaPressed = String(mode === 'pattern')
+		return at
+	}
+
+	// On-screen buttons start from the top; Space and media keys pause/resume.
+	playSong.onclick = () => {
+		resumeAt = 0
+		setPlaying(mode === 'song' ? null : 'song')
+	}
+	playPattern.onclick = () => {
+		resumeAt = 0
+		setPlaying(mode === 'pattern' ? null : 'pattern')
+	}
+
+	const pause = () => {
+		if (mode) resumeAt = setPlaying(null)
+	}
+	const resume = () => {
+		if (!mode) setPlaying(lastMode, resumeAt)
+	}
+
+	if ('mediaSession' in navigator) {
+		navigator.mediaSession.setActionHandler('play', resume)
+		navigator.mediaSession.setActionHandler('pause', pause)
+		navigator.mediaSession.setActionHandler('stop', () => {
+			resumeAt = 0
+			setPlaying(null)
+		})
+	}
+
+	addEventListener('keydown', (e) => {
+		if (e.key !== ' ' || e.repeat || e.metaKey || e.ctrlKey || e.altKey) return
+		// Leave Space alone where it types or opens a menu.
+		if ((e.target as Element).closest('input:not([type=range]), textarea, select, [contenteditable]')) return
+		e.preventDefault() // also stops Space pressing a focused button
+		if (mode) pause()
+		else resume()
+	})
+
+	/* ───────────── editing ───────────── */
+
+	for (const cell of cells) {
+		cell.onclick = () => {
+			const r = +cell.dataset.row!
+			const c = +cell.dataset.col!
+			toggle(song.patterns[edit], r, c)
+			const on = isOn(song.patterns[edit], r, c)
+			cell.ariaPressed = String(on)
+			if (on && !mode) playRow(r, song)
+			save()
+		}
+	}
+
+	slots.forEach((s, i) => {
+		s.onclick = () => {
+			edit = i
+			clearPlayhead()
+			renderGrid()
+		}
+	})
+
+	$('ls-copy').onclick = () => {
+		clip = [...song.patterns[edit]]
+		$<HTMLButtonElement>('ls-paste').disabled = false
+	}
+	$('ls-paste').onclick = () => {
+		if (!clip) return
+		song.patterns[edit] = [...clip]
+		renderGrid()
+		save()
+	}
+	$('ls-clear').onclick = () => {
+		song.patterns[edit] = ROWS.map(() => 0)
+		renderGrid()
+		save()
+	}
+
+	$('ls-add').onclick = () => {
+		song.chain.push(edit)
+		renderChain()
+		save()
+	}
+	$('ls-remove').onclick = () => {
+		song.chain.pop()
+		renderChain()
+		save()
+	}
+
+	/* ───────────── export + share ───────────── */
+
+	const fileName = () =>
+		(nameInput.value.trim() || 'loop-synth').replace(/[^\w-]+/g, '-').replace(/^-|-$/g, '').toLowerCase() ||
+		'loop-synth'
+
+	function download(data: Uint8Array<ArrayBuffer>, type: string, ext: string) {
+		const a = document.createElement('a')
+		a.href = URL.createObjectURL(new Blob([data], { type }))
+		a.download = `${fileName()}.${ext}`
+		a.click()
+		setTimeout(() => URL.revokeObjectURL(a.href), 1000)
+	}
+
+	const wavBtn = $<HTMLButtonElement>('ls-wav')
+	wavBtn.onclick = async () => {
+		wavBtn.disabled = true
+		try {
+			const buf = await render(song)
+			download(wav([buf.getChannelData(0), buf.getChannelData(1)], buf.sampleRate), 'audio/wav', 'wav')
+		} finally {
+			wavBtn.disabled = false
+		}
+	}
+	$('ls-midi').onclick = () => download(midi(song), 'audio/midi', 'mid')
+
+	const share = $<HTMLButtonElement>('ls-share')
+	share.onclick = async () => {
+		save()
+		await navigator.clipboard.writeText(location.href)
+		share.innerHTML = '<i class="ph ph-check"></i> Copied'
+		setTimeout(() => (share.innerHTML = '<i class="ph ph-link"></i> Copy link'), 1500)
+	}
+
+	/* ───────────── compositions ───────────── */
+
+	type Saved = { name: string; code: string; at: number }
+	const KEY = 'ls-compositions'
+	const comps = $<HTMLUListElement>('ls-comps')
+
+	function loadList(): Saved[] {
+		try {
+			const list = JSON.parse(localStorage.getItem(KEY) ?? '[]')
+			return Array.isArray(list)
+				? list.filter((x) => typeof x?.name === 'string' && typeof x?.code === 'string')
+				: []
+		} catch {
+			return []
+		}
+	}
+
+	function storeList(list: Saved[]) {
+		try {
+			localStorage.setItem(KEY, JSON.stringify(list))
+			return true
+		} catch {
+			status.textContent = "Couldn't save — this browser has storage turned off."
+			return false
+		}
+	}
+
+	function renderComps() {
+		const current = nameInput.value.trim()
+		comps.replaceChildren(
+			...loadList().map((x) => {
+				const li = document.createElement('li')
+				const load = document.createElement('button')
+				load.className = 'zui-button zui-button-variant-ghost ls-comp'
+				if (x.name === current) load.ariaCurrent = 'true'
+				load.innerHTML = '<i class="ph ph-music-notes"></i><span></span><small></small>'
+				load.querySelector('span')!.textContent = x.name
+				const bpm = decodeSong(x.code)?.bpm
+				const date = new Date(x.at).toLocaleDateString()
+				load.querySelector('small')!.textContent = bpm ? `${bpm} BPM · ${date}` : date
+				load.onclick = () => openComp(x)
+				const del = document.createElement('button')
+				del.className = 'zui-button zui-button-variant-ghost zui-button-icon zui-button-size-sm'
+				del.ariaLabel = `Delete ${x.name}`
+				del.innerHTML = '<i class="ph ph-trash"></i>'
+				del.onclick = () => {
+					if (!confirm(`Delete "${x.name}"?`)) return
+					if (storeList(loadList().filter((y) => y.name !== x.name))) renderComps()
+				}
+				li.append(load, del)
+				return li
+			}),
+		)
+	}
+
+	function openComp(x: Saved) {
+		const s = decodeSong(x.code)
+		if (!s) {
+			status.textContent = `"${x.name}" could not be read.`
+			return
+		}
+		Object.assign(song, s) // in place: the player reads this object
+		edit = song.chain[0]
+		nameInput.value = x.name
+		status.textContent = ''
+		renderAll()
+		save()
+	}
+
+	$<HTMLFormElement>('ls-save').onsubmit = (e) => {
+		e.preventDefault()
+		const list = loadList()
+		const name = nameInput.value.trim() || `Tune ${list.length + 1}`
+		nameInput.value = name
+		const entry = { name, code: encodeSong(song), at: Date.now() }
+		if (storeList([entry, ...list.filter((y) => y.name !== name)])) {
+			status.textContent = `Saved "${name}".`
+			renderComps()
+		}
+	}
+
+	function renderAll() {
+		renderControls()
+		renderGrid()
+		renderChain()
+		renderComps()
+	}
+
+	renderAll()
+</script>
+
+<style>
+	.ls-page {
+		/* Full width, or auto margins shrink it to the grid's min-content. */
+		inline-size: 100%;
+		max-width: 64rem;
+		margin-inline: auto;
+		padding: var(--space-xl) var(--space-md);
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-lg);
+	}
+	h1 {
+		font-size: var(--step-4);
+	}
+	h2 {
+		font-size: var(--step-1);
+	}
+	.ls-toolbar,
+	.ls-row-head,
+	.ls-slots,
+	.ls-actions,
+	.ls-chain-row,
+	.ls-save {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: var(--space-sm);
+	}
+	.ls-toolbar {
+		gap: var(--space-sm) var(--space-md);
+	}
+	.ls-row-head {
+		justify-content: space-between;
+	}
+	.ls-slots {
+		gap: var(--space-3xs);
+	}
+	.ls-range {
+		display: flex;
+		align-items: center;
+		gap: var(--space-2xs);
+	}
+	.ls-range input {
+		accent-color: var(--color-accent);
+		inline-size: 7rem;
+	}
+	output {
+		font-family: var(--font-code);
+		font-size: var(--step--1);
+		min-inline-size: 7ch;
+	}
+	.ls-panel {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-sm);
+		padding: var(--space-md);
+		border: var(--border-style) 2px var(--color-border);
+		background: var(--color-surface);
+	}
+
+	/* Selected pattern / playing bar / looping pattern.
+	   ZUI Buttons are child components, so scoped selectors miss them. */
+	:global(.ls-slot[aria-pressed='true']),
+	:global(.ls-play[aria-pressed='true']),
+	:global(.ls-chain .is-now .ls-link) {
+		--zui-btn-bg: var(--color-accent);
+		--zui-btn-fg: light-dark(var(--color-text), var(--color-background));
+		--zui-btn-border: var(--color-accent);
+		/* ZUI paints [aria-pressed] with the hover vars. */
+		--zui-btn-hover-bg: var(--zui-btn-bg);
+		--zui-btn-hover-fg: var(--zui-btn-fg);
+		--zui-btn-hover-border: var(--zui-btn-border);
+	}
+
+	/* Grid scrolls inside its panel on narrow screens, never the page. */
+	.ls-scroll {
+		overflow-x: auto;
+		overflow-y: hidden;
+		/* Room for the playhead's scaled cells. */
+		padding: var(--space-3xs);
+	}
+	.ls-grid {
+		--steps: 32;
+		--cell: var(--space-sm);
+		display: grid;
+		grid-template-columns: auto repeat(var(--steps), minmax(var(--cell), 1fr));
+		gap: var(--space-4xs);
+	}
+	.ls-grid[data-steps='16'] {
+		--steps: 16;
+		--cell: var(--space-md);
+	}
+	.ls-grid[data-steps='16'] .ls-extra {
+		display: none;
+	}
+	.ls-label {
+		font-family: var(--font-code);
+		font-size: var(--step--1);
+		padding-inline-end: var(--space-2xs);
+		align-self: center;
+	}
+	.ls-drum {
+		font-family: var(--font-body);
+	}
+	/* First drum row: a gap between melody and drums. */
+	[data-row='8'] {
+		margin-block-start: var(--space-xs);
+	}
+	.ls-cell {
+		aspect-ratio: 1;
+		border: var(--border-style) 1px oklch(from var(--color-border) l c h / 20%);
+		background: oklch(from var(--c) l c h / 12%);
+		cursor: pointer;
+		transition: background-color 80ms var(--ease-out), transform 80ms var(--ease-out);
+	}
+	.ls-cell.ls-beat {
+		background: oklch(from var(--c) l c h / 22%);
+	}
+	.ls-cell:hover {
+		background: oklch(from var(--c) l c h / 40%);
+	}
+	.ls-cell[aria-pressed='true'] {
+		background: var(--c);
+		border-color: var(--c);
+	}
+	.ls-cell:global(.is-now) {
+		outline: var(--border-style) 2px var(--color-accent);
+		outline-offset: -2px;
+	}
+	.ls-cell[aria-pressed='true']:global(.is-now) {
+		transform: scale(1.12);
+	}
+	.ls-cell:focus-visible {
+		outline: var(--focus-ring);
+		outline-offset: var(--focus-ring-offset);
+	}
+
+	.ls-chain {
+		display: flex;
+		flex-wrap: wrap;
+		gap: var(--space-3xs);
+		padding: 0;
+		list-style: none;
+	}
+	:global(.ls-link) {
+		font-family: var(--font-code);
+		min-inline-size: var(--space-xl);
+	}
+
+	.ls-save {
+		align-items: end;
+	}
+	.ls-save :global(.zui-field) {
+		flex: 1 1 14rem;
+	}
+	.ls-comps {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-4xs);
+		padding: 0;
+		list-style: none;
+	}
+	.ls-comps :global(li) {
+		display: flex;
+		align-items: center;
+		gap: var(--space-2xs);
+	}
+	.ls-comps :global(.ls-comp) {
+		flex: 1;
+		justify-content: start;
+	}
+	.ls-comps :global(.ls-comp small) {
+		margin-inline-start: auto;
+		font-family: var(--font-code);
+		opacity: 0.6;
+	}
+	.ls-comps :global(.ls-comp[aria-current='true']) {
+		--zui-btn-bg: oklch(from var(--color-accent) l c h / 20%);
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.ls-cell {
+			transition: none;
+		}
+		.ls-cell[aria-pressed='true']:global(.is-now) {
+			transform: none;
+		}
+	}
+</style>

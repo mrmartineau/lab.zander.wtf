@@ -17,6 +17,7 @@ design.
 | `drawing-app`         | Kid-friendly drawing app — magic brushes, fill, colouring pages, text, mirrors |
 | `playground`          | Creative Coding Playground (Solid + Tweakpane + WebGL shaders) — grainy blobs, silk folds, conic gradients, shards, arcs, bird swarms; drag items on the canvas to move them; favourites, share links, PNG export up to 8192px, looping MP4 export up to 4K |
 | `keyboard-only`       | A cursorless page navigated entirely with the keyboard  |
+| `loop-synth`          | Step sequencer — draw tunes on a 16/32-step grid, loop one pattern or chain 4 into a song (Follow tracks the playing bar), Space / media keys play-pause, delay + reverb, all synthesised live with the Web Audio API; save compositions in the browser, share links, WAV + MIDI export (`node src/components/loop-synth/song.check.ts` checks the song and file logic) |
 | `procedural-page`     | An endless page that generates itself as you scroll — seeded randomness, no AI |
 | `spotify-favourites`  | Browse most-explored Spotify artists & albums (ZUI)     |
 | `time`                | A quiz for learning to read the 24-hour clock           |
