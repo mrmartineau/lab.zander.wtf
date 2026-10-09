@@ -1,6 +1,6 @@
 ---
 import Layout from '../../layouts/Layout.astro'
-import { Badge, Button, Field, Input, Label, Select } from '@mrmartineau/zui/astro'
+import { Button, Field, Input, Label, Menu, MenuContent, MenuItem, MenuTrigger } from '@mrmartineau/zui/astro'
 import { MAX_STEPS, ROWS, SLOTS, STEP_OPTIONS, WAVES } from '../../components/loop-synth/song'
 
 export const title = 'Loop Synth'
@@ -12,142 +12,191 @@ export const tags = ['audio', 'web-audio', 'music', 'tool']
 
 const colours = ['rose', 'orange', 'amber', 'lime', 'emerald', 'sky', 'indigo', 'fuchsia']
 const colour = (r: number) => (r < colours.length ? `var(--color-${colours[r]}-400)` : 'var(--color-text)')
-const sliders = [
-	{ id: 'bpm', label: 'Tempo', min: 60, max: 180 },
-	{ id: 'delay', label: 'Delay', min: 0, max: 100 },
-	{ id: 'reverb', label: 'Reverb', min: 0, max: 100 },
+const mix = [
+	{ id: 'delay', label: 'Delay' },
+	{ id: 'reverb', label: 'Reverb' },
 ]
+const firstDrum = ROWS.findIndex((r) => 'drum' in r)
 ---
 
 <Layout title="Loop Synth — lab.zander.wtf">
-	<main class="ls-page">
-		<header class="ls-header">
-			<div class="flex items-center gap-sm">
-				<h1>Loop Synth</h1>
-				<Badge variant="fill" color="emerald">live</Badge>
+	<div class="ls-app">
+		<h1 class="sr-only">Loop Synth</h1>
+
+		<header class="ls-bar">
+			<div class="ls-group" aria-label="Playback">
+				<Button id="ls-play-song" class="ls-play" size="sm"><i class="ph ph-play"></i> Play song</Button>
+				<Button id="ls-play-pattern" class="ls-play" variant="outline" size="sm"
+					><i class="ph ph-repeat"></i> <span>Loop A</span></Button
+				>
+				<Button
+					id="ls-follow"
+					class="ls-play"
+					variant="outline"
+					size="sm"
+					aria-pressed="false"
+					title="Show the pattern that is playing"
+					><i class="ph ph-crosshair"></i> Follow</Button
+				>
 			</div>
-			<p>{description}</p>
+
+			<div class="ls-group">
+				<label class="ls-range" for="ls-bpm">
+					<span>Tempo</span>
+					<input id="ls-bpm" type="range" min="60" max="180" step="1" />
+					<output id="ls-bpm-out" for="ls-bpm"></output>
+				</label>
+			</div>
+
+			<div class="ls-group" aria-label="Settings">
+				<Menu>
+					<MenuTrigger size="sm" aria-label="Sound">
+						<i id="ls-wave-icon" class="ph ph-wave-triangle"></i>
+						<span id="ls-wave-label">triangle</span>
+						<i class="ph ph-caret-down ls-caret" aria-hidden="true"></i>
+					</MenuTrigger>
+					<MenuContent class="ls-menu">
+						{
+							WAVES.map((w) => (
+								<MenuItem class="ls-menu-item" data-wave={w}>
+									<i class={`ph ph-wave-${w}`} />
+									{w}
+								</MenuItem>
+							))
+						}
+					</MenuContent>
+				</Menu>
+				<Menu>
+					<MenuTrigger size="sm" aria-label="Steps per pattern">
+						<i class="ph ph-dots-nine"></i>
+						<span id="ls-steps-label">16 steps</span>
+						<i class="ph ph-caret-down ls-caret" aria-hidden="true"></i>
+					</MenuTrigger>
+					<MenuContent class="ls-menu">
+						{
+							STEP_OPTIONS.map((n) => (
+								<MenuItem class="ls-menu-item" data-steps-option={n}>
+									{n} steps
+								</MenuItem>
+							))
+						}
+					</MenuContent>
+				</Menu>
+			</div>
+
+			<span class="ls-spacer"></span>
+			<span id="ls-status" class="ls-status" role="status"></span>
+
+			<Menu align="end">
+				<MenuTrigger size="sm" variant="fill">
+					<i class="ph ph-export"></i> Export
+					<i class="ph ph-caret-down ls-caret" aria-hidden="true"></i>
+				</MenuTrigger>
+				<MenuContent class="ls-menu">
+					<MenuItem id="ls-wav" class="ls-menu-item"><i class="ph ph-waveform"></i> Audio (WAV)</MenuItem>
+					<MenuItem id="ls-midi" class="ls-menu-item"><i class="ph ph-piano-keys"></i> MIDI file</MenuItem>
+					<MenuItem id="ls-share" class="ls-menu-item"><i class="ph ph-link"></i> Copy share link</MenuItem>
+				</MenuContent>
+			</Menu>
 		</header>
 
-		<div class="ls-toolbar">
-			<Button id="ls-play-song" class="ls-play"><i class="ph ph-play"></i> Play song</Button>
-			<Button id="ls-play-pattern" class="ls-play" variant="outline"
-				><i class="ph ph-repeat"></i> <span>Loop A</span></Button
-			>
-			<Button
-				id="ls-follow"
-				class="ls-play"
-				variant="outline"
-				aria-pressed="false"
-				title="Show the pattern that is playing"
-				><i class="ph ph-crosshair"></i> Follow</Button
-			>
-			{
-				sliders.map((s) => (
-					<Field orientation="horizontal">
-						<Label for={`ls-${s.id}`}>{s.label}</Label>
-						<span class="ls-range">
-							<input id={`ls-${s.id}`} type="range" min={s.min} max={s.max} step="1" />
-							<output id={`ls-${s.id}-out`} for={`ls-${s.id}`} />
-						</span>
+		<div class="ls-main">
+			<aside class="ls-side ls-left" aria-labelledby="ls-comp-title">
+				<h2 id="ls-comp-title"><i class="ph ph-music-notes"></i> Compositions</h2>
+				<form id="ls-save" class="ls-save">
+					<Field>
+						<Label for="ls-name">Name</Label>
+						<Input id="ls-name" maxlength="60" placeholder="Untitled tune" autocomplete="off" />
 					</Field>
-				))
-			}
-			<Field orientation="horizontal">
-				<Label for="ls-wave">Sound</Label>
-				<Select id="ls-wave">{WAVES.map((w) => <option value={w}>{w}</option>)}</Select>
-			</Field>
-		</div>
+					<Button type="submit" size="sm"><i class="ph ph-floppy-disk"></i> Save</Button>
+				</form>
+				<p class="ls-hint">Saved in this browser. Saving with the same name replaces it.</p>
+				<ul id="ls-comps" class="ls-comps"></ul>
+			</aside>
 
-		<section class="ls-panel" aria-label="Pattern editor">
-			<div class="ls-row-head">
-				<div class="ls-slots" role="group" aria-label="Pattern to edit">
-					{
-						SLOTS.map((s, i) => (
-							<Button class="ls-slot" variant="outline" size="sm" data-slot={i}>
-								{s}
-							</Button>
-						))
-					}
-				</div>
-				<div class="ls-actions">
-					<Field orientation="horizontal">
-						<Label for="ls-steps">Steps</Label>
-						<Select id="ls-steps">{STEP_OPTIONS.map((n) => <option value={n}>{n}</option>)}</Select>
-					</Field>
-					<Button id="ls-copy" variant="ghost" size="sm"><i class="ph ph-copy"></i> Copy</Button>
-					<Button id="ls-paste" variant="ghost" size="sm" disabled
-						><i class="ph ph-clipboard-text"></i> Paste</Button
+			<section class="ls-stage" aria-label="Pattern editor">
+				<div class="ls-stage-head">
+					<div class="ls-slots" role="group" aria-label="Pattern to edit">
+						{
+							SLOTS.map((s, i) => (
+								<Button class="ls-slot" variant="outline" size="sm" data-slot={i}>
+									{s}
+								</Button>
+							))
+						}
+					</div>
+					<Button id="ls-clear" variant="outline" size="sm"
+						><i class="ph ph-eraser"></i> <span>Clear A</span></Button
 					>
-					<Button id="ls-clear" variant="ghost" size="sm"><i class="ph ph-eraser"></i> Clear</Button>
+					<Menu>
+						<MenuTrigger size="sm" icon aria-label="Pattern actions">
+							<i class="ph ph-dots-three"></i>
+						</MenuTrigger>
+						<MenuContent class="ls-menu">
+							<MenuItem id="ls-copy" class="ls-menu-item"><i class="ph ph-copy"></i> Copy pattern</MenuItem>
+							<MenuItem id="ls-paste" class="ls-menu-item" disabled
+								><i class="ph ph-clipboard-text"></i> Paste pattern</MenuItem
+							>
+						</MenuContent>
+					</Menu>
+					<p class="ls-hint">Click squares to add notes. Space plays and pauses.</p>
 				</div>
-			</div>
 
-			<div class="ls-scroll">
-				<div class="ls-grid" id="ls-grid">
+				<div class="ls-fit">
+					<div class="ls-grid" id="ls-grid">
+						{
+							ROWS.map((row, r) => (
+								<>
+									{r === firstDrum && <span class="ls-gap" aria-hidden="true" />}
+									<span class:list={['ls-label', { 'ls-drum': 'drum' in row }]}>{row.name}</span>
+									{Array.from({ length: MAX_STEPS }, (_, c) => (
+										<button
+											class:list={['ls-cell', { 'ls-beat': c % 4 === 0, 'ls-extra': c >= 16 }]}
+											style={`--c: ${colour(r)}`}
+											data-row={r}
+											data-col={c}
+											aria-pressed="false"
+											aria-label={`${row.name}, step ${c + 1}`}
+										/>
+									))}
+								</>
+							))
+						}
+					</div>
+				</div>
+			</section>
+
+			<aside class="ls-side ls-right" aria-label="Song and mix">
+				<section class="ls-block" aria-labelledby="ls-song-title">
+					<h2 id="ls-song-title"><i class="ph ph-list-numbers"></i> Song</h2>
+					<p class="ls-hint">Bars play in order, then loop. Click a bar to change its pattern.</p>
+					<ol id="ls-chain" class="ls-chain"></ol>
+					<div class="ls-chain-tools">
+						<Button id="ls-add" variant="outline" size="sm"><i class="ph ph-plus"></i> Bar</Button>
+						<Button id="ls-remove" variant="outline" size="sm" icon aria-label="Remove the last bar"
+							><i class="ph ph-minus"></i></Button
+						>
+						<Button id="ls-clear-song" variant="outline" size="sm" color="destructive"
+							><i class="ph ph-trash"></i> Clear song</Button
+						>
+					</div>
+				</section>
+				<section class="ls-block" aria-labelledby="ls-mix-title">
+					<h2 id="ls-mix-title"><i class="ph ph-sliders-horizontal"></i> Mix</h2>
 					{
-						ROWS.map((row, r) => (
-							<>
-								<span class:list={['ls-label', { 'ls-drum': 'drum' in row }]} data-row={r}>
-									{row.name}
-								</span>
-								{Array.from({ length: MAX_STEPS }, (_, c) => (
-									<button
-										class:list={[
-											'ls-cell',
-											{ 'ls-beat': c % 4 === 0, 'ls-extra': c >= 16 },
-										]}
-										style={`--c: ${colour(r)}`}
-										data-row={r}
-										data-col={c}
-										aria-pressed="false"
-										aria-label={`${row.name}, step ${c + 1}`}
-									/>
-								))}
-							</>
+						mix.map((m) => (
+							<div class="ls-knob">
+								<label for={`ls-${m.id}`}>
+									{m.label} <output id={`ls-${m.id}-out`} for={`ls-${m.id}`} />
+								</label>
+								<input id={`ls-${m.id}`} type="range" min="0" max="100" step="1" />
+							</div>
 						))
 					}
-				</div>
-			</div>
-		</section>
-
-		<section class="ls-panel" aria-labelledby="ls-song-title">
-			<div class="ls-row-head">
-				<h2 id="ls-song-title">Song</h2>
-				<p class="zui-color-muted">Patterns play left to right, then loop. Click one to change it.</p>
-			</div>
-			<div class="ls-chain-row">
-				<ol id="ls-chain" class="ls-chain"></ol>
-				<Button id="ls-add" variant="outline" size="sm" icon aria-label="Add a bar"
-					><i class="ph ph-plus"></i></Button
-				>
-				<Button id="ls-remove" variant="outline" size="sm" icon aria-label="Remove the last bar"
-					><i class="ph ph-minus"></i></Button
-				>
-			</div>
-			<div class="ls-actions">
-				<Button id="ls-wav" variant="outline" size="sm"><i class="ph ph-waveform"></i> Export WAV</Button>
-				<Button id="ls-midi" variant="outline" size="sm"><i class="ph ph-piano-keys"></i> Export MIDI</Button>
-				<Button id="ls-share" variant="outline" size="sm"><i class="ph ph-link"></i> Copy link</Button>
-			</div>
-		</section>
-
-		<section class="ls-panel" aria-labelledby="ls-comp-title">
-			<div class="ls-row-head">
-				<h2 id="ls-comp-title">Compositions</h2>
-				<p class="zui-color-muted">Saved in this browser. Same name overwrites.</p>
-			</div>
-			<form id="ls-save" class="ls-save">
-				<Field>
-					<Label for="ls-name">Name</Label>
-					<Input id="ls-name" maxlength="60" placeholder="Untitled tune" autocomplete="off" />
-				</Field>
-				<Button type="submit"><i class="ph ph-floppy-disk"></i> Save</Button>
-				<span id="ls-status" class="zui-color-muted" role="status"></span>
-			</form>
-			<ul id="ls-comps" class="ls-comps"></ul>
-		</section>
-	</main>
+				</section>
+			</aside>
+		</div>
+	</div>
 </Layout>
 
 <script>
@@ -179,10 +228,17 @@ const sliders = [
 	const playPattern = $<HTMLButtonElement>('ls-play-pattern')
 	const grid = $('ls-grid')
 	const chain = $<HTMLOListElement>('ls-chain')
-	const wave = $<HTMLSelectElement>('ls-wave')
-	const steps = $<HTMLSelectElement>('ls-steps')
+	const waveItems = [...document.querySelectorAll<HTMLElement>('[data-wave]')]
+	const stepItems = [...document.querySelectorAll<HTMLElement>('[data-steps-option]')]
 	const nameInput = $<HTMLInputElement>('ls-name')
 	const status = $('ls-status')
+	let sayTimer = 0
+	/** Shows a short message in the toolbar, then clears it. */
+	function say(text: string) {
+		status.textContent = text
+		clearTimeout(sayTimer)
+		sayTimer = window.setTimeout(() => (status.textContent = ''), 4000)
+	}
 
 	const save = () => history.replaceState(null, '', `#${encodeSong(song)}`)
 
@@ -196,6 +252,7 @@ const sliders = [
 		slots.forEach((s, i) => (s.ariaPressed = String(i === edit)))
 		grid.dataset.steps = String(song.steps)
 		playPattern.querySelector('span')!.textContent = `Loop ${SLOTS[edit]}`
+		$('ls-clear').querySelector('span')!.textContent = `Clear ${SLOTS[edit]}`
 	}
 
 	function renderChain() {
@@ -239,18 +296,27 @@ const sliders = [
 
 	function renderControls() {
 		knobs.forEach((sync) => sync())
-		wave.value = song.wave
-		steps.value = String(song.steps)
+		for (const el of waveItems) el.toggleAttribute('data-current', el.dataset.wave === song.wave)
+		for (const el of stepItems) el.toggleAttribute('data-current', +el.dataset.stepsOption! === song.steps)
+		$('ls-wave-icon').className = `ph ph-wave-${song.wave}`
+		$('ls-wave-label').textContent = song.wave
+		$('ls-steps-label').textContent = `${song.steps} steps`
 	}
 
-	wave.onchange = () => {
-		song.wave = wave.value as Song['wave']
-		save()
+	for (const el of waveItems) {
+		el.onclick = () => {
+			song.wave = el.dataset.wave as Song['wave']
+			renderControls()
+			save()
+		}
 	}
-	steps.onchange = () => {
-		song.steps = +steps.value as Song['steps']
-		renderGrid()
-		save()
+	for (const el of stepItems) {
+		el.onclick = () => {
+			song.steps = +el.dataset.stepsOption! as Song['steps']
+			renderControls()
+			renderGrid()
+			save()
+		}
 	}
 
 	/* ───────────── playback ───────────── */
@@ -370,7 +436,10 @@ const sliders = [
 
 	$('ls-copy').onclick = () => {
 		clip = [...song.patterns[edit]]
-		$<HTMLButtonElement>('ls-paste').disabled = false
+		const paste = $<HTMLButtonElement>('ls-paste')
+		paste.disabled = false
+		delete paste.dataset.disabled // ZUI menus skip items marked disabled
+		say(`Copied pattern ${SLOTS[edit]}.`)
 	}
 	$('ls-paste').onclick = () => {
 		if (!clip) return
@@ -382,6 +451,21 @@ const sliders = [
 		song.patterns[edit] = ROWS.map(() => 0)
 		renderGrid()
 		save()
+		say(`Cleared pattern ${SLOTS[edit]}.`)
+	}
+
+	// Keeps tempo, sound and mix; empties every pattern and the name, so the
+	// next save is a new composition rather than overwriting the old one.
+	$('ls-clear-song').onclick = () => {
+		if (!confirm('Clear every pattern and start a new song?')) return
+		song.patterns = song.patterns.map(() => ROWS.map(() => 0))
+		song.chain = [0]
+		edit = 0
+		resumeAt = 0
+		nameInput.value = ''
+		renderAll()
+		save()
+		say('Song cleared.')
 	}
 
 	$('ls-add').onclick = () => {
@@ -421,12 +505,10 @@ const sliders = [
 	}
 	$('ls-midi').onclick = () => download(midi(song), 'audio/midi', 'mid')
 
-	const share = $<HTMLButtonElement>('ls-share')
-	share.onclick = async () => {
+	$('ls-share').onclick = async () => {
 		save()
 		await navigator.clipboard.writeText(location.href)
-		share.innerHTML = '<i class="ph ph-check"></i> Copied'
-		setTimeout(() => (share.innerHTML = '<i class="ph ph-link"></i> Copy link'), 1500)
+		say('Link copied.')
 	}
 
 	/* ───────────── compositions ───────────── */
@@ -451,7 +533,7 @@ const sliders = [
 			localStorage.setItem(KEY, JSON.stringify(list))
 			return true
 		} catch {
-			status.textContent = "Couldn't save — this browser has storage turned off."
+			say("Couldn't save — this browser has storage turned off.")
 			return false
 		}
 	}
@@ -487,13 +569,13 @@ const sliders = [
 	function openComp(x: Saved) {
 		const s = decodeSong(x.code)
 		if (!s) {
-			status.textContent = `"${x.name}" could not be read.`
+			say(`"${x.name}" could not be read.`)
 			return
 		}
 		Object.assign(song, s) // in place: the player reads this object
 		edit = song.chain[0]
 		nameInput.value = x.name
-		status.textContent = ''
+		say('')
 		renderAll()
 		save()
 	}
@@ -505,7 +587,7 @@ const sliders = [
 		nameInput.value = name
 		const entry = { name, code: encodeSong(song), at: Date.now() }
 		if (storeList([entry, ...list.filter((y) => y.name !== name)])) {
-			status.textContent = `Saved "${name}".`
+			say(`Saved "${name}".`)
 			renderComps()
 		}
 	}
@@ -521,66 +603,85 @@ const sliders = [
 </script>
 
 <style>
-	.ls-page {
-		/* Full width, or auto margins shrink it to the grid's min-content. */
-		inline-size: 100%;
-		max-width: 64rem;
-		margin-inline: auto;
-		padding: var(--space-xl) var(--space-md);
-		display: flex;
-		flex-direction: column;
-		gap: var(--space-lg);
+	/* Lab bar → toolbar → panels + grid → footer, filling the window. */
+	.ls-app {
+		/* A 0px basis keeps tall panels from stretching the page; it fills the window instead. */
+		flex: 1 1 0px;
+		min-height: 22rem;
+		display: grid;
+		grid-template-rows: auto minmax(0, 1fr);
 	}
-	h1 {
-		font-size: var(--step-4);
-	}
-	h2 {
-		font-size: var(--step-1);
-	}
-	.ls-toolbar,
-	.ls-row-head,
-	.ls-slots,
-	.ls-actions,
-	.ls-chain-row,
-	.ls-save {
+
+	/* ───────────── toolbar ───────────── */
+
+	.ls-bar {
 		display: flex;
 		flex-wrap: wrap;
 		align-items: center;
-		gap: var(--space-sm);
+		gap: var(--space-xs);
+		padding: var(--space-2xs) var(--space-md);
+		border-block-end: var(--border-style) 2px var(--color-border);
 	}
-	.ls-toolbar {
-		gap: var(--space-sm) var(--space-md);
-	}
-	.ls-row-head {
-		justify-content: space-between;
-	}
-	.ls-slots {
+	.ls-group {
+		display: flex;
+		align-items: center;
 		gap: var(--space-3xs);
+	}
+	.ls-group + .ls-group {
+		padding-inline-start: var(--space-xs);
+		border-inline-start: var(--border-style) 2px var(--color-border);
+	}
+	.ls-spacer {
+		flex: 1;
+	}
+	.ls-status {
+		font-size: var(--step--1);
+		opacity: 0.7;
 	}
 	.ls-range {
 		display: flex;
 		align-items: center;
 		gap: var(--space-2xs);
+		font-size: var(--step--1);
+		font-weight: 700;
+	}
+	input[type='range'] {
+		accent-color: var(--color-accent);
 	}
 	.ls-range input {
-		accent-color: var(--color-accent);
 		inline-size: 7rem;
 	}
 	output {
 		font-family: var(--font-code);
+		font-weight: 400;
 		font-size: var(--step--1);
+		opacity: 0.7;
+	}
+	.ls-range output {
 		min-inline-size: 7ch;
 	}
-	.ls-panel {
-		display: flex;
-		flex-direction: column;
-		gap: var(--space-sm);
-		padding: var(--space-md);
-		border: var(--border-style) 2px var(--color-border);
-		background: var(--color-surface);
+	:global(.ls-caret) {
+		font-size: var(--step--2);
+	}
+	:global(.ls-menu) {
+		z-index: var(--z-3);
+		min-inline-size: 10rem;
+		inline-size: max-content;
+	}
+	/* One line, left-aligned: ZUI buttons centre and wrap their label. */
+	:global(.ls-menu-item) {
+		justify-content: start;
+		gap: var(--space-2xs);
+		white-space: nowrap;
+		text-align: start;
+	}
+	/* ZUI sets a highlighted item's background directly (no variable). */
+	:global(.ls-menu-item[data-current]) {
+		background: var(--color-accent);
+		--zui-btn-fg: light-dark(var(--color-text), var(--color-background));
 	}
 
-	/* Selected pattern / playing bar / looping pattern.
+	/* Selected pattern / playing bar / active toggles.
 	   ZUI Buttons are child components, so scoped selectors miss them. */
 	:global(.ls-slot[aria-pressed='true']),
 	:global(.ls-play[aria-pressed='true']),
@@ -594,42 +695,192 @@ const sliders = [
 		--zui-btn-hover-border: var(--zui-btn-border);
 	}
 
-	/* Grid scrolls inside its panel on narrow screens, never the page. */
-	.ls-scroll {
-		overflow-x: auto;
-		overflow-y: hidden;
-		/* Room for the playhead's scaled cells. */
-		padding: var(--space-3xs);
+	/* ───────────── panels ───────────── */
+
+	.ls-main {
+		display: grid;
+		grid-template-columns: 16rem minmax(0, 1fr) 15rem;
+		min-height: 0;
+	}
+	.ls-side {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-sm);
+		padding: var(--space-sm);
+		background: var(--color-surface);
+		overflow-y: auto;
+		font-size: var(--step--1);
+	}
+	.ls-left {
+		border-inline-end: var(--border-style) 2px var(--color-border);
+	}
+	.ls-right {
+		border-inline-start: var(--border-style) 2px var(--color-border);
+	}
+	h2 {
+		display: flex;
+		align-items: center;
+		gap: var(--space-2xs);
+		font-size: var(--step-0);
+	}
+	.ls-hint {
+		opacity: 0.65;
+		font-size: var(--step--1);
+		line-height: 1.35;
+	}
+	.ls-block {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-xs);
+	}
+	.ls-block + .ls-block {
+		padding-block-start: var(--space-sm);
+		border-block-start: var(--border-style) 2px var(--color-border);
+	}
+
+	.ls-save {
+		display: flex;
+		flex-direction: column;
+		align-items: stretch;
+		gap: var(--space-2xs);
+	}
+	.ls-comps {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-4xs);
+		padding: 0;
+		list-style: none;
+	}
+	.ls-comps :global(li) {
+		display: flex;
+		align-items: center;
+		gap: var(--space-4xs);
+	}
+	.ls-comps :global(.ls-comp) {
+		flex: 1;
+		min-inline-size: 0;
+		display: grid;
+		grid-template-columns: auto 1fr;
+		justify-items: start;
+		gap: 0 var(--space-2xs);
+		block-size: auto;
+		padding-block: var(--space-3xs);
+		text-align: start;
+	}
+	.ls-comps :global(.ls-comp i) {
+		grid-row: span 2;
+	}
+	.ls-comps :global(.ls-comp span) {
+		max-inline-size: 100%;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+	.ls-comps :global(.ls-comp small) {
+		font-family: var(--font-code);
+		opacity: 0.6;
+	}
+	.ls-comps :global(.ls-comp[aria-current='true']) {
+		--zui-btn-bg: oklch(from var(--color-accent) l c h / 20%);
+	}
+
+	.ls-chain {
+		display: grid;
+		grid-template-columns: repeat(4, 1fr);
+		gap: var(--space-3xs);
+		padding: 0;
+		list-style: none;
+	}
+	:global(.ls-link) {
+		inline-size: 100%;
+		font-family: var(--font-code);
+	}
+	.ls-chain-tools {
+		display: flex;
+		flex-wrap: wrap;
+		gap: var(--space-3xs);
+	}
+	.ls-knob {
+		display: grid;
+		gap: var(--space-3xs);
+	}
+	.ls-knob label {
+		display: flex;
+		justify-content: space-between;
+		font-weight: 700;
+	}
+	.ls-knob input {
+		inline-size: 100%;
+	}
+
+	/* ───────────── grid ───────────── */
+
+	.ls-stage {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-xs);
+		padding: var(--space-sm) var(--space-md);
+		min-inline-size: 0;
+		min-block-size: 0;
+	}
+	.ls-stage-head {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: var(--space-xs);
+	}
+	.ls-slots {
+		display: flex;
+		gap: var(--space-3xs);
+	}
+	/* The grid sizes its squares from this box, so it always fits. */
+	.ls-fit {
+		flex: 1;
+		min-block-size: 0;
+		container-type: size;
+		overflow: auto;
 	}
 	.ls-grid {
 		--steps: 32;
-		--cell: var(--space-sm);
+		--gap: var(--space-5xs);
+		--label: 3.5rem;
+		--split: var(--space-xs);
+		/* Largest square that fits both ways; scrolls below the minimum. */
+		--cell: clamp(
+			0.625rem,
+			min(
+				(100cqw - var(--label)) / var(--steps) - var(--gap),
+				(100cqh - var(--split) - 2px) / 11 - var(--gap)
+			),
+			3.5rem
+		);
 		display: grid;
-		grid-template-columns: auto repeat(var(--steps), minmax(var(--cell), 1fr));
-		gap: var(--space-4xs);
+		grid-template-columns: var(--label) repeat(var(--steps), var(--cell));
+		grid-template-rows: repeat(8, var(--cell)) var(--split) repeat(3, var(--cell));
+		gap: var(--gap);
+		place-content: center;
+		min-block-size: 100%;
+		min-inline-size: max-content;
 	}
 	.ls-grid[data-steps='16'] {
 		--steps: 16;
-		--cell: var(--space-md);
 	}
 	.ls-grid[data-steps='16'] .ls-extra {
 		display: none;
 	}
+	.ls-gap {
+		grid-column: 1 / -1;
+	}
 	.ls-label {
+		align-self: center;
 		font-family: var(--font-code);
 		font-size: var(--step--1);
-		padding-inline-end: var(--space-2xs);
-		align-self: center;
 	}
 	.ls-drum {
 		font-family: var(--font-body);
 	}
-	/* First drum row: a gap between melody and drums. */
-	[data-row='8'] {
-		margin-block-start: var(--space-xs);
-	}
 	.ls-cell {
-		aspect-ratio: 1;
+		padding: 0; /* UA button padding would stop small squares shrinking */
 		border: var(--border-style) 1px oklch(from var(--color-border) l c h / 20%);
 		background: oklch(from var(--c) l c h / 12%);
 		cursor: pointer;
@@ -657,47 +908,30 @@ const sliders = [
 		outline-offset: var(--focus-ring-offset);
 	}
 
-	.ls-chain {
-		display: flex;
-		flex-wrap: wrap;
-		gap: var(--space-3xs);
-		padding: 0;
-		list-style: none;
-	}
-	:global(.ls-link) {
-		font-family: var(--font-code);
-		min-inline-size: var(--space-xl);
-	}
+	/* ───────────── narrow screens ───────────── */
 
-	.ls-save {
-		align-items: end;
+	@media (width < 1200px) {
+		.ls-main {
+			grid-template-columns: 13rem minmax(0, 1fr) 12rem;
+		}
 	}
-	.ls-save :global(.zui-field) {
-		flex: 1 1 14rem;
-	}
-	.ls-comps {
-		display: flex;
-		flex-direction: column;
-		gap: var(--space-4xs);
-		padding: 0;
-		list-style: none;
-	}
-	.ls-comps :global(li) {
-		display: flex;
-		align-items: center;
-		gap: var(--space-2xs);
-	}
-	.ls-comps :global(.ls-comp) {
-		flex: 1;
-		justify-content: start;
-	}
-	.ls-comps :global(.ls-comp small) {
-		margin-inline-start: auto;
-		font-family: var(--font-code);
-		opacity: 0.6;
-	}
-	.ls-comps :global(.ls-comp[aria-current='true']) {
-		--zui-btn-bg: oklch(from var(--color-accent) l c h / 20%);
+	@media (width < 900px) {
+		/* Too small for one screen: the grid gets most of it, panels scroll below. */
+		.ls-main {
+			grid-template-columns: minmax(0, 1fr);
+			overflow-y: auto;
+		}
+		.ls-stage {
+			min-block-size: 70dvh;
+		}
+		.ls-side {
+			overflow: visible;
+			border-inline: 0;
+			border-block-start: var(--border-style) 2px var(--color-border);
+		}
+		.ls-left {
+			order: 1;
+		}
 	}
 
 	@media (prefers-reduced-motion: reduce) {
