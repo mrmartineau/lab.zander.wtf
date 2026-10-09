@@ -65,23 +65,21 @@ const viewport = lockZoom
 					<a class="lab-home" href="/">
 						lab<span>.</span>zander<span>.</span>wtf
 					</a>
-					{/* Only lab items get the switcher: other pages, like /stats, aren't in it. */}
-					{isItem && (
-						<>
-							<span class="lab-sep" aria-hidden="true">/</span>
-							<label class="lab-switch">
-								<span class="sr-only">Switch lab item</span>
-								<select class="lab-select">
-									{items.map((item) => (
-										<option value={item.slug} selected={item.slug === slug}>
-											{item.slug}
-										</option>
-									))}
-								</select>
-								<i class="ph ph-caret-down" aria-hidden="true"></i>
-							</label>
-						</>
-					)}
+					<span class="lab-sep" aria-hidden="true">/</span>
+					<label class="lab-switch">
+						<span class="sr-only">Switch lab item</span>
+						<select class="lab-select">
+							{/* Pages that aren't lab items, like /stats, name themselves in the
+							    closed select, but `hidden` keeps them out of the list. */}
+							{!isItem && <option value={slug} selected disabled hidden>{slug}</option>}
+							{items.map((item) => (
+								<option value={item.slug} selected={item.slug === slug}>
+									{item.slug}
+								</option>
+							))}
+						</select>
+						<i class="ph ph-caret-down" aria-hidden="true"></i>
+					</label>
 					{reactions && <Reactions slug={slug} />}
 				</nav>
 			)
