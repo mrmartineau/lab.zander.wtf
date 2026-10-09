@@ -30,10 +30,13 @@ design.
 ```text
 src/
   components/            Per-item React/Solid/Astro components
+  components/Reactions.astro  Hearts and views in the lab bar
   data/lab.ts            Lab item types + discovery helper (no manual registry)
   layouts/Layout.astro   Shell — ZUI CSS, Phosphor icons, lab bar + footer
   pages/
     index.astro          Homepage — globs pages and reads their frontmatter
+    stats.astro          Hearts and views for every lab item
+    api/reactions.ts     Hearts and views API (zander.wtf's reactions D1 database)
     <slug>/index.astro   One directory per lab item, named by its slug
 ```
 

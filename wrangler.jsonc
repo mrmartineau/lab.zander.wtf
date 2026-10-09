@@ -7,6 +7,15 @@
 		"directory": "./dist",
 		"binding": "ASSETS"
 	},
+	// Shared with zander.wtf, which owns the schema (zander.wtf-astro/migrations/reactions).
+	// Lab rows are stored under /lab/<slug> (src/pages/api/reactions.ts).
+	"d1_databases": [
+		{
+			"binding": "REACTIONS_DB",
+			"database_name": "zander-wtf-reactions",
+			"database_id": "0ba1d963-d7ae-4839-820d-d9657f1a43af"
+		}
+	],
 	"observability": {
 		"enabled": true
 	}

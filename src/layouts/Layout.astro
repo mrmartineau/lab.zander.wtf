@@ -1,5 +1,6 @@
 ---
 import '@mrmartineau/zui/css'
+import Reactions from '../components/Reactions.astro'
 import { buildLabItems } from '../data/lab'
 
 interface Props {
@@ -8,9 +9,11 @@ interface Props {
 	lockZoom?: boolean
 	/** Skip the lab bar and footer — for full-screen pages. */
 	bare?: boolean
+	/** Hearts and views in the lab bar. On by default for lab items only. */
+	reactions?: boolean
 }
 
-const { title = 'lab.zander.wtf', lockZoom = false, bare = false } = Astro.props
+const { title = 'lab.zander.wtf', lockZoom = false, bare = false, reactions: forceReactions } = Astro.props
 
 // Lab item pages (`/<slug>`) get a bar with a quick switcher and a footer.
 const slug = Astro.url.pathname.split('/').filter(Boolean)[0]
@@ -18,6 +21,9 @@ const showChrome = Boolean(slug) && !bare
 const items = showChrome
 	? buildLabItems(import.meta.glob('../pages/*/index.{astro,md}', { eager: true }))
 	: []
+const isItem = items.some((item) => item.slug === slug)
+// Hearts and views (components/Reactions.astro).
+const reactions = showChrome && (forceReactions ?? isItem)
 const viewport = lockZoom
 	? 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no'
 	: 'width=device-width, initial-scale=1'
@@ -59,18 +65,24 @@ const viewport = lockZoom
 					<a class="lab-home" href="/">
 						lab<span>.</span>zander<span>.</span>wtf
 					</a>
-					<span class="lab-sep" aria-hidden="true">/</span>
-					<label class="lab-switch">
-						<span class="sr-only">Switch lab item</span>
-						<select class="lab-select">
-							{items.map((item) => (
-								<option value={item.slug} selected={item.slug === slug}>
-									{item.slug}
-								</option>
-							))}
-						</select>
-						<i class="ph ph-caret-down" aria-hidden="true"></i>
-					</label>
+					{/* Only lab items get the switcher: other pages, like /stats, aren't in it. */}
+					{isItem && (
+						<>
+							<span class="lab-sep" aria-hidden="true">/</span>
+							<label class="lab-switch">
+								<span class="sr-only">Switch lab item</span>
+								<select class="lab-select">
+									{items.map((item) => (
+										<option value={item.slug} selected={item.slug === slug}>
+											{item.slug}
+										</option>
+									))}
+								</select>
+								<i class="ph ph-caret-down" aria-hidden="true"></i>
+							</label>
+						</>
+					)}
+					{reactions && <Reactions slug={slug} />}
 				</nav>
 			)
 		}
@@ -79,7 +91,10 @@ const viewport = lockZoom
 			showChrome && (
 				<footer class="lab-footer">
 					<span>© {new Date().getFullYear()} Zander Martineau</span>
-					<a href="https://zander.wtf">zander.wtf</a>
+					<span class="lab-footer-links">
+						<a href="/stats">Stats</a>
+						<a href="https://zander.wtf">zander.wtf</a>
+					</span>
 				</footer>
 			)
 		}
@@ -189,6 +204,10 @@ const viewport = lockZoom
 		border-block-start: var(--border-style) 2px var(--color-border);
 		font-family: var(--font-code);
 		font-size: var(--step--1);
+	}
+	.lab-footer-links {
+		display: flex;
+		gap: var(--space-sm);
 	}
 	.lab-footer a {
 		color: inherit;

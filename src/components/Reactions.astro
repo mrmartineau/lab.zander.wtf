@@ -1,0 +1,139 @@
+---
+// Hearts and views for one lab page, kept by /api/reactions. Layout renders
+// it in the lab bar on lab items and on pages that ask for it (/stats). It starts `hidden` and shows after
+// the first reply, so a failed request shows nothing.
+interface Props {
+	/** The lab item's slug, e.g. loop-synth. */
+	slug: string
+}
+
+const { slug } = Astro.props
+---
+
+<div class="lab-reactions" data-slug={slug} hidden>
+	<button type="button" class="lab-heart" aria-pressed="false" title="Leave a heart">
+		<i class="ph ph-heart" aria-hidden="true"></i>
+		<span data-count="hearts">0</span>
+		<span class="sr-only">hearts. Add a heart</span>
+	</button>
+	<span class="lab-views">
+		<i class="ph ph-eye" aria-hidden="true"></i>
+		<span data-count="views">0</span>
+		<span class="sr-only">views</span>
+	</span>
+</div>
+
+<script>
+	import type { Counts } from '../pages/api/reactions'
+
+	const box = document.querySelector<HTMLElement>('.lab-reactions')
+	if (box) {
+		const heart = box.querySelector<HTMLButtonElement>('.lab-heart')!
+		const views = box.querySelector<HTMLElement>('.lab-views')!
+		const compact = new Intl.NumberFormat('en-GB', { notation: 'compact' })
+		let data: Counts = { views: 0, hearts: 0, myHearts: 0, heartsLeft: 1 }
+
+		// A random id per browser. Without storage it lasts for this page load.
+		let visitor: string = crypto.randomUUID()
+		// Open any page with #admin=<REACTIONS_ADMIN_TOKEN> once, so your own
+		// views stop counting; #admin= forgets it.
+		let token = ''
+		try {
+			const saved = localStorage.getItem('reactions-visitor')
+			if (saved) visitor = saved
+			else localStorage.setItem('reactions-visitor', visitor)
+			const fromHash = location.hash.match(/^#admin=(.*)$/)
+			if (fromHash) {
+				localStorage.setItem('reactions-admin', fromHash[1])
+				history.replaceState(null, '', location.pathname + location.search)
+			}
+			token = localStorage.getItem('reactions-admin') ?? ''
+		} catch {}
+
+		const render = (next: Counts) => {
+			data = next
+			box.querySelector('[data-count="hearts"]')!.textContent = compact.format(data.hearts)
+			box.querySelector('[data-count="views"]')!.textContent = compact.format(data.views)
+			heart.setAttribute('aria-pressed', String(data.myHearts > 0))
+			heart.title = !data.myHearts
+				? 'Leave a heart'
+				: data.heartsLeft > 0
+					? `${data.myHearts} given, ${data.heartsLeft} left`
+					: 'All ten given. Thank you'
+			views.title = `Viewed by ${compact.format(data.views)} ${data.views === 1 ? 'person' : 'people'}`
+		}
+
+		const send = async (action: string) => {
+			const res = await fetch('/api/reactions', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ slug: box.dataset.slug, visitor, token, action }),
+			})
+			if (!res.ok) return
+			render(await res.json())
+			box.hidden = false
+		}
+
+		heart.addEventListener('click', () => {
+			if (data.heartsLeft <= 0) return
+			// Count it now; the reply has the real number.
+			render({
+				...data,
+				hearts: data.hearts + 1,
+				myHearts: data.myHearts + 1,
+				heartsLeft: data.heartsLeft - 1,
+			})
+			send('heart')
+		})
+
+		send('view')
+	}
+</script>
+
+<style>
+	.lab-reactions {
+		display: flex;
+		gap: var(--space-2xs);
+		margin-inline-start: auto;
+		align-self: center;
+		font-family: var(--font-code);
+		font-size: var(--step--1);
+		font-weight: 400;
+	}
+	.lab-reactions[hidden] {
+		display: none;
+	}
+	.lab-heart,
+	.lab-views {
+		display: inline-flex;
+		align-items: center;
+		gap: var(--space-3xs);
+		padding: 0 var(--space-3xs);
+	}
+	.lab-heart {
+		border: var(--border-style) 2px transparent;
+		background: transparent;
+		color: inherit;
+		font: inherit;
+		cursor: pointer;
+	}
+	.lab-heart:hover {
+		border-color: var(--color-border);
+	}
+	.lab-heart[aria-pressed='true'] {
+		background: var(--color-accent);
+		color: var(--color-gray-950);
+	}
+	.lab-heart:focus-visible {
+		outline: var(--border-style) 2px var(--color-accent);
+		outline-offset: 2px;
+	}
+	.sr-only {
+		position: absolute;
+		width: 1px;
+		height: 1px;
+		overflow: hidden;
+		clip-path: inset(50%);
+		white-space: nowrap;
+	}
+</style>

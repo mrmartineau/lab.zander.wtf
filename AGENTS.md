@@ -12,10 +12,13 @@ lists every lab item; each item is its own page with a bespoke design.
 
 ```
 src/
+  components/Reactions.astro  Hearts and views in the lab bar
   data/lab.ts            Lab item types + discovery helper (no manual registry)
   layouts/Layout.astro   Shell — ZUI CSS, Phosphor icons, lab bar + footer
   pages/
     index.astro          Homepage — globs pages and reads their frontmatter
+    stats.astro          Hearts and views for every lab item
+    api/reactions.ts     Hearts and views API (zander.wtf's reactions D1 database)
     <slug>/index.astro   One directory per lab item, named by its slug
 ```
 
@@ -59,6 +62,25 @@ In an **`.md`** page, put the same keys in the YAML frontmatter block.
 
 \* Optional but recommended — without `title`/`date` the listing degrades
 (slug used as title, item sorts last).
+
+## Hearts and views
+
+Every lab item gets a heart button and a view count in the lab bar
+(`src/components/Reactions.astro`, rendered by `Layout.astro`), and `/stats` lists them all. `/stats` turns them on for itself with `<Layout reactions>`, and the footer links to it. Pages that skip the bar (`bare`)
+get neither. The API is `src/pages/api/reactions.ts`, the only server-rendered
+route. It writes to zander.wtf's D1 database (`REACTIONS_DB`,
+`zander-wtf-reactions`), and stores every row under `/lab/<slug>` so the two
+sites stay apart. **The schema lives in zander.wtf-astro**
+(`migrations/reactions/`): never migrate it from here. For local dev, create
+the tables once in the local database:
+
+```sh
+for f in ../zander.wtf-astro/migrations/reactions/*.sql; do pnpm exec wrangler d1 execute zander-wtf-reactions --local --file "$f"; done
+```
+
+Open any page with `#admin=<REACTIONS_ADMIN_TOKEN>` once so your own views stop
+counting. The token is a Worker secret. Run `pnpm generate-types` after any
+change to `wrangler.jsonc`.
 
 ## Design conventions
 

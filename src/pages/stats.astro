@@ -1,0 +1,174 @@
+---
+// Hearts and views for every lab item. The page is static: the item list is
+// read at build time, and the counts come from /api/reactions in the browser.
+// Only real lab pages are shown, so made-up slugs in the database stay out.
+import { Text } from '@mrmartineau/zui/astro'
+import Layout from '../layouts/Layout.astro'
+import { buildLabItems } from '../data/lab'
+
+const items = buildLabItems(import.meta.glob('./*/index.{astro,md}', { eager: true }))
+// This page has hearts and views too, so it gets a row.
+const titles = { ...Object.fromEntries(items.map((item) => [item.slug, item.title])), stats: 'Stats' }
+---
+
+<Layout title="Stats — lab.zander.wtf" reactions>
+	<main class="page stats" data-titles={JSON.stringify(titles)}>
+		<header class="flow">
+			<h1>Stats</h1>
+			<Text size="1" class="summary" aria-live="polite">Loading…</Text>
+		</header>
+
+		<table hidden>
+			<thead>
+				<tr>
+					<th scope="col">Item</th>
+					<th scope="col"><i class="ph ph-eye" aria-hidden="true"></i> Views</th>
+					<th scope="col"><i class="ph ph-heart" aria-hidden="true"></i> Hearts</th>
+				</tr>
+			</thead>
+			<tbody></tbody>
+		</table>
+
+		<h2 hidden>Latest hearts</h2>
+		<ol class="recent"></ol>
+	</main>
+</Layout>
+
+<script>
+	import type { Stats } from './api/reactions'
+
+	const main = document.querySelector<HTMLElement>('.stats')!
+	const titles: Record<string, string> = JSON.parse(main.dataset.titles!)
+	const summary = main.querySelector('.summary')!
+	const table = main.querySelector('table')!
+	const recentTitle = main.querySelector('h2')!
+	const compact = new Intl.NumberFormat('en-GB', { notation: 'compact' })
+	const regions = new Intl.DisplayNames(['en'], { type: 'region' })
+
+	const link = (slug: string) => {
+		const a = document.createElement('a')
+		a.href = `/${slug}`
+		a.textContent = titles[slug]
+		return a
+	}
+
+	const ago = (at: number) => {
+		const s = Math.max(0, Date.now() / 1000 - at)
+		if (s < 60) return 'now'
+		if (s < 3600) return `${Math.floor(s / 60)}m ago`
+		if (s < 86400) return `${Math.floor(s / 3600)}h ago`
+		return `${Math.floor(s / 86400)}d ago`
+	}
+
+	// Cloudflare also sends XX (unknown) and T1 (Tor), which aren't countries.
+	const place = (city: string | null, country: string | null) => {
+		const known = country && /^[A-Z]{2}$/.test(country) && country !== 'XX' ? regions.of(country) : null
+		return [city, known].filter(Boolean).join(', ')
+	}
+
+	try {
+		const res = await fetch('/api/reactions', {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ action: 'stats' }),
+		})
+		if (!res.ok) throw new Error(res.statusText)
+		const stats: Stats = await res.json()
+		const items = stats.items.filter((row) => row.slug in titles)
+
+		const labItems = items.filter((row) => row.slug !== 'stats').length
+		summary.textContent = `${compact.format(stats.visitors)} ${stats.visitors === 1 ? 'visitor' : 'visitors'} across ${labItems} items.`
+		const maxViews = Math.max(1, ...items.map((row) => row.views))
+		table.tBodies[0].replaceChildren(
+			...items.map((row) => {
+				const tr = document.createElement('tr')
+				tr.style.setProperty('--share', String(row.views / maxViews))
+				const name = document.createElement('td')
+				name.append(link(row.slug))
+				tr.append(name)
+				for (const n of [row.views, row.hearts]) {
+					const td = document.createElement('td')
+					td.textContent = compact.format(n)
+					tr.append(td)
+				}
+				return tr
+			}),
+		)
+		table.hidden = false
+
+		const recent = stats.recent.filter((h) => h.slug in titles)
+		recentTitle.hidden = !recent.length
+		main.querySelector('.recent')!.replaceChildren(
+			...recent.map((h) => {
+				const li = document.createElement('li')
+				const from = place(h.city, h.country)
+				li.append(
+					`${h.n} ${h.n === 1 ? 'heart' : 'hearts'} for `,
+					link(h.slug),
+					` from ${from || 'someone'} · ${ago(h.at)}`,
+				)
+				return li
+			}),
+		)
+	} catch {
+		summary.textContent = 'Could not load the stats. Try again later.'
+	}
+</script>
+
+<style>
+	/* Same frame as the lab item pages. */
+	.page {
+		max-width: 48rem;
+		margin-inline: auto;
+		padding: var(--space-xl) var(--space-md);
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-lg);
+	}
+	h1 { margin: 0; font-size: var(--step-4); }
+	h2 {
+		margin: 0 0 calc(-1 * var(--space-sm));
+		font-size: var(--step-1);
+	}
+	table {
+		width: 100%;
+		border-collapse: collapse;
+		font-family: var(--font-code);
+		font-size: var(--step--1);
+	}
+	/* Rows and list items are made by the script, so Astro's scoped
+	   selectors never match them: those rules go through :global(). */
+	th,
+	table :global(td) {
+		padding: var(--space-2xs) var(--space-xs);
+		border: var(--border-style) 2px var(--color-border);
+		text-align: end;
+	}
+	th:first-child,
+	table :global(td:first-child) {
+		text-align: start;
+		font-family: var(--font-body);
+		font-size: var(--step-0);
+	}
+	/* Each item's share of the most-viewed item, as a bar behind its name. */
+	table :global(td:first-child) {
+		background: linear-gradient(
+			to right,
+			color-mix(in oklch, var(--color-accent) 15%, transparent) calc(var(--share) * 100%),
+			transparent 0
+		);
+	}
+	table :global(a) {
+		color: inherit;
+		text-decoration-color: var(--color-accent);
+		text-decoration-thickness: 3px;
+	}
+	.recent {
+		margin: 0;
+		padding-inline-start: var(--space-md);
+		font-size: var(--step--1);
+	}
+	.recent :global(a) {
+		color: inherit;
+	}
+</style>
