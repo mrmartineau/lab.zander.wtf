@@ -13,6 +13,9 @@ export default defineConfig({
     solid({ include: ['**/word-art/**', '**/playground/**'] }),
   ],
   adapter: cloudflare(),
+  // No Astro sessions here. Without this, the adapter adds a SESSION KV
+  // binding for /api/reactions and the deploy tries to create its namespace.
+  session: false,
   vite: {
     plugins: [
       // ponytail: vite-plugin-solid 2.11.14 sets the dependency scan to
