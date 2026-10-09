@@ -29,6 +29,7 @@ const pad = (n: number) => String(n).padStart(2, '0')
 				newest ? (
 					<li class="hero-cell">
 						<a class="tile hero" href={labHref(newest)}>
+							<span class="hearts" data-hearts={newest.slug} hidden><i class="ph ph-heart" aria-hidden="true"></i> <span>0</span><span class="sr-only"> hearts</span></span>
 							{newest.date && (
 								<span class="kicker">
 									Newest · <time datetime={newest.date}>{dateFmt.format(new Date(newest.date))}</time>
@@ -52,9 +53,12 @@ const pad = (n: number) => String(n).padStart(2, '0')
 						<a class:list={['tile', { archived: item.status === 'archived' }]} href={labHref(item)}>
 							<span class="row">
 								<span class="num">{pad(rest.length - i)}</span>
-								{item.status !== 'live' && (
-									<Badge color={statusColor[item.status]}>{item.status}</Badge>
-								)}
+								<span class="row-end">
+									{item.status !== 'live' && (
+										<Badge color={statusColor[item.status]}>{item.status}</Badge>
+									)}
+									<span class="hearts" data-hearts={item.slug} hidden><i class="ph ph-heart" aria-hidden="true"></i> <span>0</span><span class="sr-only"> hearts</span></span>
+								</span>
 							</span>
 							<span class="title">{item.title}</span>
 							{item.description && <span class="desc">{item.description}</span>}
@@ -77,7 +81,59 @@ const pad = (n: number) => String(n).padStart(2, '0')
 	</main>
 </Layout>
 
+<script>
+	// Heart counts from /api/reactions. Tiles with no hearts show nothing, and
+	// so does the whole page if the request fails.
+	import type { Stats } from './api/reactions'
+
+	try {
+		const res = await fetch('/api/reactions', {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ action: 'stats' }),
+		})
+		if (res.ok) {
+			const { items }: Stats = await res.json()
+			const compact = new Intl.NumberFormat('en-GB', { notation: 'compact' })
+			for (const { slug, hearts } of items) {
+				const el = document.querySelector<HTMLElement>(`[data-hearts="${CSS.escape(slug)}"]`)
+				if (!el || !hearts) continue
+				el.querySelector('span')!.textContent = compact.format(hearts)
+				el.hidden = false
+			}
+		}
+	} catch {}
+</script>
+
 <style>
+	/* Heart counts sit top right: in the row with the badge on small tiles,
+	   pinned to the corner on the hero, which lays out from the bottom. */
+	.hearts {
+		font-family: var(--font-code);
+		font-size: var(--step--1);
+		white-space: nowrap;
+	}
+	.row-end {
+		display: flex;
+		align-items: center;
+		gap: var(--space-2xs);
+	}
+	.hero {
+		position: relative;
+	}
+	.hero > .hearts {
+		position: absolute;
+		inset-block-start: var(--space-sm);
+		inset-inline-end: var(--space-sm);
+	}
+	.sr-only {
+		position: absolute;
+		width: 1px;
+		height: 1px;
+		overflow: hidden;
+		clip-path: inset(50%);
+		white-space: nowrap;
+	}
 	.page {
 		padding: var(--space-lg) var(--space-md) var(--space-xl);
 		display: flex;
