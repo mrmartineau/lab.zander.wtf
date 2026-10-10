@@ -312,7 +312,13 @@ export default function Planner() {
 				<section class="pp-card">
 					<h2>Saved plans</h2>
 					<p class="pp-sub">Stored in this browser only. Your current plan is kept automatically.</p>
-					<div class="pp-save">
+					<form
+						class="pp-save"
+						onSubmit={(e) => {
+							e.preventDefault()
+							savePlan()
+						}}
+					>
 						<label class="pp-num" for="pp-name" style={{ flex: '1 1 12rem' }}>
 							<span class="pp-num-label">Name this plan</span>
 							<input
@@ -329,10 +335,10 @@ export default function Planner() {
 								}}
 							/>
 						</label>
-						<button class="zui-button zui-button-color-accent" type="button" onClick={savePlan}>
+						<button class="zui-button zui-button-color-accent" type="submit">
 							{pendingOverwrite() ? 'Replace saved plan' : 'Save plan'}
 						</button>
-					</div>
+					</form>
 					<Show when={pendingOverwrite()}>
 						<p class="pp-sub" role="status">
 							"{pendingOverwrite()}" is already saved. Click again to replace it.
