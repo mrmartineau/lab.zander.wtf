@@ -19,7 +19,7 @@ design.
 | `keyboard-only`       | A cursorless page navigated entirely with the keyboard  |
 | `loop-synth`          | Step sequencer — draw tunes on a 16/32-step grid, loop one pattern or chain 4 into a song (Follow tracks the playing bar), Space / media keys play-pause, delay + reverb, all synthesised live with the Web Audio API; save compositions in the browser, share links, WAV + MIDI export (`node src/components/loop-synth/song.check.ts` checks the song and file logic) |
 | `procedural-page`     | An endless page that generates itself as you scroll — seeded randomness, no AI |
-| `shelf-planner`       | 3D shelf planner for pantries, larders and walk-in cupboards (Solid + Three.js): aligned levels, per-wall shelf sizes (SM to XL), editable room, returns and depths, live cut list, saved plans in the browser, A4 PDF export |
+| `shelf-planner`       | 3D shelf planner for pantries, larders and walk-in cupboards (Solid + Three.js): aligned levels, per-wall shelf sizes (SM to XL), editable room, returns and depths, live cut list, batten and shelf-bracket estimates, hover a figure to see it in the model, saved plans in the browser with share links (the plan lives in the URL hash), A4 PDF export (`node src/components/shelf-planner/fixings.check.ts` and `share.check.ts` check the fixings maths and share links) |
 | `spotify-favourites`  | Browse most-explored Spotify artists & albums (ZUI)     |
 | `time`                | A quiz for learning to read the 24-hour clock           |
 | `wiki-trail`          | Follow Wikipedia links downward — old articles freeze into cards, the trail is the page |

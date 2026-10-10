@@ -15,9 +15,15 @@ import {
 	clampY,
 	clearances,
 	clone,
+	decodeShare,
+	encodeShare,
 	defaultPlan,
+	fixings,
 	fmt,
 	gapAbove,
+	groupLengths,
+	HEAD,
+	STOCK,
 	loadCurrent,
 	loadSaved,
 	normalise,
@@ -26,7 +32,7 @@ import {
 	sortLevels,
 	writeSaved,
 } from './model'
-import { ShelfScene, type View } from './scene'
+import { type Highlight, ShelfScene, type View } from './scene'
 
 /** A number box that only commits on change, clamped and rounded to half a cm. */
 function NumField(props: {
@@ -67,6 +73,10 @@ export default function Planner() {
 	const [pendingDelete, setPendingDelete] = createSignal<string | null>(null)
 	const [pendingOverwrite, setPendingOverwrite] = createSignal<string | null>(null)
 	const [pendingReset, setPendingReset] = createSignal(false)
+	/** Name of the shared plan on screen while it's only in the link, not yet in this browser. */
+	const [sharedName, setSharedName] = createSignal<string | null>(null)
+	const [copied, setCopied] = createSignal<string | null>(null)
+	let copiedTimer: ReturnType<typeof setTimeout> | undefined
 	let resetTimer: ReturnType<typeof setTimeout> | undefined
 	let warnedStorage = false
 	const [toast, setToast] = createSignal('')
@@ -76,10 +86,13 @@ export default function Planner() {
 	let toastTimer: ReturnType<typeof setTimeout> | undefined
 
 	const levels = createMemo(() => sortLevels(plan().levels))
+	// Rows are keyed by id, so an edit updates the row in place instead of rebuilding every row.
+	const levelIds = createMemo(() => levels().map((l) => l.id).reverse())
 	const selIndex = createMemo(() => levels().findIndex((l) => l.id === selId()))
 	const allBoards = createMemo(() => boards(plan()))
 	const totalRun = createMemo(() => allBoards().reduce((a, b) => a + b.len, 0))
 	const clear = createMemo(() => clearances(plan()))
+	const fix = createMemo(() => fixings(plan()))
 
 	const say = (msg: string) => {
 		setToast(msg)
@@ -91,7 +104,14 @@ export default function Planner() {
 	 * Keep the current plan in storage, and say once if the browser won't keep it.
 	 * Returns false when it isn't stored, so callers don't report success over the warning.
 	 */
+	/** Once a shared plan is saved or edited it belongs to this browser, so drop the link from the address bar. */
+	const leaveShared = () => {
+		if (sharedName() === null) return
+		history.replaceState(null, '', location.pathname + location.search)
+		setSharedName(null)
+	}
 	const persist = (p: Plan) => {
+		leaveShared()
 		if (saveCurrent(p)) return true
 		if (!warnedStorage) {
 			warnedStorage = true
@@ -111,7 +131,7 @@ export default function Planner() {
 		next.levels = sortLevels(next.levels)
 		setPlan(next)
 		persist(next)
-		if (focusedId) queueMicrotask(() => document.getElementById(focusedId)?.focus())
+		if (focusedId) queueMicrotask(() => document.getElementById(focusedId)?.focus({ preventScroll: true }))
 	}
 	const editLevel = (id: number | undefined, fn: (l: Level) => void) =>
 		edit((p) => {
@@ -191,6 +211,7 @@ export default function Planner() {
 		}
 		setSaved(next)
 		setPendingDelete(null)
+		leaveShared()
 		say(`Saved "${n}"`)
 	}
 	const loadPlan = (n: string) => {
@@ -217,12 +238,23 @@ export default function Planner() {
 		setSaved(next)
 		setPendingDelete(null)
 	}
+	const sharePlan = async (n: string) => {
+		const url = `${location.origin}${location.pathname}#plan=${encodeShare(n, saved()[n])}`
+		try {
+			await navigator.clipboard.writeText(url)
+			setCopied(n)
+			clearTimeout(copiedTimer)
+			copiedTimer = setTimeout(() => setCopied(null), 2000)
+		} catch {
+			window.prompt('Copy this link to share the plan', url)
+		}
+	}
 	const savedNames = createMemo(() => Object.keys(saved()).sort((a, b) => saved()[b].at - saved()[a].at))
 
 	const cutText = () =>
 		`Shelves (${fmt(plan().room.th * 10)}mm boards)\n${allBoards()
 			.map((b) => `L${b.i + 1} @ ${fmt(b.y)}cm  ${b.wall.padEnd(9)}  ${TYPES[b.t].name.padEnd(9)}  ${fmt(b.len)} x ${fmt(b.d)}cm`)
-			.join('\n')}`
+			.join('\n')}\n\nBattens: ${groupLengths(fix().battens)} (${fix().stock} x ${fmt(STOCK / 100)}m lengths)\nOr shelf brackets: ${fix().brackets}`
 	const copyCutList = async () => {
 		try {
 			await navigator.clipboard.writeText(cutText())
@@ -241,8 +273,16 @@ export default function Planner() {
 	}
 
 	onMount(() => {
-		setPlan(loadCurrent())
+		// A share link shows its plan without storing it, so opening one never replaces the plan kept here.
+		const shared = decodeShare(new URLSearchParams(location.hash.slice(1)).get('plan') ?? '')
+		setPlan(shared ? shared.plan : loadCurrent())
+		if (shared) {
+			setName(shared.name)
+			setSharedName(shared.name)
+		}
 		setSaved(loadSaved())
+		// Pasting a different share link into this tab only changes the hash, so load it properly.
+		addEventListener('hashchange', () => location.reload())
 		scene = new ShelfScene(stage, (i) => {
 			const l = levels()[i]
 			if (!l) return
@@ -265,12 +305,25 @@ export default function Planner() {
 		)
 	createEffect(() => scene?.setPlan(plan(), selIndex(), false))
 
-	const typeOptions = () =>
-		TYPE_KEYS.map((t) => (
-			<option value={t}>
-				{TYPES[t].name} {fmt(plan().depths[t])}
-			</option>
-		))
+	/** Hover or focus a figure to see what it measures in the 3D view. Focus makes it work by tap and keyboard too. */
+	const shows = (h: Highlight) => ({
+		tabindex: 0,
+		onPointerEnter: () => scene?.setHighlight(h),
+		onPointerLeave: () => scene?.setHighlight(null),
+		onFocus: () => scene?.setHighlight(h),
+		onBlur: () => scene?.setHighlight(null),
+	})
+
+	/** One set of options per select, made once; only the depth text updates. */
+	const typeOptions = () => (
+		<For each={TYPE_KEYS}>
+			{(t) => (
+				<option value={t}>
+					{TYPES[t].name} {fmt(plan().depths[t])}
+				</option>
+			)}
+		</For>
+	)
 
 	return (
 		<div class="sp-grid">
@@ -313,17 +366,20 @@ export default function Planner() {
 					</span>
 				</div>
 				<div class="sp-stats">
-					<div>
-						<small>Walkway at floor</small>
+					<div {...shows('walk')}>
+						<small>Walkway</small>
 						<b>{fmt(clear().walk)}cm</b>
+						<span>Narrowest gap between the left and right shelves below {HEAD}cm.</span>
 					</div>
-					<div>
+					<div {...shows('depth')}>
 						<small>Standing depth</small>
 						<b>{fmt(clear().depth)}cm</b>
+						<span>Space in front of the deepest back shelf below {HEAD}cm.</span>
 					</div>
-					<div>
+					<div {...shows('run')}>
 						<small>Shelf run</small>
 						<b>{fmt(totalRun() / 100)}m</b>
+						<span>Every board end to end: the shelf wood to buy.</span>
 					</div>
 				</div>
 			</div>
@@ -331,7 +387,13 @@ export default function Planner() {
 			<div class="sp-panels">
 				<section class="sp-card">
 					<h2>Saved plans</h2>
-					<p class="sp-sub">Stored in this browser only. Your current plan is kept automatically.</p>
+					<p class="sp-sub">Stored in this browser only. Your current plan is kept automatically. Share a saved plan to send it as a link.</p>
+					<Show when={sharedName() !== null}>
+						<p class="sp-shared" role="status">
+							You're looking at a shared plan{sharedName() ? `, "${sharedName()}"` : ''}. Save it to keep a copy. Editing it replaces the
+							plan this browser was keeping. <a href={location.pathname}>Back to your plan</a>
+						</p>
+					</Show>
 					<form
 						class="sp-save"
 						onSubmit={(e) => {
@@ -382,13 +444,27 @@ export default function Planner() {
 										<button class="zui-button zui-button-variant-outline zui-button-size-sm" type="button" onClick={() => loadPlan(n)}>
 											Load
 										</button>
-										<button
-											class={`zui-button zui-button-size-sm ${pendingDelete() === n ? 'zui-button-color-destructive' : 'zui-button-variant-ghost'}`}
-											type="button"
-											onClick={() => deletePlan(n)}
-										>
-											{pendingDelete() === n ? 'Confirm delete' : 'Delete'}
+										<button class="zui-button zui-button-variant-outline zui-button-size-sm" type="button" onClick={() => sharePlan(n)}>
+											<i class="ph ph-link" aria-hidden="true" /> {copied() === n ? 'Link copied' : 'Share'}
 										</button>
+										{/* An icon until clicked; the confirm step spells it out. */}
+										<Show
+											when={pendingDelete() === n}
+											fallback={
+												<button
+													class="zui-button zui-button-variant-ghost zui-button-size-sm zui-button-icon"
+													type="button"
+													aria-label={`Delete "${n}"`}
+													onClick={() => deletePlan(n)}
+												>
+													<i class="ph ph-trash" aria-hidden="true" />
+												</button>
+											}
+										>
+											<button class="zui-button zui-button-color-destructive zui-button-size-sm" type="button" onClick={() => deletePlan(n)}>
+												<i class="ph ph-trash" aria-hidden="true" /> Confirm delete
+											</button>
+										</Show>
 									</li>
 								)}
 							</For>
@@ -437,31 +513,34 @@ export default function Planner() {
 						Every shelf on a level sits at the same height on all walls. Heights are to the top of the shelf. Gap is the clear height above
 						it. Over-door shelves only go above {fmt(plan().room.doorMin)}cm.
 					</p>
-					<For each={[...levels()].reverse()}>
-						{(l) => {
-							const i = () => levels().findIndex((x) => x.id === l.id)
+					<For each={levelIds()}>
+						{(id) => {
+							// Keep the last match: a removed level's row can read once more before the row goes.
+							let last!: Level
+							const l = () => (last = levels().find((x) => x.id === id) ?? last)
+							const i = () => levels().findIndex((x) => x.id === id)
 							const gap = () => gapAbove(plan(), i())
 							return (
-								<div class="sp-level" classList={{ 'is-selected': selId() === l.id }} data-level={l.id} onFocusIn={() => setSelId(l.id ?? null)}>
+								<div class="sp-level" classList={{ 'is-selected': selId() === id }} data-level={id} onFocusIn={() => setSelId(id ?? null)}>
 									<div class="sp-level-top">
 										<span class="sp-level-num">{i() + 1}</span>
 										<div class="sp-height">
-											<button type="button" id={`sp-${l.id}-down`} aria-label="Down 5cm" onClick={() => editLevel(l.id, (x) => (x.y = clampY(plan().room, x.y - 5)))}>
+											<button type="button" id={`sp-${id}-down`} aria-label="Down 5cm" onClick={() => editLevel(id, (x) => (x.y = clampY(plan().room, x.y - 5)))}>
 												<i class="ph ph-minus" aria-hidden="true" />
 											</button>
 											<input
 												type="number"
 												step="0.5"
-												id={`sp-${l.id}-y`}
+												id={`sp-${id}-y`}
 												aria-label={`Level ${i() + 1} height in cm`}
-												value={fmt(l.y)}
+												value={fmt(l().y)}
 												onChange={(e) => {
 													const v = Number.parseFloat(e.currentTarget.value)
-													if (Number.isFinite(v)) editLevel(l.id, (x) => (x.y = clampY(plan().room, v)))
-													else e.currentTarget.value = fmt(l.y)
+													if (Number.isFinite(v)) editLevel(id, (x) => (x.y = clampY(plan().room, v)))
+													else e.currentTarget.value = fmt(l().y)
 												}}
 											/>
-											<button type="button" id={`sp-${l.id}-up`} aria-label="Up 5cm" onClick={() => editLevel(l.id, (x) => (x.y = clampY(plan().room, x.y + 5)))}>
+											<button type="button" id={`sp-${id}-up`} aria-label="Up 5cm" onClick={() => editLevel(id, (x) => (x.y = clampY(plan().room, x.y + 5)))}>
 												<i class="ph ph-plus" aria-hidden="true" />
 											</button>
 										</div>
@@ -472,7 +551,7 @@ export default function Planner() {
 											class="zui-button zui-button-variant-ghost zui-button-size-xs sp-remove"
 											type="button"
 											aria-label={`Remove level ${i() + 1}`}
-											onClick={() => edit((p) => (p.levels = p.levels.filter((x) => x.id !== l.id)))}
+											onClick={() => edit((p) => (p.levels = p.levels.filter((x) => x.id !== id)))}
 										>
 											<i class="ph ph-trash" aria-hidden="true" />
 										</button>
@@ -480,17 +559,17 @@ export default function Planner() {
 									<div class="sp-cells sp-cells-4">
 										<For each={WALLS}>
 											{([k, label]: [WallKey, string]) => {
-												const disabled = () => k === 'D' && l.y < plan().room.doorMin
+												const disabled = () => k === 'D' && l().y < plan().room.doorMin
 												return (
-													<label class="sp-num" for={`sp-${l.id}-${k}`}>
+													<label class="sp-num" for={`sp-${id}-${k}`}>
 														<span class="sp-num-label">{label}</span>
 														<select
-															id={`sp-${l.id}-${k}`}
+															id={`sp-${id}-${k}`}
 															class="zui-select sp-select"
 															disabled={disabled()}
-															style={{ 'border-inline-start-color': l[k] && !disabled() ? `var(${TYPES[l[k] as TypeKey].color})` : undefined }}
-															value={l[k]}
-															onChange={(e) => editLevel(l.id, (x) => (x[k] = e.currentTarget.value as TypeKey | ''))}
+															style={{ 'border-inline-start-color': l()[k] && !disabled() ? `var(${TYPES[l()[k] as TypeKey].color})` : undefined }}
+															value={l()[k]}
+															onChange={(e) => editLevel(id, (x) => (x[k] = e.currentTarget.value as TypeKey | ''))}
 														>
 															<option value="">None</option>
 															{typeOptions()}
@@ -579,6 +658,28 @@ export default function Planner() {
 					<ul class="sp-notes">
 						<For each={notes(plan().room)}>{(n) => <li>{n}</li>}</For>
 					</ul>
+				</section>
+
+				<section class="sp-card">
+					<h2>Fixings</h2>
+					<p class="sp-sub">
+						Two ways to hold the shelves up. Use one, or mix them. Battens are strips of timber, about 25 × 38mm, screwed to the wall
+						under every shelf edge that meets a wall. Shelf brackets (L-brackets) go under each shelf, at most 50cm apart.
+					</p>
+					<div class="sp-stats sp-stats-2">
+						<div>
+							<small>Battens</small>
+							<b>{fmt(fix().battenRun / 100)}m</b>
+							<span>
+								{fix().stock} × {fmt(STOCK / 100)}m lengths. Cut {groupLengths(fix().battens) || 'nothing yet'}.
+							</span>
+						</div>
+						<div>
+							<small>Or shelf brackets</small>
+							<b>{fix().brackets}</b>
+							<span>At least 2 per shelf, plus screws and wall plugs for each.</span>
+						</div>
+					</div>
 				</section>
 			</div>
 		</div>

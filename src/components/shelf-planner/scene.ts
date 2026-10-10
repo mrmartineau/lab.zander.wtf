@@ -4,9 +4,11 @@
  * Colours come from ZUI tokens on the container so it follows the theme.
  */
 import * as THREE from 'three'
-import { type Plan, TYPES, boards, frontAngle, frontSlope, frontZ, openWidth } from './model'
+import { HEAD, type Plan, TYPES, boards, clearances, frontAngle, frontSlope, frontZ, openWidth } from './model'
 
 export type View = 'front' | 'top' | 'side'
+/** A figure under the 3D view that the model is showing. */
+export type Highlight = 'walk' | 'depth' | 'run' | null
 
 const VIEWS: Record<View, [number, number, number]> = {
 	front: [0.42, 1.2, 560],
@@ -20,6 +22,8 @@ export class ShelfScene {
 	private camera = new THREE.PerspectiveCamera(42, 1, 1, 4000)
 	private roomGroup = new THREE.Group()
 	private shelfGroup = new THREE.Group()
+	private hlGroup = new THREE.Group()
+	private highlight: Highlight = null
 	private pickables: THREE.Mesh[] = []
 	private target = new THREE.Vector3()
 	private th = VIEWS.front[0]
@@ -47,7 +51,7 @@ export class ShelfScene {
 		this.scene.add(new THREE.AmbientLight(0xffffff, 0.7 * Math.PI))
 		const light = new THREE.DirectionalLight(0xffffff, 0.55 * Math.PI)
 		light.position.set(220, 420, 320)
-		this.scene.add(light, this.roomGroup, this.shelfGroup)
+		this.scene.add(light, this.roomGroup, this.shelfGroup, this.hlGroup)
 		this.bindPointer()
 		this.resizeObserver = new ResizeObserver(() => this.resize())
 		this.resizeObserver.observe(el)
@@ -105,6 +109,13 @@ export class ShelfScene {
 		this.draw()
 	}
 
+	/** Light up what a figure measures and fade the shelves it doesn't count. */
+	setHighlight(h: Highlight) {
+		this.highlight = h
+		this.buildShelves()
+		this.draw()
+	}
+
 	setView(v: View) {
 		;[this.th, this.ph, this.rad] = VIEWS[v]
 		this.update()
@@ -126,6 +137,7 @@ export class ShelfScene {
 		for (const c of this.cleanups) c()
 		this.clear(this.roomGroup)
 		this.clear(this.shelfGroup)
+		this.clear(this.hlGroup)
 		this.renderer.dispose()
 		this.renderer.domElement.remove()
 		this.probe?.remove()
@@ -201,9 +213,17 @@ export class ShelfScene {
 		const plan = this.plan!
 		const r = plan.room
 		this.clear(this.shelfGroup)
+		this.clear(this.hlGroup)
 		this.pickables = []
+		const hl = this.highlight
+		const c = clearances(plan)
+		const lit = (b: ReturnType<typeof boards>[number]) =>
+			hl === 'run' ||
+			(hl === 'walk' && b.i === c.walkLevel && (b.wall === 'Left' || b.wall === 'Right')) ||
+			(hl === 'depth' && b.i === c.depthLevel && b.wall === 'Back')
 		for (const b of boards(plan)) {
 			const mat = new THREE.MeshLambertMaterial({ color: this.css(TYPES[b.t].color) })
+			if (hl && !lit(b)) Object.assign(mat, { transparent: true, opacity: 0.15, depthWrite: false })
 			const geo = b.door ? new THREE.BoxGeometry(b.len, r.th, b.d) : new THREE.BoxGeometry(b.x1 - b.x0, r.th, b.z1 - b.z0)
 			const m = new THREE.Mesh(geo, mat)
 			if (b.door) {
@@ -214,9 +234,22 @@ export class ShelfScene {
 				m.position.set((b.x0 + b.x1) / 2, b.y - r.th / 2, (b.z0 + b.z1) / 2)
 			}
 			m.userData.i = b.i
-			if (b.i === this.selected) mat.emissive.set(0x333333)
+			if (b.i === this.selected || (hl && lit(b))) mat.emissive.set(0x333333)
 			this.shelfGroup.add(m)
 			this.pickables.push(m)
+		}
+		if (hl !== 'walk' && hl !== 'depth') return
+		// The clear space the figure measures: floor to head height, between the shelves and the front.
+		const [x0, x1] = hl === 'walk' ? c.walkX : [0, r.w]
+		const z0 = hl === 'depth' ? c.depthZ : 0
+		const h = Math.min(HEAD, r.h)
+		const geo = new THREE.BoxGeometry(x1 - x0, h, c.front - z0)
+		const accent = this.css('--color-accent')
+		const box = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: accent, transparent: true, opacity: 0.22, depthWrite: false }))
+		const edges = new THREE.LineSegments(new THREE.EdgesGeometry(geo), new THREE.LineBasicMaterial({ color: accent }))
+		for (const o of [box, edges]) {
+			o.position.set((x0 + x1) / 2, h / 2, (z0 + c.front) / 2)
+			this.hlGroup.add(o)
 		}
 	}
 

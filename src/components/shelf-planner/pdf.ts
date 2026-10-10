@@ -1,5 +1,19 @@
 /** A4 PDF of the plan: doorway view, room, depths, levels, cut list and notes. */
-import { type Plan, ROOM_FIELDS, TYPES, TYPE_KEYS, type TypeKey, boards, fmt, gapAbove, notes, sortLevels } from './model'
+import {
+	type Plan,
+	ROOM_FIELDS,
+	STOCK,
+	TYPES,
+	TYPE_KEYS,
+	type TypeKey,
+	boards,
+	fixings,
+	fmt,
+	gapAbove,
+	groupLengths,
+	notes,
+	sortLevels,
+} from './model'
 
 export async function savePdf(plan: Plan, name: string, image?: { url: string; ratio: number }) {
 	const { jsPDF } = await import('jspdf')
@@ -129,6 +143,20 @@ export async function savePdf(plan: Plan, name: string, image?: { url: string; r
 	doc.setFont('helvetica', 'bold')
 	doc.text(`${b.length} boards, ${fmt(b.reduce((a, s) => a + s.len, 0) / 100)}m total run`, M, y + 2)
 	y += 8
+
+	const f = fixings(plan)
+	head('Fixings (use one, or mix them)')
+	doc.setFont('helvetica', 'normal')
+	for (const t of [
+		`Battens: ${fmt(f.battenRun / 100)}m, ${f.stock} x ${fmt(STOCK / 100)}m lengths. Cut ${groupLengths(f.battens) || 'nothing'}. One under every shelf edge that meets a wall.`,
+		`Or shelf brackets (L-brackets): ${f.brackets}, at least 2 per shelf and at most 50cm apart.`,
+	]) {
+		const lines = doc.splitTextToSize(t, W)
+		need(lines.length * 4.5)
+		doc.text(lines, M, y + 3)
+		y += lines.length * 4.5 + 1
+	}
+	y += 3
 
 	head('Notes')
 	doc.setFont('helvetica', 'normal')

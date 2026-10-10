@@ -104,7 +104,7 @@ export const ROOM_FIELDS: [keyof Room, string, [number, number]][] = [
 
 export const DEFAULT_ROOM: Room = {
 	w: 146,
-	dl: 93,
+	dl: 103,
 	dr: 103,
 	ret: 14,
 	retD: 10,
@@ -128,7 +128,7 @@ export const DEFAULT_LEVELS: Level[] = [
 	{ y: 124, L: 'sm', B: 'lg', R: 'lg', D: '' },
 	{ y: 160, L: 'sm', B: 'lg', R: 'lg', D: '' },
 	{ y: 196, L: 'sm', B: 'lg', R: 'sm', D: '' },
-	{ y: 238, L: 'sm', B: 'lg', R: 'lg', D: 'lg' },
+	{ y: 238, L: 'sm', B: 'lg', R: 'lg', D: '' },
 ]
 
 export const defaultPlan = (): Plan => normalise(null)
@@ -195,18 +195,72 @@ export function boards(plan: Plan): Board[] {
 	return out
 }
 
-/** Narrowest walkway and shallowest standing depth below head height. */
+/** Shelves at or above this height (cm) are over head height, so they don't block the floor. */
+export const HEAD = 150
+
+/**
+ * Narrowest walkway between the side shelves and shallowest standing depth in front of the back
+ * shelf, below head height. Also says where each one is tightest, so the 3D view can show it.
+ * `walkLevel` and `depthLevel` index the sorted levels, like Board.i; -1 means no shelf limits it.
+ */
 export function clearances(plan: Plan) {
-	let walk = plan.room.w
+	const r = plan.room
 	// The shallower side wall is the tighter one to stand in.
-	const front = Math.min(plan.room.dl, plan.room.dr)
-	let depth = front
-	for (const l of plan.levels) {
-		if (l.y >= 150) continue
-		walk = Math.min(walk, plan.room.w - depthOf(plan.depths, l.L) - depthOf(plan.depths, l.R))
-		depth = Math.min(depth, front - depthOf(plan.depths, l.B))
+	const front = Math.min(r.dl, r.dr)
+	const out = { walk: r.w, walkX: [0, r.w], walkLevel: -1, depth: front, depthZ: 0, depthLevel: -1, front }
+	sortLevels(plan.levels).forEach((l, i) => {
+		if (l.y >= HEAD) return
+		const lD = depthOf(plan.depths, l.L)
+		const rD = depthOf(plan.depths, l.R)
+		if (r.w - lD - rD < out.walk) Object.assign(out, { walk: r.w - lD - rD, walkX: [lD, r.w - rD], walkLevel: i })
+		const bD = depthOf(plan.depths, l.B)
+		if (front - bD < out.depth) Object.assign(out, { depth: front - bD, depthZ: bD, depthLevel: i })
+	})
+	return out
+}
+
+/** Battens are sold in this length (cm) at most timber yards. */
+export const STOCK = 240
+/** Saw cut (cm) lost between two pieces cut from one length. */
+const KERF = 0.3
+/** Brackets go at most this far apart (cm) for shelves loaded with jars and tins, and this far in from each end. */
+const BRACKET_GAP = 50
+const BRACKET_END = 10
+
+export const bracketsFor = (len: number) => Math.max(2, Math.ceil((len - 2 * BRACKET_END) / BRACKET_GAP) + 1)
+
+/** How many stock lengths the pieces cut from, packed first-fit decreasing. A piece longer than one length is joined. */
+export function stockLengths(pieces: number[], stock = STOCK) {
+	const parts = pieces.flatMap((p) => [...Array<number>(Math.floor(p / stock)).fill(stock), ...(p % stock > 0 ? [p % stock] : [])])
+	const left: number[] = []
+	for (const p of parts.sort((a, b) => b - a)) {
+		const i = left.findIndex((r) => r >= p)
+		if (i >= 0) left[i] -= p + KERF
+		else left.push(stock - p - KERF)
 	}
-	return { walk, depth }
+	return left.length
+}
+
+/**
+ * The two ways to hold the shelves up. Battens run under every board edge that meets a wall; side
+ * shelves also need one across the back wall under their back end. Brackets go under each board.
+ */
+export function fixings(plan: Plan) {
+	const all = boards(plan)
+	const battens = all.flatMap((b) => (b.wall === 'Left' || b.wall === 'Right' ? [b.len, b.d] : [b.len]))
+	return {
+		battens,
+		battenRun: battens.reduce((a, b) => a + b, 0),
+		stock: stockLengths(battens),
+		brackets: all.reduce((a, b) => a + bracketsFor(b.len), 0),
+	}
+}
+
+/** "2 × 85, 4 × 40" — repeated lengths grouped, longest first. */
+export function groupLengths(pieces: number[]) {
+	const counts = new Map<string, number>()
+	for (const p of [...pieces].sort((a, b) => b - a)) counts.set(fmt(p), (counts.get(fmt(p)) ?? 0) + 1)
+	return [...counts].map(([len, n]) => `${n} × ${len}cm`).join(', ')
 }
 
 function sideNote(side: string, d: number, rw: number, rd: number, sb: number, len: number) {
@@ -261,15 +315,44 @@ export function normalise(p: Partial<Plan> | null | undefined): Plan {
 		const v = oldDepths[t]
 		if (typeof v === 'number' && v > 0) depths[t] = v
 	}
-	const levels = Array.isArray(p?.levels) ? clone(p.levels) : clone(DEFAULT_LEVELS)
+	// Share links are untrusted: keep only levels with a usable height, and give every level its own id.
+	const levels = (Array.isArray(p?.levels) ? clone(p.levels) : clone(DEFAULT_LEVELS)).filter(
+		(l) => l && typeof l.y === 'number' && Number.isFinite(l.y),
+	)
+	const ids = new Set<number>()
 	levels.forEach((l, i) => {
-		if (typeof l.id !== 'number') l.id = Date.now() + i
+		l.y = clampY(room, l.y)
+		if (typeof l.id !== 'number' || ids.has(l.id)) l.id = Date.now() + i
+		ids.add(l.id)
 		for (const [k] of WALLS) {
 			const v = l[k] as string
 			l[k] = isSize(v) ? v : Object.prototype.hasOwnProperty.call(LEGACY_TYPE, v) ? LEGACY_TYPE[v] : ''
 		}
 	})
 	return { room, depths, levels: sortLevels(levels) }
+}
+
+/**
+ * Share links carry the whole plan in the URL hash (`#plan=…`), so nothing goes to a server.
+ * The JSON is UTF-8 so any plan name survives, then base64url so it sits in a URL as is.
+ */
+export function encodeShare(name: string, p: Plan) {
+	const json = JSON.stringify({ n: name, p: { room: p.room, depths: p.depths, levels: p.levels.map(({ id, ...l }) => l) } })
+	return btoa(String.fromCharCode(...new TextEncoder().encode(json)))
+		.replace(/\+/g, '-')
+		.replace(/\//g, '_')
+		.replace(/=+$/, '')
+}
+
+export function decodeShare(code: string): { name: string; plan: Plan } | null {
+	try {
+		const bin = atob(code.replace(/-/g, '+').replace(/_/g, '/'))
+		const { n, p } = JSON.parse(new TextDecoder().decode(Uint8Array.from(bin, (c) => c.charCodeAt(0))))
+		if (!p || typeof p !== 'object' || !Array.isArray(p.levels)) return null
+		return { name: typeof n === 'string' ? n.trim().slice(0, 60) : '', plan: normalise(p) }
+	} catch {
+		return null
+	}
 }
 
 /* Browser storage. Every call is wrapped: private windows and blocked storage throw. */
