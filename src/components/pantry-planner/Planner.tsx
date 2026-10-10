@@ -115,7 +115,7 @@ export default function Planner() {
 				}
 			}
 			const id = Date.now()
-			p.levels.push({ id, y: clampY(p.room, y), L: 'g', B: 'p', R: 'p', D: '' })
+			p.levels.push({ id, y: clampY(p.room, y), L: 'sm', B: 'lg', R: 'lg', D: '' })
 			setSelId(id)
 		})
 	const spaceEvenly = () =>
@@ -275,7 +275,7 @@ export default function Planner() {
 								class="zui-input"
 								type="text"
 								maxlength="60"
-								placeholder="Glasses left, books over door"
+								placeholder="Shallow left, deep back"
 								value={name()}
 								onInput={(e) => {
 									setName(e.currentTarget.value)
@@ -335,8 +335,8 @@ export default function Planner() {
 				</section>
 
 				<section class="pp-card">
-					<h2>Shelf depths</h2>
-					<p class="pp-sub">Front to back. Changing one updates every shelf of that type.</p>
+					<h2>Shelf sizes</h2>
+					<p class="pp-sub">Depth front to back for each size. Changing one updates every shelf of that size.</p>
 					<div class="pp-cells">
 						<For each={TYPE_KEYS}>
 							{(t: TypeKey) => (
@@ -451,7 +451,7 @@ export default function Planner() {
 									<th>Level</th>
 									<th>Height</th>
 									<th>Wall</th>
-									<th>Use</th>
+									<th>Size</th>
 									<th>Length</th>
 									<th>Depth</th>
 								</tr>

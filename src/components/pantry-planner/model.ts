@@ -6,7 +6,8 @@
  * wall), z runs from the back wall (0) towards the doors, y is height.
  */
 
-export type TypeKey = 'g' | 'p' | 's' | 'b'
+/** Shelf depth sizes, smallest to largest. */
+export type TypeKey = 'sm' | 'md' | 'lg' | 'xl'
 export type WallKey = 'L' | 'B' | 'R' | 'D'
 
 export interface Room {
@@ -70,10 +71,10 @@ export interface Board {
 }
 
 export const TYPES: Record<TypeKey, { name: string; color: string }> = {
-	g: { name: 'Glasses', color: '--color-teal-500' },
-	p: { name: 'Plates', color: '--color-violet-500' },
-	s: { name: 'Serving', color: '--color-orange-500' },
-	b: { name: 'Cookbooks', color: '--color-amber-400' },
+	sm: { name: 'SM', color: '--color-teal-500' },
+	md: { name: 'MD', color: '--color-sky-500' },
+	lg: { name: 'LG', color: '--color-violet-500' },
+	xl: { name: 'XL', color: '--color-orange-500' },
 }
 export const TYPE_KEYS = Object.keys(TYPES) as TypeKey[]
 
@@ -118,16 +119,16 @@ export const DEFAULT_ROOM: Room = {
 	sw: 220,
 }
 
-export const DEFAULT_DEPTHS: Depths = { g: 17, p: 30, s: 35, b: 30 }
+export const DEFAULT_DEPTHS: Depths = { sm: 17, md: 25, lg: 30, xl: 35 }
 
 export const DEFAULT_LEVELS: Level[] = [
-	{ y: 12, L: 'g', B: 's', R: 'b', D: '' },
-	{ y: 52, L: 'g', B: 's', R: 'b', D: '' },
-	{ y: 88, L: 'g', B: 'p', R: 'p', D: '' },
-	{ y: 124, L: 'g', B: 'p', R: 'p', D: '' },
-	{ y: 160, L: 'g', B: 'p', R: 'p', D: '' },
-	{ y: 196, L: 'g', B: 'p', R: 'g', D: '' },
-	{ y: 238, L: 'g', B: 'b', R: 'b', D: 'b' },
+	{ y: 12, L: 'sm', B: 'xl', R: 'lg', D: '' },
+	{ y: 52, L: 'sm', B: 'xl', R: 'lg', D: '' },
+	{ y: 88, L: 'sm', B: 'lg', R: 'lg', D: '' },
+	{ y: 124, L: 'sm', B: 'lg', R: 'lg', D: '' },
+	{ y: 160, L: 'sm', B: 'lg', R: 'lg', D: '' },
+	{ y: 196, L: 'sm', B: 'lg', R: 'sm', D: '' },
+	{ y: 238, L: 'sm', B: 'lg', R: 'lg', D: 'lg' },
 ]
 
 export const defaultPlan = (): Plan => normalise(null)
@@ -217,6 +218,13 @@ export function notes(r: Room) {
 	]
 }
 
+/**
+ * Plans saved before depths were sized used named types. Each maps to the size
+ * that kept its depth (cookbooks were 30cm, so they become LG, not MD).
+ */
+const LEGACY_TYPE: Record<string, TypeKey> = { g: 'sm', p: 'lg', s: 'xl', b: 'lg' }
+const LEGACY_DEPTH: Record<string, TypeKey> = { g: 'sm', p: 'lg', s: 'xl' }
+
 /** Fill gaps from older saved data with defaults so new fields never come back undefined. */
 export function normalise(p: Partial<Plan> | null | undefined): Plan {
 	const room = { ...DEFAULT_ROOM }
@@ -225,13 +233,22 @@ export function normalise(p: Partial<Plan> | null | undefined): Plan {
 		if (typeof v === 'number' && Number.isFinite(v)) room[k] = v
 	}
 	const depths = { ...DEFAULT_DEPTHS }
+	const oldDepths = (p?.depths ?? {}) as Record<string, unknown>
+	for (const [from, to] of Object.entries(LEGACY_DEPTH)) {
+		const v = oldDepths[from]
+		if (typeof v === 'number' && v > 0) depths[to] = v
+	}
 	for (const t of TYPE_KEYS) {
-		const v = p?.depths?.[t]
+		const v = oldDepths[t]
 		if (typeof v === 'number' && v > 0) depths[t] = v
 	}
 	const levels = Array.isArray(p?.levels) && p.levels.length ? clone(p.levels) : clone(DEFAULT_LEVELS)
 	levels.forEach((l, i) => {
 		if (typeof l.id !== 'number') l.id = Date.now() + i
+		for (const [k] of WALLS) {
+			const v = l[k] as string
+			l[k] = v in TYPES ? (v as TypeKey) : (LEGACY_TYPE[v] ?? '')
+		}
 	})
 	return { room, depths, levels: sortLevels(levels) }
 }

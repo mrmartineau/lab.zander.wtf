@@ -78,10 +78,10 @@ export async function savePdf(plan: Plan, name: string, image?: { url: string; r
 		roomRows,
 	)
 
-	head('Shelf depths')
+	head('Shelf sizes')
 	table(
 		[
-			['Type', 62],
+			['Size', 62],
 			['Depth (cm)', 30],
 		],
 		TYPE_KEYS.map((t) => [TYPES[t].name, fmt(plan.depths[t])]),
@@ -119,7 +119,7 @@ export async function savePdf(plan: Plan, name: string, image?: { url: string; r
 			['Level', 14],
 			['Height', 20],
 			['Wall', 28],
-			['Use', 34],
+			['Size', 34],
 			['Length (cm)', 30],
 			['Depth (cm)', 30],
 		],
