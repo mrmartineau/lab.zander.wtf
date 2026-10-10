@@ -87,7 +87,7 @@ In an `.md` page, put the same keys in the YAML frontmatter block.
   loaded in `Layout.astro`.
 - Each lab item page may have a completely bespoke design. `Layout.astro` is
   intentionally minimal. On lab item pages it adds a small top bar
-  (`lab.zander.wtf / <slug>` with a dropdown to switch items) and a footer.
+  (`lab.zander.wtf / <slug>` with a dropdown to switch items) and a footer. The homepage gets the footer too.
   Full-screen pages pass `bare` to skip both.
 - Both React and Solid integrations are installed. They both compile JSX, so
   `astro.config.mjs` scopes them: Solid only handles `**/word-art/**` and `**/playground/**`, React

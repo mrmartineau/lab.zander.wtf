@@ -96,7 +96,8 @@ change to `wrangler.jsonc`.
 - Each lab item page may have a **completely bespoke design**. `Layout.astro` is
   intentionally minimal so pages can opt in for the ZUI baseline or skip it.
   On lab item pages it adds a small top bar (`lab.zander.wtf / <slug>` with a
-  dropdown to switch items) and a footer, so pages need no back link.
+  dropdown to switch items) and a footer, so pages need no back link. The
+  homepage gets the footer too.
   Full-screen pages pass `<Layout bare>` to skip both.
 - Component classes use the `zui-` prefix; utility classes have no prefix.
 
