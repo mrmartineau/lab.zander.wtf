@@ -15,9 +15,11 @@ interface Props {
 
 const { title = 'lab.zander.wtf', lockZoom = false, bare = false, reactions: forceReactions } = Astro.props
 
-// Lab item pages (`/<slug>`) get a bar with a quick switcher and a footer.
+// Lab item pages (`/<slug>`) get a bar with a quick switcher. Every page but
+// `bare` ones gets the footer.
 const slug = Astro.url.pathname.split('/').filter(Boolean)[0]
 const showChrome = Boolean(slug) && !bare
+const showFooter = !bare
 const items = showChrome
 	? buildLabItems(import.meta.glob('../pages/*/index.{astro,md}', { eager: true }))
 	: []
@@ -58,7 +60,7 @@ const viewport = lockZoom
 			href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/regular/style.css"
 		/>
 	</head>
-	<body class:list={[{ 'lock-zoom': lockZoom, 'has-chrome': showChrome }]}>
+	<body class:list={[{ 'lock-zoom': lockZoom, 'has-footer': showFooter }]}>
 		{
 			showChrome && (
 				<nav class="lab-bar" aria-label="Lab">
@@ -86,7 +88,7 @@ const viewport = lockZoom
 		}
 		<slot />
 		{
-			showChrome && (
+			showFooter && (
 				<footer class="lab-footer">
 					<span>© {new Date().getFullYear()} Zander Martineau</span>
 					<span class="lab-footer-links">
@@ -188,7 +190,7 @@ const viewport = lockZoom
 		pointer-events: none;
 	}
 	/* Push the footer to the bottom on short pages. */
-	body.has-chrome {
+	body.has-footer {
 		display: flex;
 		flex-direction: column;
 	}
