@@ -86,11 +86,17 @@ export default function Planner() {
 		toastTimer = setTimeout(() => setToast(''), 2600)
 	}
 
-	/** Keep the current plan in storage, and say once if the browser won't keep it. */
+	/**
+	 * Keep the current plan in storage, and say once if the browser won't keep it.
+	 * Returns false when it isn't stored, so callers don't report success over the warning.
+	 */
 	const persist = (p: Plan) => {
-		if (saveCurrent(p) || warnedStorage) return
-		warnedStorage = true
-		say("This browser isn't keeping your plan. Changes will be lost on reload, so save a PDF before you leave.")
+		if (saveCurrent(p)) return true
+		if (!warnedStorage) {
+			warnedStorage = true
+			say("This browser isn't keeping your plan. Changes will be lost on reload, so save a PDF before you leave.")
+		}
+		return false
 	}
 
 	/**
@@ -162,6 +168,8 @@ export default function Planner() {
 		persist(p)
 		setSelId(null)
 		setName('')
+		setPendingOverwrite(null)
+		setPendingDelete(null)
 	}
 
 	const savePlan = () => {
@@ -170,7 +178,7 @@ export default function Planner() {
 			setNameError('Enter a name first')
 			return
 		}
-		if (saved()[n] && pendingOverwrite() !== n) {
+		if (Object.prototype.hasOwnProperty.call(saved(), n) && pendingOverwrite() !== n) {
 			setPendingOverwrite(n)
 			return
 		}
@@ -187,11 +195,11 @@ export default function Planner() {
 	const loadPlan = (n: string) => {
 		const p = normalise(saved()[n])
 		setPlan(p)
-		persist(p)
+		const stored = persist(p)
 		setSelId(null)
 		setName(n)
 		setPendingOverwrite(null)
-		say(`Loaded "${n}"`)
+		say(stored ? `Loaded "${n}"` : `Loaded "${n}", but this browser won't keep it after a reload.`)
 	}
 	const deletePlan = (n: string) => {
 		if (pendingDelete() !== n) {
