@@ -1,0 +1,32 @@
+---
+import Layout from '../../layouts/Layout.astro'
+import { Badge } from '@mrmartineau/zui/astro'
+import Planner from '../../components/pantry-planner/Planner'
+import '../../components/pantry-planner/pantry-planner.css'
+
+export const title = 'Pantry shelf planner'
+export const description =
+	'Plan the shelves in a walk-in cupboard in 3D: aligned levels, per-wall shelf sizes (SM to XL), editable room and depths, a cut list and a PDF to take to the builder.'
+export const date = '2026-10-10'
+export const status = 'live'
+export const tags = ['tool', '3d', 'home', 'solid']
+---
+
+<Layout title="Pantry shelf planner — lab.zander.wtf">
+	<main class="pp-app">
+		<header class="pp-header">
+			<div class="pp-title">
+				<h1>Pantry shelf planner</h1>
+				<Badge variant="fill" color="emerald">live</Badge>
+			</div>
+			<p class="pp-intro">
+				Built for our new kitchen pantry. Set the room's measurements, pick what goes on each wall at each level, and every shelf on a
+				level lines up at the same height. The cut list and PDF update as you go.
+			</p>
+		</header>
+
+		<Planner client:only="solid-js">
+			<p class="pp-loading" slot="fallback">Measuring the cupboard…</p>
+		</Planner>
+	</main>
+</Layout>

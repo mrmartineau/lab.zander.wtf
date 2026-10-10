@@ -1,0 +1,405 @@
+/* Pantry shelf planner. Everything is pp- prefixed and built on ZUI tokens. */
+.pp-app,
+.pp-app *,
+.pp-app *::before,
+.pp-app *::after {
+	box-sizing: border-box;
+}
+.pp-app {
+	padding: var(--space-md) var(--space-md) var(--space-2xl);
+	max-width: 80rem;
+	margin-inline: auto;
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-md);
+}
+.pp-header {
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-2xs);
+}
+.pp-title {
+	display: flex;
+	align-items: center;
+	gap: var(--space-sm);
+	flex-wrap: wrap;
+}
+.pp-title h1 {
+	margin: 0;
+	font-size: var(--step-4);
+	line-height: 1.05;
+	text-wrap: balance;
+}
+.pp-intro {
+	margin: 0;
+	max-width: 62ch;
+	color: var(--color-muted);
+}
+
+.pp-grid {
+	display: grid;
+	gap: var(--space-md);
+	grid-template-columns: minmax(0, 1fr);
+}
+@media (min-width: 57.5rem) {
+	.pp-grid {
+		grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+		align-items: start;
+	}
+	.pp-stagecol {
+		position: sticky;
+		top: var(--space-md);
+	}
+}
+.pp-panels {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr);
+	gap: var(--space-md);
+	min-width: 0;
+}
+.pp-stagecol,
+.pp-card {
+	min-width: 0;
+}
+
+.pp-stage {
+	position: relative;
+	height: 27.5rem;
+	border: 1px var(--border-style) var(--color-border);
+	border-radius: var(--radius-xl);
+	background: var(--color-surface);
+	overflow: hidden;
+	touch-action: none;
+}
+.pp-stage canvas {
+	display: block;
+}
+.pp-views {
+	position: absolute;
+	top: var(--space-xs);
+	right: var(--space-xs);
+	display: flex;
+	gap: var(--space-3xs);
+	z-index: 1;
+}
+.pp-views .zui-button {
+	background: var(--color-background);
+}
+.pp-hint {
+	margin: var(--space-3xs) 0 0;
+	font-size: var(--step--1);
+	color: var(--color-muted);
+}
+
+.pp-legend {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--space-3xs) var(--space-sm);
+	margin-top: var(--space-xs);
+	font-size: var(--step--1);
+	color: var(--color-muted);
+}
+.pp-legend span {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--space-3xs);
+}
+.pp-swatch {
+	display: inline-block;
+	width: 0.7rem;
+	height: 0.7rem;
+	border-radius: var(--radius-sm);
+	margin-inline-end: var(--space-3xs);
+	vertical-align: -0.05em;
+}
+.pp-legend .pp-swatch {
+	margin: 0;
+}
+
+.pp-stats {
+	display: grid;
+	grid-template-columns: repeat(3, minmax(0, 1fr));
+	gap: var(--space-xs);
+	margin-top: var(--space-sm);
+}
+.pp-stats div {
+	padding: var(--space-xs) var(--space-sm);
+	border: 1px var(--border-style) var(--color-border);
+	border-radius: var(--radius-lg);
+	background: var(--color-surface);
+}
+.pp-stats small {
+	display: block;
+	font-size: var(--step--2);
+	letter-spacing: 0.04em;
+	text-transform: uppercase;
+	color: var(--color-muted);
+}
+.pp-stats b {
+	font-family: var(--font-code);
+	font-size: var(--step-1);
+	font-weight: var(--font-weight-medium);
+	font-variant-numeric: tabular-nums;
+}
+
+.pp-card {
+	padding: var(--space-md);
+	border: 1px var(--border-style) var(--color-border);
+	border-radius: var(--radius-xl);
+	background: var(--color-surface);
+}
+.pp-card h2 {
+	margin: 0 0 var(--space-3xs);
+	font-size: var(--step-1);
+}
+.pp-sub {
+	margin: 0 0 var(--space-sm);
+	font-size: var(--step--1);
+	color: var(--color-muted);
+	max-width: 65ch;
+}
+
+.pp-cells {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(9.5rem, 1fr));
+	gap: var(--space-xs);
+}
+.pp-cells-4 {
+	grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+@media (max-width: 30rem) {
+	.pp-cells-4 {
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+	}
+}
+.pp-num {
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-4xs);
+	min-width: 0;
+}
+.pp-num-label {
+	font-size: var(--step--2);
+	letter-spacing: 0.04em;
+	text-transform: uppercase;
+	color: var(--color-muted);
+}
+.pp-num-box {
+	display: flex;
+	align-items: center;
+	height: 2.25rem;
+	border: 1px var(--border-style) var(--color-border);
+	border-inline-start-width: 4px;
+	border-radius: var(--radius-md);
+	background: var(--color-background);
+	overflow: hidden;
+}
+.pp-num-box input {
+	flex: 1;
+	min-width: 0;
+	height: 100%;
+	border: 0;
+	padding-inline: var(--space-xs);
+	background: transparent;
+	color: var(--color-text);
+	font: inherit;
+	font-family: var(--font-code);
+	font-variant-numeric: tabular-nums;
+}
+.pp-num-box span {
+	padding-inline-end: var(--space-xs);
+	font-family: var(--font-code);
+	font-size: var(--step--1);
+	color: var(--color-muted);
+}
+.pp-select {
+	width: 100%;
+	border-inline-start-width: 4px;
+}
+.pp-select:disabled {
+	opacity: 0.45;
+}
+
+.pp-level {
+	display: grid;
+	gap: var(--space-xs);
+	padding-block: var(--space-sm);
+	border-top: 1px var(--border-style) var(--color-border);
+}
+.pp-level:first-of-type {
+	border-top: 0;
+}
+.pp-level.is-selected {
+	margin-inline: calc(var(--space-md) * -1);
+	padding-inline: var(--space-md);
+	background: color-mix(in srgb, var(--color-accent) 10%, transparent);
+}
+.pp-level-top {
+	display: flex;
+	align-items: center;
+	gap: var(--space-xs);
+	flex-wrap: wrap;
+}
+.pp-level-num {
+	min-width: 1.5rem;
+	font-family: var(--font-code);
+	font-size: var(--step--1);
+	color: var(--color-muted);
+}
+.pp-height {
+	display: flex;
+	align-items: center;
+	border: 1px var(--border-style) var(--color-border);
+	border-radius: var(--radius-md);
+	background: var(--color-background);
+	overflow: hidden;
+}
+.pp-height button {
+	width: 2.25rem;
+	height: 2.25rem;
+	border: 0;
+	background: transparent;
+	color: var(--color-text);
+	cursor: pointer;
+}
+.pp-height button:hover {
+	background: var(--color-surface);
+}
+.pp-height input {
+	width: 4.5rem;
+	height: 2.25rem;
+	border: 0;
+	border-inline: 1px var(--border-style) var(--color-border);
+	background: transparent;
+	color: var(--color-text);
+	font-family: var(--font-code);
+	text-align: center;
+	font-variant-numeric: tabular-nums;
+}
+.pp-gap {
+	font-family: var(--font-code);
+	font-size: var(--step--1);
+	color: var(--color-muted);
+}
+.pp-gap.is-tight {
+	padding: var(--space-5xs) var(--space-2xs);
+	border-radius: var(--radius-sm);
+	color: var(--color-warning);
+	background: color-mix(in srgb, var(--color-warning) 14%, transparent);
+}
+.pp-remove {
+	margin-inline-start: auto;
+}
+
+.pp-row {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--space-xs);
+	margin-top: var(--space-sm);
+}
+.pp-save {
+	display: flex;
+	align-items: flex-end;
+	gap: var(--space-xs);
+	flex-wrap: wrap;
+}
+.pp-error {
+	margin: var(--space-2xs) 0 0;
+	font-size: var(--step--1);
+	color: var(--color-error);
+}
+.pp-empty {
+	margin: var(--space-sm) 0 0;
+	font-size: var(--step--1);
+	color: var(--color-muted);
+}
+.pp-saved {
+	list-style: none;
+	margin: var(--space-sm) 0 0;
+	padding: 0;
+}
+.pp-saved li {
+	display: flex;
+	align-items: center;
+	gap: var(--space-xs);
+	flex-wrap: wrap;
+	padding-block: var(--space-xs);
+	border-top: 1px var(--border-style) var(--color-border);
+}
+.pp-saved b {
+	flex: 1 1 9rem;
+	min-width: 0;
+	overflow-wrap: anywhere;
+	font-weight: var(--font-weight-medium);
+}
+.pp-saved small {
+	font-family: var(--font-code);
+	font-size: var(--step--2);
+	color: var(--color-muted);
+}
+
+.pp-tablewrap {
+	overflow-x: auto;
+}
+.pp-tablewrap table {
+	width: 100%;
+	border-collapse: collapse;
+	font-size: var(--step--1);
+	font-variant-numeric: tabular-nums;
+}
+.pp-tablewrap th {
+	padding: var(--space-3xs) var(--space-xs);
+	text-align: left;
+	font-size: var(--step--2);
+	font-weight: var(--font-weight-medium);
+	letter-spacing: 0.04em;
+	text-transform: uppercase;
+	color: var(--color-muted);
+	border-bottom: 1px var(--border-style) var(--color-border);
+}
+.pp-tablewrap td {
+	padding: var(--space-2xs) var(--space-xs);
+	white-space: nowrap;
+	border-bottom: 1px var(--border-style) var(--color-border);
+}
+.pp-tablewrap tfoot td {
+	font-weight: var(--font-weight-medium);
+	border-bottom: 0;
+}
+.pp-mono {
+	font-family: var(--font-code);
+}
+.pp-toast {
+	min-height: 1.4em;
+	margin: var(--space-2xs) 0 0;
+	font-size: var(--step--1);
+	color: var(--color-success);
+}
+.pp-notes {
+	margin: var(--space-xs) 0 0;
+	padding-inline-start: var(--space-md);
+	max-width: 65ch;
+	font-size: var(--step--1);
+	color: var(--color-muted);
+}
+.pp-notes li + li {
+	margin-top: var(--space-4xs);
+}
+.pp-loading {
+	color: var(--color-muted);
+}
+
+/* The wrappers clip their children, so focus shows on the wrapper instead of the clipped control. */
+.pp-num-box:focus-within,
+.pp-height:has(input:focus-visible) {
+	outline: 2px var(--border-style) var(--color-accent);
+	outline-offset: 2px;
+}
+.pp-num-box input:focus-visible,
+.pp-height input:focus-visible {
+	outline: none;
+}
+.pp-height button:focus-visible {
+	outline: 2px var(--border-style) var(--color-accent);
+	outline-offset: -2px;
+}

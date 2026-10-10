@@ -9,8 +9,8 @@ import cloudflare from '@astrojs/cloudflare';
 export default defineConfig({
   // Both use JSX, so each integration only claims its own files.
   integrations: [
-    react({ exclude: ['**/word-art/**', '**/playground/**'] }),
-    solid({ include: ['**/word-art/**', '**/playground/**'] }),
+    react({ exclude: ['**/word-art/**', '**/playground/**', '**/pantry-planner/**'] }),
+    solid({ include: ['**/word-art/**', '**/playground/**', '**/pantry-planner/**'] }),
   ],
   adapter: cloudflare(),
   // No Astro sessions here. Without this, the adapter adds a SESSION KV
