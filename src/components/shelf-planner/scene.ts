@@ -1,5 +1,5 @@
 /**
- * Three.js view of the pantry. Owns the renderer, a hand-rolled orbit
+ * Three.js view of the room. Owns the renderer, a hand-rolled orbit
  * (drag to rotate, pinch or wheel to zoom) and tap-to-pick on shelves.
  * Colours come from ZUI tokens on the container so it follows the theme.
  */
@@ -14,7 +14,7 @@ const VIEWS: Record<View, [number, number, number]> = {
 	side: [Math.PI / 2, 1.5, 600],
 }
 
-export class PantryScene {
+export class ShelfScene {
 	private renderer: THREE.WebGLRenderer
 	private scene = new THREE.Scene()
 	private camera = new THREE.PerspectiveCamera(42, 1, 1, 4000)
@@ -42,7 +42,7 @@ export class PantryScene {
 		const canvas = this.renderer.domElement
 		// The model is pointer-only; everything it shows is also in the levels list and cut list.
 		canvas.setAttribute('role', 'img')
-		canvas.setAttribute('aria-label', 'Rotatable 3D model of the pantry and its shelves. Every shelf is also listed in the levels and cut list.')
+		canvas.setAttribute('aria-label', 'Rotatable 3D model of the room and its shelves. Every shelf is also listed in the levels and cut list.')
 		el.appendChild(canvas)
 		this.scene.add(new THREE.AmbientLight(0xffffff, 0.7 * Math.PI))
 		const light = new THREE.DirectionalLight(0xffffff, 0.55 * Math.PI)

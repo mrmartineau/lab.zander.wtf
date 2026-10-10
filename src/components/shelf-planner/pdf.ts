@@ -18,7 +18,7 @@ export async function savePdf(plan: Plan, name: string, image?: { url: string; r
 
 	doc.setFont('helvetica', 'bold')
 	doc.setFontSize(18)
-	doc.text('Pantry shelf plan', M, y + 5)
+	doc.text('Shelf plan', M, y + 5)
 	y += 10
 	doc.setFont('helvetica', 'normal')
 	doc.setFontSize(10)
@@ -140,5 +140,5 @@ export async function savePdf(plan: Plan, name: string, image?: { url: string; r
 	}
 
 	const slug = (name || 'plan').replace(/[^\w\- ]+/g, '').trim().replace(/\s+/g, '-').toLowerCase() || 'plan'
-	doc.save(`pantry-shelves-${slug}.pdf`)
+	doc.save(`shelves-${slug}.pdf`)
 }

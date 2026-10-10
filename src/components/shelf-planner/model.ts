@@ -1,5 +1,5 @@
 /**
- * Pantry shelf planner: the room, shelf types and levels, and the maths that
+ * Shelf planner: the room, shelf types and levels, and the maths that
  * turns them into boards. No DOM or Three.js here so it stays easy to check.
  *
  * Coordinates are in cm. x runs left to right along the back wall (0 = left
@@ -273,8 +273,8 @@ export function normalise(p: Partial<Plan> | null | undefined): Plan {
 }
 
 /* Browser storage. Every call is wrapped: private windows and blocked storage throw. */
-const CURRENT_KEY = 'pantry-planner:current'
-const SAVED_KEY = 'pantry-planner:saved'
+const CURRENT_KEY = 'shelf-planner:current'
+const SAVED_KEY = 'shelf-planner:saved'
 
 export interface SavedPlan extends Plan {
 	at: number
@@ -297,7 +297,9 @@ function write(key: string, value: unknown) {
 	}
 }
 
-export const loadCurrent = () => normalise(read<Plan>(CURRENT_KEY))
+// ponytail: plans kept before the rename to shelf planner. Delete once nobody has them.
+export const loadCurrent = () => normalise(read<Plan>(CURRENT_KEY) ?? read<Plan>('pantry-planner:current'))
 export const saveCurrent = (p: Plan) => write(CURRENT_KEY, p)
-export const loadSaved = () => read<Record<string, SavedPlan>>(SAVED_KEY) ?? {}
+export const loadSaved = () =>
+	read<Record<string, SavedPlan>>(SAVED_KEY) ?? read<Record<string, SavedPlan>>('pantry-planner:saved') ?? {}
 export const writeSaved = (all: Record<string, SavedPlan>) => write(SAVED_KEY, all)

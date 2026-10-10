@@ -15,11 +15,11 @@ design.
 | `css-icons`           | Icons drawn with nothing but CSS — no SVG, no images    |
 | `data-transformation` | A React "dojo" for practising data-transform challenges |
 | `drawing-app`         | Kid-friendly drawing app — magic brushes, fill, colouring pages, text, mirrors |
-| `pantry-planner`      | 3D walk-in pantry shelf planner (Solid + Three.js): aligned levels, per-wall shelf sizes (SM to XL), editable room, returns and depths, live cut list, saved plans in the browser, A4 PDF export |
 | `playground`          | Creative Coding Playground (Solid + Tweakpane + WebGL shaders) — grainy blobs, silk folds, conic gradients, shards, arcs, bird swarms; drag items on the canvas to move them; favourites, share links, PNG export up to 8192px, looping MP4 export up to 4K |
 | `keyboard-only`       | A cursorless page navigated entirely with the keyboard  |
 | `loop-synth`          | Step sequencer — draw tunes on a 16/32-step grid, loop one pattern or chain 4 into a song (Follow tracks the playing bar), Space / media keys play-pause, delay + reverb, all synthesised live with the Web Audio API; save compositions in the browser, share links, WAV + MIDI export (`node src/components/loop-synth/song.check.ts` checks the song and file logic) |
 | `procedural-page`     | An endless page that generates itself as you scroll — seeded randomness, no AI |
+| `shelf-planner`       | 3D shelf planner for pantries, larders and walk-in cupboards (Solid + Three.js): aligned levels, per-wall shelf sizes (SM to XL), editable room, returns and depths, live cut list, saved plans in the browser, A4 PDF export |
 | `spotify-favourites`  | Browse most-explored Spotify artists & albums (ZUI)     |
 | `time`                | A quiz for learning to read the 24-hour clock           |
 | `wiki-trail`          | Follow Wikipedia links downward — old articles freeze into cards, the trail is the page |
@@ -37,6 +37,7 @@ src/
   pages/
     index.astro          Homepage — globs pages and reads their frontmatter
     stats.astro          Hearts and views for every lab item
+    sitemap.xml.ts       Sitemap of the homepage and every lab item
     api/reactions.ts     Hearts and views API (zander.wtf's reactions D1 database)
     <slug>/index.astro   One directory per lab item, named by its slug
 ```
@@ -90,8 +91,10 @@ In an `.md` page, put the same keys in the YAML frontmatter block.
   intentionally minimal. On lab item pages it adds a small top bar
   (`lab.zander.wtf / <slug>` with a dropdown to switch items) and a footer.
   Full-screen pages pass `bare` to skip both.
+- Pass `description` and `image` to `Layout` for meta and social tags. Extra
+  head tags, such as JSON-LD, use `slot="head"`.
 - Both React and Solid integrations are installed. They both compile JSX, so
-  `astro.config.mjs` scopes them: Solid only handles `**/word-art/**`, `**/playground/**` and `**/pantry-planner/**`, React
+  `astro.config.mjs` scopes them: Solid only handles `**/word-art/**`, `**/playground/**` and `**/shelf-planner/**`, React
   handles everything else. Add new Solid paths to both filters. Solid files
   also start with `/** @jsxImportSource solid-js */` (tsconfig defaults to React).
 

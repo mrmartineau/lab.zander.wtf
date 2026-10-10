@@ -18,6 +18,7 @@ src/
   pages/
     index.astro          Homepage — globs pages and reads their frontmatter
     stats.astro          Hearts and views for every lab item
+    sitemap.xml.ts       Sitemap of the homepage and every lab item
     api/reactions.ts     Hearts and views API (zander.wtf's reactions D1 database)
     <slug>/index.astro   One directory per lab item, named by its slug
 ```
@@ -98,6 +99,9 @@ change to `wrangler.jsonc`.
   On lab item pages it adds a small top bar (`lab.zander.wtf / <slug>` with a
   dropdown to switch items) and a footer, so pages need no back link.
   Full-screen pages pass `<Layout bare>` to skip both.
+- **SEO**: pass `description` (and `image`, a 1200×630 PNG in `public/<slug>/`) to
+  `Layout` for the meta, canonical, Open Graph and Twitter tags. Extra head tags,
+  such as JSON-LD, go in `<script slot="head">`.
 - Component classes use the `zui-` prefix; utility classes have no prefix.
 
 ## Commands
@@ -113,7 +117,7 @@ Always run `npm run build` after changes to confirm the site compiles.
 ## Notes
 
 - The React and Solid integrations are installed. Both compile JSX, so
-  `astro.config.mjs` scopes them: Solid only handles `**/word-art/**`, `**/playground/**` and `**/pantry-planner/**`, React
+  `astro.config.mjs` scopes them: Solid only handles `**/word-art/**`, `**/playground/**` and `**/shelf-planner/**`, React
   everything else — add new Solid paths to both filters. Solid files start with
   `/** @jsxImportSource solid-js */` because tsconfig defaults to React.
 - **Keep `README.md` up to date.** Whenever a change affects project structure,

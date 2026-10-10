@@ -5,6 +5,10 @@ import { buildLabItems } from '../data/lab'
 
 interface Props {
 	title?: string
+	/** Meta and social description. Falls back to the site's. */
+	description?: string
+	/** Social card image, relative to the site root or absolute. */
+	image?: string
 	/** Disable pinch / double-tap zoom — for game-like, app-like pages. */
 	lockZoom?: boolean
 	/** Skip the lab bar and footer — for full-screen pages. */
@@ -13,7 +17,11 @@ interface Props {
 	reactions?: boolean
 }
 
-const { title = 'lab.zander.wtf', lockZoom = false, bare = false, reactions: forceReactions } = Astro.props
+const {
+	title = 'lab.zander.wtf',
+	description = 'Ideas, experiments, toys and small tools. Some of them work.',
+	image,
+	lockZoom = false, bare = false, reactions: forceReactions } = Astro.props
 
 // Lab item pages (`/<slug>`) get a bar with a quick switcher and a footer.
 const slug = Astro.url.pathname.split('/').filter(Boolean)[0]
@@ -24,6 +32,8 @@ const items = showChrome
 const isItem = items.some((item) => item.slug === slug)
 // Hearts and views (components/Reactions.astro).
 const reactions = showChrome && (forceReactions ?? isItem)
+const canonical = new URL(Astro.url.pathname, Astro.site)
+const imageUrl = image && new URL(image, Astro.site)
 const viewport = lockZoom
 	? 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no'
 	: 'width=device-width, initial-scale=1'
@@ -34,7 +44,15 @@ const viewport = lockZoom
 	<head>
 		<meta charset="utf-8" />
 		<title>{title}</title>
-		<meta content="Ideas, experiments, toys and small tools. Some of them work." name="description" />
+		<meta name="description" content={description} />
+		<link rel="canonical" href={canonical} />
+		<meta property="og:type" content="website" />
+		<meta property="og:site_name" content="lab.zander.wtf" />
+		<meta property="og:title" content={title} />
+		<meta property="og:description" content={description} />
+		<meta property="og:url" content={canonical} />
+		{imageUrl && <meta property="og:image" content={imageUrl} />}
+		<meta name="twitter:card" content={imageUrl ? 'summary_large_image' : 'summary'} />
 		<link rel="icon" type="image/svg+xml" href="https://zander.wtf/favicon.svg" />
 		<meta name="viewport" content={viewport} />
 		{
@@ -57,6 +75,7 @@ const viewport = lockZoom
 			rel="stylesheet"
 			href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/regular/style.css"
 		/>
+		<slot name="head" />
 	</head>
 	<body class:list={[{ 'lock-zoom': lockZoom, 'has-chrome': showChrome }]}>
 		{
