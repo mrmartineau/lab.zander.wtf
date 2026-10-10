@@ -65,6 +65,10 @@ export default function Planner() {
 	const [name, setName] = createSignal('')
 	const [nameError, setNameError] = createSignal('')
 	const [pendingDelete, setPendingDelete] = createSignal<string | null>(null)
+	const [pendingOverwrite, setPendingOverwrite] = createSignal<string | null>(null)
+	const [pendingReset, setPendingReset] = createSignal(false)
+	let resetTimer: ReturnType<typeof setTimeout> | undefined
+	let warnedStorage = false
 	const [toast, setToast] = createSignal('')
 	let stage!: HTMLDivElement
 	let scene: PantryScene | undefined
@@ -82,13 +86,25 @@ export default function Planner() {
 		toastTimer = setTimeout(() => setToast(''), 2600)
 	}
 
-	/** Every edit goes through here: copy, change, re-sort, persist. */
+	/** Keep the current plan in storage, and say once if the browser won't keep it. */
+	const persist = (p: Plan) => {
+		if (saveCurrent(p) || warnedStorage) return
+		warnedStorage = true
+		say("This browser isn't keeping your plan. Changes will be lost on reload, so save a PDF before you leave.")
+	}
+
+	/**
+	 * Every edit goes through here: copy, change, re-sort, persist. Level rows are rebuilt from the
+	 * copy, so whichever control had focus is focused again by id once the new row is in place.
+	 */
 	const edit = (fn: (p: Plan) => void) => {
+		const focusedId = (document.activeElement as HTMLElement | null)?.id
 		const next = clone(plan())
 		fn(next)
 		next.levels = sortLevels(next.levels)
 		setPlan(next)
-		saveCurrent(next)
+		persist(next)
+		if (focusedId) queueMicrotask(() => document.getElementById(focusedId)?.focus())
 	}
 	const editLevel = (id: number | undefined, fn: (l: Level) => void) =>
 		edit((p) => {
@@ -98,6 +114,9 @@ export default function Planner() {
 	const setRoom = (k: keyof Room, v: number) =>
 		edit((p) => {
 			p.room[k] = v
+			// Keep at least 10cm of opening between the returns.
+			if (k === 'ret' || k === 'w') p.room.ret = Math.max(0, Math.min(p.room.ret, p.room.w - p.room.retR - 10))
+			if (k === 'retR' || k === 'w') p.room.retR = Math.max(0, Math.min(p.room.retR, p.room.w - p.room.ret - 10))
 			for (const l of p.levels) l.y = clampY(p.room, l.y)
 		})
 
@@ -129,10 +148,18 @@ export default function Planner() {
 			})
 			p.levels = lv
 		})
+	/** Two clicks, like delete: the current plan has no undo. */
 	const resetAll = () => {
+		clearTimeout(resetTimer)
+		if (!pendingReset()) {
+			setPendingReset(true)
+			resetTimer = setTimeout(() => setPendingReset(false), 4000)
+			return
+		}
+		setPendingReset(false)
 		const p = defaultPlan()
 		setPlan(p)
-		saveCurrent(p)
+		persist(p)
 		setSelId(null)
 		setName('')
 	}
@@ -143,6 +170,11 @@ export default function Planner() {
 			setNameError('Enter a name first')
 			return
 		}
+		if (saved()[n] && pendingOverwrite() !== n) {
+			setPendingOverwrite(n)
+			return
+		}
+		setPendingOverwrite(null)
 		const next = { ...saved(), [n]: { ...clone(plan()), at: Date.now() } }
 		if (!writeSaved(next)) {
 			setNameError("This browser isn't letting the page store plans. Try a normal (not private) window.")
@@ -155,9 +187,10 @@ export default function Planner() {
 	const loadPlan = (n: string) => {
 		const p = normalise(saved()[n])
 		setPlan(p)
-		saveCurrent(p)
+		persist(p)
 		setSelId(null)
 		setName(n)
+		setPendingOverwrite(null)
 		say(`Loaded "${n}"`)
 	}
 	const deletePlan = (n: string) => {
@@ -167,7 +200,11 @@ export default function Planner() {
 		}
 		const next = { ...saved() }
 		delete next[n]
-		writeSaved(next)
+		if (!writeSaved(next)) {
+			say("Couldn't delete it here. This browser isn't letting the page change saved plans.")
+			setPendingDelete(null)
+			return
+		}
 		setSaved(next)
 		setPendingDelete(null)
 	}
@@ -280,13 +317,19 @@ export default function Planner() {
 								onInput={(e) => {
 									setName(e.currentTarget.value)
 									setNameError('')
+									setPendingOverwrite(null)
 								}}
 							/>
 						</label>
 						<button class="zui-button zui-button-color-accent" type="button" onClick={savePlan}>
-							Save plan
+							{pendingOverwrite() ? 'Replace saved plan' : 'Save plan'}
 						</button>
 					</div>
+					<Show when={pendingOverwrite()}>
+						<p class="pp-sub" role="status">
+							"{pendingOverwrite()}" is already saved. Click again to replace it.
+						</p>
+					</Show>
 					<Show when={nameError()}>
 						<p class="pp-error" role="alert">
 							{nameError()}
@@ -369,12 +412,13 @@ export default function Planner() {
 									<div class="pp-level-top">
 										<span class="pp-level-num">{i() + 1}</span>
 										<div class="pp-height">
-											<button type="button" aria-label="Down 5cm" onClick={() => editLevel(l.id, (x) => (x.y = clampY(plan().room, x.y - 5)))}>
+											<button type="button" id={`pp-${l.id}-down`} aria-label="Down 5cm" onClick={() => editLevel(l.id, (x) => (x.y = clampY(plan().room, x.y - 5)))}>
 												<i class="ph ph-minus" aria-hidden="true" />
 											</button>
 											<input
 												type="number"
 												step="0.5"
+												id={`pp-${l.id}-y`}
 												aria-label={`Level ${i() + 1} height in cm`}
 												value={fmt(l.y)}
 												onChange={(e) => {
@@ -383,7 +427,7 @@ export default function Planner() {
 													else e.currentTarget.value = fmt(l.y)
 												}}
 											/>
-											<button type="button" aria-label="Up 5cm" onClick={() => editLevel(l.id, (x) => (x.y = clampY(plan().room, x.y + 5)))}>
+											<button type="button" id={`pp-${l.id}-up`} aria-label="Up 5cm" onClick={() => editLevel(l.id, (x) => (x.y = clampY(plan().room, x.y + 5)))}>
 												<i class="ph ph-plus" aria-hidden="true" />
 											</button>
 										</div>
@@ -433,8 +477,12 @@ export default function Planner() {
 						<button class="zui-button zui-button-variant-outline" type="button" onClick={spaceEvenly}>
 							Space evenly
 						</button>
-						<button class="zui-button zui-button-variant-ghost" type="button" onClick={resetAll}>
-							Reset to starting plan
+						<button
+							class={`zui-button ${pendingReset() ? 'zui-button-color-destructive' : 'zui-button-variant-ghost'}`}
+							type="button"
+							onClick={resetAll}
+						>
+							{pendingReset() ? 'Confirm reset' : 'Reset to starting plan'}
 						</button>
 					</div>
 				</section>

@@ -7,11 +7,12 @@ export async function savePdf(plan: Plan, name: string, image?: { url: string; r
 	const M = 14
 	const W = 210 - 2 * M
 	let y = M
+	/** Starts a new page when h won't fit. Returns true when it did. */
 	const need = (h: number) => {
-		if (y + h > 285) {
-			doc.addPage()
-			y = M
-		}
+		if (y + h <= 285) return false
+		doc.addPage()
+		y = M
+		return true
 	}
 	const typeName = (t: TypeKey | '') => (t ? `${TYPES[t].name} ${fmt(plan.depths[t])}` : '–')
 
@@ -43,8 +44,10 @@ export async function savePdf(plan: Plan, name: string, image?: { url: string; r
 		doc.setFontSize(9.5)
 	}
 	const table = (cols: [string, number][], rows: (string | number)[][]) => {
+		const header = cols.map((c) => c[0])
 		const row = (r: (string | number)[], bold: boolean) => {
-			need(6)
+			// A table that runs onto a new page repeats its header there.
+			if (need(6) && !bold) row(header, true)
 			doc.setFont('helvetica', bold ? 'bold' : 'normal')
 			let x = M
 			r.forEach((c, i) => {
@@ -56,10 +59,7 @@ export async function savePdf(plan: Plan, name: string, image?: { url: string; r
 			doc.line(M, y, M + W, y)
 			y += 0.5
 		}
-		row(
-			cols.map((c) => c[0]),
-			true,
-		)
+		row(header, true)
 		for (const r of rows) row(r, false)
 		y += 3
 	}

@@ -39,7 +39,11 @@ export class PantryScene {
 	) {
 		this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true })
 		this.renderer.setPixelRatio(Math.min(2, window.devicePixelRatio))
-		el.appendChild(this.renderer.domElement)
+		const canvas = this.renderer.domElement
+		// The model is pointer-only; everything it shows is also in the levels list and cut list.
+		canvas.setAttribute('role', 'img')
+		canvas.setAttribute('aria-label', 'Rotatable 3D model of the pantry and its shelves. Every shelf is also listed in the levels and cut list.')
+		el.appendChild(canvas)
 		this.scene.add(new THREE.AmbientLight(0xffffff, 0.7 * Math.PI))
 		const light = new THREE.DirectionalLight(0xffffff, 0.55 * Math.PI)
 		light.position.set(220, 420, 320)
@@ -178,7 +182,11 @@ export class PantryScene {
 		plane(r.w, r.h, [r.w / 2, r.h / 2, 0])
 		plane(r.dl, r.h, [0, r.h / 2, r.dl / 2], Math.PI / 2)
 		plane(r.dr, r.h, [r.w, r.h / 2, r.dr / 2], Math.PI / 2)
-		plane(r.w, Math.max(r.dl, r.dr), [r.w / 2, 0, Math.max(r.dl, r.dr) / 2], 0, -Math.PI / 2)
+		// Floor follows the real footprint, angled front and returns included. Shape y is -z once rotated flat.
+		const shape = new THREE.Shape(floor.slice(0, 6).map(([x, z]) => new THREE.Vector2(x, -z)))
+		const floorMesh = new THREE.Mesh(new THREE.ShapeGeometry(shape), thin)
+		floorMesh.rotation.x = -Math.PI / 2
+		this.roomGroup.add(floorMesh)
 		plane(openWidth(r) * frontSlope(r), r.h - r.door, [mx, (r.h + r.door) / 2, frontZ(r, mx)], frontAngle(r))
 		if (r.ret > 0 && r.retD > 0) block(r.ret, r.retD, [r.ret / 2, r.h / 2, r.dl - r.retD / 2])
 		if (r.retR > 0 && r.retRD > 0) block(r.retR, r.retRD, [r.w - r.retR / 2, r.h / 2, r.dr - r.retRD / 2])
@@ -247,7 +255,8 @@ export class PantryScene {
 		const down = (e: PointerEvent) => {
 			this.pointers.set(e.pointerId, [e.clientX, e.clientY])
 			el.setPointerCapture(e.pointerId)
-			this.moved = 0
+			// A second finger makes it a pinch, never a tap.
+			this.moved = this.pointers.size > 1 ? 99 : 0
 		}
 		const move = (e: PointerEvent) => {
 			const p = this.pointers.get(e.pointerId)
@@ -269,7 +278,8 @@ export class PantryScene {
 			this.update()
 		}
 		const up = (e: PointerEvent) => {
-			if (this.pointers.size === 1 && this.moved < 6) {
+			// Only a still, primary, left-button (or touch) release picks a shelf.
+			if (this.pointers.size === 1 && this.moved < 6 && e.isPrimary && e.button === 0) {
 				const rect = el.getBoundingClientRect()
 				ray.setFromCamera(
 					new THREE.Vector2(((e.clientX - rect.left) / rect.width) * 2 - 1, -((e.clientY - rect.top) / rect.height) * 2 + 1),
@@ -287,7 +297,9 @@ export class PantryScene {
 		}
 		const wheel = (e: WheelEvent) => {
 			e.preventDefault()
-			zoom(1 + e.deltaY * 0.001)
+			// Line and page wheel modes (Firefox, some mice) report far smaller numbers than pixel mode.
+			const px = e.deltaMode === 1 ? e.deltaY * 16 : e.deltaMode === 2 ? e.deltaY * el.clientHeight : e.deltaY
+			zoom(1 + Math.max(-0.5, Math.min(0.5, px * 0.001)))
 		}
 		el.addEventListener('pointerdown', down)
 		el.addEventListener('pointermove', move)
