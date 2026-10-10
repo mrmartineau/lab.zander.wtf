@@ -224,7 +224,7 @@ export const STOCK = 240
 /** Saw cut (cm) lost between two pieces cut from one length. */
 const KERF = 0.3
 /** Brackets go at most this far apart (cm) for shelves loaded with jars and tins, and this far in from each end. */
-const BRACKET_GAP = 50
+export const BRACKET_GAP = 50
 const BRACKET_END = 10
 
 export const bracketsFor = (len: number) => Math.max(2, Math.ceil((len - 2 * BRACKET_END) / BRACKET_GAP) + 1)
@@ -255,6 +255,10 @@ export function fixings(plan: Plan) {
 		brackets: all.reduce((a, b) => a + bracketsFor(b.len), 0),
 	}
 }
+
+/** Battens longer than one stock length have to be joined from two. Empty when none are. */
+export const joinNote = (pieces: number[]) =>
+	pieces.some((p) => p > STOCK) ? ` Pieces over ${fmt(STOCK)}cm are joined from two lengths.` : ''
 
 /** "2 × 85, 4 × 40" — repeated lengths grouped, longest first. */
 export function groupLengths(pieces: number[]) {
@@ -298,9 +302,17 @@ export function normalise(p: Partial<Plan> | null | undefined): Plan {
 		const v = p?.room?.[k]
 		if (typeof v === 'number' && Number.isFinite(v)) room[k] = v
 	}
+	// Stored and shared rooms get the same limits as the room editor, so no figure can overflow.
+	for (const [k, , [min, max]] of ROOM_FIELDS) room[k] = Math.min(max, Math.max(min, room[k]))
+	room.ret = Math.min(room.ret, Math.max(0, room.w - room.retR - 10))
+	room.retR = Math.min(room.retR, Math.max(0, room.w - room.ret - 10))
 	const depths = { ...DEFAULT_DEPTHS }
 	const oldDepths = (p?.depths ?? {}) as Record<string, unknown>
-	const used = new Set((Array.isArray(p?.levels) ? p.levels : []).flatMap((l) => WALLS.map(([k]) => l[k] as string)))
+	// Share links are untrusted: keep only levels that are objects with a usable height.
+	const rawLevels = (Array.isArray(p?.levels) ? p.levels : clone(DEFAULT_LEVELS)).filter(
+		(l): l is Level => !!l && typeof l === 'object' && typeof l.y === 'number' && Number.isFinite(l.y),
+	)
+	const used = new Set(rawLevels.flatMap((l) => WALLS.map(([k]) => l[k] as string)))
 	const legacyDepth: [string, TypeKey][] = [
 		['g', 'sm'],
 		['s', 'xl'],
@@ -315,14 +327,17 @@ export function normalise(p: Partial<Plan> | null | undefined): Plan {
 		const v = oldDepths[t]
 		if (typeof v === 'number' && v > 0) depths[t] = v
 	}
-	// Share links are untrusted: keep only levels with a usable height, and give every level its own id.
-	const levels = (Array.isArray(p?.levels) ? clone(p.levels) : clone(DEFAULT_LEVELS)).filter(
-		(l) => l && typeof l.y === 'number' && Number.isFinite(l.y),
-	)
+	for (const t of TYPE_KEYS) depths[t] = Math.min(60, Math.max(5, depths[t]))
+	// Every level gets its own id; a missing or repeated one is replaced with the next unused number.
+	const levels = clone(rawLevels)
 	const ids = new Set<number>()
-	levels.forEach((l, i) => {
+	let nextId = Date.now()
+	levels.forEach((l) => {
 		l.y = clampY(room, l.y)
-		if (typeof l.id !== 'number' || ids.has(l.id)) l.id = Date.now() + i
+		if (typeof l.id !== 'number' || !Number.isFinite(l.id) || ids.has(l.id)) {
+			while (ids.has(nextId)) nextId++
+			l.id = nextId++
+		}
 		ids.add(l.id)
 		for (const [k] of WALLS) {
 			const v = l[k] as string

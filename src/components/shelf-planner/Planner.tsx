@@ -22,6 +22,7 @@ import {
 	fmt,
 	gapAbove,
 	groupLengths,
+	joinNote,
 	HEAD,
 	STOCK,
 	loadCurrent,
@@ -100,19 +101,22 @@ export default function Planner() {
 		toastTimer = setTimeout(() => setToast(''), 2600)
 	}
 
-	/**
-	 * Keep the current plan in storage, and say once if the browser won't keep it.
-	 * Returns false when it isn't stored, so callers don't report success over the warning.
-	 */
 	/** Once a shared plan is saved or edited it belongs to this browser, so drop the link from the address bar. */
 	const leaveShared = () => {
 		if (sharedName() === null) return
 		history.replaceState(null, '', location.pathname + location.search)
 		setSharedName(null)
 	}
+	/**
+	 * Keep the current plan in storage, and say once if the browser won't keep it.
+	 * Returns false when it isn't stored, so callers don't report success over the warning.
+	 * A shared link only leaves the address bar once the plan is safely stored, so it stays recoverable.
+	 */
 	const persist = (p: Plan) => {
-		leaveShared()
-		if (saveCurrent(p)) return true
+		if (saveCurrent(p)) {
+			leaveShared()
+			return true
+		}
 		if (!warnedStorage) {
 			warnedStorage = true
 			say("This browser isn't keeping your plan. Changes will be lost on reload, so save a PDF before you leave.")
@@ -211,8 +215,9 @@ export default function Planner() {
 		}
 		setSaved(next)
 		setPendingDelete(null)
-		leaveShared()
-		say(`Saved "${n}"`)
+		// A saved shared plan becomes this browser's current plan too, so a reload still shows it.
+		const stored = persist(plan())
+		say(stored ? `Saved "${n}"` : `Saved "${n}" to the list, but this browser won't keep it after a reload.`)
 	}
 	const loadPlan = (n: string) => {
 		const p = normalise(saved()[n])
@@ -254,7 +259,7 @@ export default function Planner() {
 	const cutText = () =>
 		`Shelves (${fmt(plan().room.th * 10)}mm boards)\n${allBoards()
 			.map((b) => `L${b.i + 1} @ ${fmt(b.y)}cm  ${b.wall.padEnd(9)}  ${TYPES[b.t].name.padEnd(9)}  ${fmt(b.len)} x ${fmt(b.d)}cm`)
-			.join('\n')}\n\nBattens: ${groupLengths(fix().battens)} (${fix().stock} x ${fmt(STOCK / 100)}m lengths)\nOr shelf brackets: ${fix().brackets}`
+			.join('\n')}\n\nBattens: ${groupLengths(fix().battens)} (${fix().stock} x ${fmt(STOCK / 100)}m lengths)${joinNote(fix().battens)}\nOr shelf brackets: ${fix().brackets}`
 	const copyCutList = async () => {
 		try {
 			await navigator.clipboard.writeText(cutText())
@@ -671,7 +676,7 @@ export default function Planner() {
 							<small>Battens</small>
 							<b>{fmt(fix().battenRun / 100)}m</b>
 							<span>
-								{fix().stock} × {fmt(STOCK / 100)}m lengths. Cut {groupLengths(fix().battens) || 'nothing yet'}.
+								{fix().stock} × {fmt(STOCK / 100)}m lengths. Cut {groupLengths(fix().battens) || 'nothing yet'}.{joinNote(fix().battens)}
 							</span>
 						</div>
 						<div>

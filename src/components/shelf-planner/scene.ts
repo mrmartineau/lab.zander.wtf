@@ -103,16 +103,14 @@ export class ShelfScene {
 
 	setSelected(i: number) {
 		this.selected = i
-		for (const m of this.pickables) {
-			;(m.material as THREE.MeshLambertMaterial).emissive.set(m.userData.i === i ? 0x333333 : 0x000000)
-		}
+		this.applyHighlight()
 		this.draw()
 	}
 
 	/** Light up what a figure measures and fade the shelves it doesn't count. */
 	setHighlight(h: Highlight) {
 		this.highlight = h
-		this.buildShelves()
+		this.applyHighlight()
 		this.draw()
 	}
 
@@ -213,17 +211,9 @@ export class ShelfScene {
 		const plan = this.plan!
 		const r = plan.room
 		this.clear(this.shelfGroup)
-		this.clear(this.hlGroup)
 		this.pickables = []
-		const hl = this.highlight
-		const c = clearances(plan)
-		const lit = (b: ReturnType<typeof boards>[number]) =>
-			hl === 'run' ||
-			(hl === 'walk' && b.i === c.walkLevel && (b.wall === 'Left' || b.wall === 'Right')) ||
-			(hl === 'depth' && b.i === c.depthLevel && b.wall === 'Back')
 		for (const b of boards(plan)) {
 			const mat = new THREE.MeshLambertMaterial({ color: this.css(TYPES[b.t].color) })
-			if (hl && !lit(b)) Object.assign(mat, { transparent: true, opacity: 0.15, depthWrite: false })
 			const geo = b.door ? new THREE.BoxGeometry(b.len, r.th, b.d) : new THREE.BoxGeometry(b.x1 - b.x0, r.th, b.z1 - b.z0)
 			const m = new THREE.Mesh(geo, mat)
 			if (b.door) {
@@ -234,11 +224,39 @@ export class ShelfScene {
 				m.position.set((b.x0 + b.x1) / 2, b.y - r.th / 2, (b.z0 + b.z1) / 2)
 			}
 			m.userData.i = b.i
-			if (b.i === this.selected || (hl && lit(b))) mat.emissive.set(0x333333)
+			m.userData.wall = b.wall
 			this.shelfGroup.add(m)
 			this.pickables.push(m)
 		}
+		this.applyHighlight()
+	}
+
+	/**
+	 * Selection and figure highlights only change how the existing shelves look, so hovering a
+	 * figure updates materials in place and redraws the clear-space volume rather than every mesh.
+	 */
+	private applyHighlight() {
+		const plan = this.plan
+		if (!plan) return
+		const r = plan.room
+		const hl = this.highlight
+		const c = clearances(plan)
+		const lit = (i: number, wall: string) =>
+			hl === 'run' ||
+			(hl === 'walk' && i === c.walkLevel && (wall === 'Left' || wall === 'Right')) ||
+			(hl === 'depth' && i === c.depthLevel && wall === 'Back')
+		for (const m of this.pickables) {
+			const mat = m.material as THREE.MeshLambertMaterial
+			const on = lit(m.userData.i, m.userData.wall)
+			const faded = !!hl && !on
+			if (mat.transparent !== faded) mat.needsUpdate = true
+			Object.assign(mat, { transparent: faded, opacity: faded ? 0.15 : 1, depthWrite: !faded })
+			mat.emissive.set(m.userData.i === this.selected || (hl && on) ? 0x333333 : 0x000000)
+		}
+		this.clear(this.hlGroup)
 		if (hl !== 'walk' && hl !== 'depth') return
+		// Nothing to show when the shelves leave no clear space.
+		if ((hl === 'walk' && c.walk <= 0) || (hl === 'depth' && c.depth <= 0)) return
 		// The clear space the figure measures: floor to head height, between the shelves and the front.
 		const [x0, x1] = hl === 'walk' ? c.walkX : [0, r.w]
 		const z0 = hl === 'depth' ? c.depthZ : 0

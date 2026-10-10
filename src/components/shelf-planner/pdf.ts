@@ -2,6 +2,7 @@
 import {
 	type Plan,
 	ROOM_FIELDS,
+	BRACKET_GAP,
 	STOCK,
 	TYPES,
 	TYPE_KEYS,
@@ -11,6 +12,7 @@ import {
 	fmt,
 	gapAbove,
 	groupLengths,
+	joinNote,
 	notes,
 	sortLevels,
 } from './model'
@@ -148,8 +150,8 @@ export async function savePdf(plan: Plan, name: string, image?: { url: string; r
 	head('Fixings (use one, or mix them)')
 	doc.setFont('helvetica', 'normal')
 	for (const t of [
-		`Battens: ${fmt(f.battenRun / 100)}m, ${f.stock} x ${fmt(STOCK / 100)}m lengths. Cut ${groupLengths(f.battens) || 'nothing'}. One under every shelf edge that meets a wall.`,
-		`Or shelf brackets (L-brackets): ${f.brackets}, at least 2 per shelf and at most 50cm apart.`,
+		`Battens: ${fmt(f.battenRun / 100)}m, ${f.stock} x ${fmt(STOCK / 100)}m lengths. Cut ${groupLengths(f.battens) || 'nothing'}.${joinNote(f.battens)} One under every shelf edge that meets a wall.`,
+		`Or shelf brackets (L-brackets): ${f.brackets}, at least 2 per shelf and at most ${BRACKET_GAP}cm apart.`,
 	]) {
 		const lines = doc.splitTextToSize(t, W)
 		need(lines.length * 4.5)
