@@ -7,10 +7,11 @@ import cloudflare from '@astrojs/cloudflare';
 
 // https://astro.build/config
 export default defineConfig({
+  site: 'https://lab.zander.wtf',
   // Both use JSX, so each integration only claims its own files.
   integrations: [
-    react({ exclude: ['**/word-art/**', '**/playground/**'] }),
-    solid({ include: ['**/word-art/**', '**/playground/**'] }),
+    react({ exclude: ['**/word-art/**', '**/playground/**', '**/shelf-planner/**'] }),
+    solid({ include: ['**/word-art/**', '**/playground/**', '**/shelf-planner/**'] }),
   ],
   adapter: cloudflare(),
   // No Astro sessions here. Without this, the adapter adds a SESSION KV

@@ -1,0 +1,63 @@
+---
+import Layout from '../../layouts/Layout.astro'
+import { Badge } from '@mrmartineau/zui/astro'
+import Planner from '../../components/shelf-planner/Planner'
+import '../../components/shelf-planner/shelf-planner.css'
+
+export const title = 'Shelf planner'
+export const description =
+	'Free 3D shelf planner for pantries, larders and walk-in cupboards. Set the room size, pick shelf depths for each wall, and get a cut list and a PDF for your builder.'
+export const date = '2026-10-10'
+export const status = 'live'
+export const tags = ['tool', '3d', 'home', 'solid']
+
+const url = new URL('/shelf-planner/', Astro.site)
+const jsonLd = {
+	'@context': 'https://schema.org',
+	'@type': 'WebApplication',
+	name: 'Shelf planner',
+	description,
+	url,
+	image: new URL('/shelf-planner/og.png', Astro.site),
+	applicationCategory: 'DesignApplication',
+	operatingSystem: 'Any',
+	browserRequirements: 'Requires JavaScript and WebGL',
+	isAccessibleForFree: true,
+	offers: { '@type': 'Offer', price: 0, priceCurrency: 'GBP' },
+	author: { '@type': 'Person', name: 'Zander Martineau', url: 'https://zander.wtf' },
+}
+---
+
+<Layout title="Shelf planner: design pantry shelves in 3D — lab.zander.wtf" {description} image="/shelf-planner/og.png">
+	<script slot="head" type="application/ld+json" set:html={JSON.stringify(jsonLd)} />
+	<main class="sp-app">
+		<header class="sp-header">
+			<div class="sp-title">
+				<h1>Shelf planner</h1>
+				<Badge variant="fill" color="emerald">live</Badge>
+			</div>
+			<p class="sp-intro">
+				Plan the shelves for a pantry, larder or walk-in cupboard in 3D. I built it for our new kitchen pantry. Set the room's measurements,
+				pick what goes on each wall at each level, and every shelf on a level lines up at the same height. The cut list and PDF update as
+				you go.
+			</p>
+		</header>
+
+		<Planner client:only="solid-js">
+			<p class="sp-loading" slot="fallback">Measuring the cupboard…</p>
+		</Planner>
+
+		<section class="sp-card">
+			<h2>How it works</h2>
+			<ol class="sp-notes">
+				<li>Enter the room: the back wall width, each side wall depth, the ceiling and door heights, and the short return walls beside the door.</li>
+				<li>Set a depth for each shelf size, from SM to XL. Change one and every shelf of that size follows.</li>
+				<li>Add levels and choose a size for the left, back and right walls, plus an optional shelf over the door.</li>
+				<li>Check the walkway and standing depth, then copy the cut list or save a PDF to take to your builder or the timber yard.</li>
+			</ol>
+			<p class="sp-sub">
+				Everything stays in your browser. Nothing is uploaded, and you can save as many plans as you like to compare.
+			</p>
+		</section>
+	</main>
+</Layout>
