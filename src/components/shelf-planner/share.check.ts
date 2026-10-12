@@ -1,6 +1,6 @@
 // Run: node --experimental-strip-types src/components/shelf-planner/share.check.ts
 import assert from 'node:assert/strict'
-import { decodeShare, defaultPlan, encodeShare, shareCodeFromHash } from './model.ts'
+import { decodeShare, defaultPlan, encodeShare, shareCodeFrom } from './model.ts'
 
 // A plan round-trips, name and all, with fresh ids.
 const plan = defaultPlan()
@@ -36,12 +36,14 @@ assert.ok(wild)
 assert.equal(wild.plan.levels.length, 1)
 assert.ok(Object.values(wild.plan.room).every((v) => Number.isFinite(v) && v <= 500))
 
-// New `#plan-CODE` links and old `#plan=CODE` links both read; other hashes give nothing.
+// New `?plan=CODE` links and old `#plan-CODE` / `#plan=CODE` links all read; other hashes give nothing.
 const code = encodeShare('x', plan)
-assert.equal(shareCodeFromHash(`#plan-${code}`), code)
-assert.equal(shareCodeFromHash(`#plan=${code}`), code)
-assert.equal(shareCodeFromHash(`#admin=abc&plan=${code}`), code)
-assert.equal(shareCodeFromHash('#admin=abc'), '')
-assert.ok(decodeShare(shareCodeFromHash(`#plan-${code}`)))
+assert.equal(shareCodeFrom(`#plan-${code}`), code)
+assert.equal(shareCodeFrom(`?plan=${code}`), code)
+assert.equal(shareCodeFrom(`#plan=${code}`), code)
+assert.equal(shareCodeFrom(`#admin=abc&plan=${code}`), code)
+assert.equal(shareCodeFrom('#admin=abc'), '')
+assert.equal(shareCodeFrom(`?plan=${code}#admin=abc`), code)
+assert.ok(decodeShare(shareCodeFrom(`?plan=${code}`)))
 
 console.log('share ok')
