@@ -4,8 +4,9 @@
  * Colours come from ZUI tokens on the container so it follows the theme.
  */
 import * as THREE from 'three'
-import { HEAD, type Plan, TYPES, boards, clearances, frontAngle, frontSlope, frontZ, openWidth } from './model'
+import { BRACKET_END, HEAD, type Plan, TYPES, battenPieces, boards, bracketsFor, clearances, frontAngle, frontSlope, frontZ, openWidth } from './model'
 
+export type Fixings = 'none' | 'battens' | 'brackets' | 'mix'
 export type View = 'front' | 'top' | 'side'
 /** A figure under the 3D view that the model is showing. */
 export type Highlight = 'walk' | 'depth' | 'run' | null
@@ -23,6 +24,8 @@ export class ShelfScene {
 	private roomGroup = new THREE.Group()
 	private shelfGroup = new THREE.Group()
 	private hlGroup = new THREE.Group()
+	private fixGroup = new THREE.Group()
+	private showFixings: Fixings = 'none'
 	private highlight: Highlight = null
 	private pickables: THREE.Mesh[] = []
 	private target = new THREE.Vector3()
@@ -51,7 +54,7 @@ export class ShelfScene {
 		this.scene.add(new THREE.AmbientLight(0xffffff, 0.7 * Math.PI))
 		const light = new THREE.DirectionalLight(0xffffff, 0.55 * Math.PI)
 		light.position.set(220, 420, 320)
-		this.scene.add(light, this.roomGroup, this.shelfGroup, this.hlGroup)
+		this.scene.add(light, this.roomGroup, this.shelfGroup, this.hlGroup, this.fixGroup)
 		this.bindPointer()
 		this.resizeObserver = new ResizeObserver(() => this.resize())
 		this.resizeObserver.observe(el)
@@ -114,6 +117,13 @@ export class ShelfScene {
 		this.draw()
 	}
 
+	/** Show the battens or the brackets that hold the shelves up. */
+	setFixings(mode: Fixings) {
+		this.showFixings = mode
+		this.buildFixings()
+		this.draw()
+	}
+
 	setView(v: View) {
 		;[this.th, this.ph, this.rad] = VIEWS[v]
 		this.update()
@@ -136,6 +146,7 @@ export class ShelfScene {
 		this.clear(this.roomGroup)
 		this.clear(this.shelfGroup)
 		this.clear(this.hlGroup)
+		this.clear(this.fixGroup)
 		this.renderer.dispose()
 		this.renderer.domElement.remove()
 		this.probe?.remove()
@@ -200,11 +211,6 @@ export class ShelfScene {
 		plane(openWidth(r) * frontSlope(r), r.h - r.door, [mx, (r.h + r.door) / 2, frontZ(r, mx)], frontAngle(r))
 		if (r.ret > 0 && r.retD > 0) block(r.ret, r.retD, [r.ret / 2, r.h / 2, r.dl - r.retD / 2])
 		if (r.retR > 0 && r.retRD > 0) block(r.retR, r.retRD, [r.w - r.retR / 2, r.h / 2, r.dr - r.retRD / 2])
-
-		const sw = new THREE.Mesh(new THREE.BoxGeometry(8.6, 8.6, 1.5), new THREE.MeshLambertMaterial({ color: this.css('--color-text') }))
-		sw.position.set(mx, r.sw, frontZ(r, mx) - 0.8)
-		sw.rotation.y = frontAngle(r)
-		this.roomGroup.add(sw)
 	}
 
 	private buildShelves() {
@@ -228,7 +234,64 @@ export class ShelfScene {
 			this.shelfGroup.add(m)
 			this.pickables.push(m)
 		}
+		this.buildFixings()
 		this.applyHighlight()
+	}
+
+	/**
+	 * Battens and brackets, drawn under each board. Each board gets a group whose origin is the middle
+	 * of its wall edge: local x runs along the wall, local z into the room, local y down from the underside.
+	 */
+	private buildFixings() {
+		this.clear(this.fixGroup)
+		if (this.showFixings === 'none' || !this.plan) return
+		const r = this.plan.room
+		const BW = 3.8 // batten width and height (cm)
+		const BH = 2.5
+		const batten = new THREE.MeshLambertMaterial({ color: this.css('--color-accent') })
+		const bracket = new THREE.MeshLambertMaterial({ color: this.css('--color-text') })
+		const box = (g: THREE.Object3D, mat: THREE.Material, size: [number, number, number], pos: [number, number, number]) => {
+			const m = new THREE.Mesh(new THREE.BoxGeometry(...size), mat)
+			m.position.set(...pos)
+			g.add(m)
+		}
+		for (const b of boards(this.plan)) {
+			const canBatten = !!battenPieces(this.plan, b)
+			const battens = canBatten && this.showFixings !== 'brackets'
+			const brackets = this.showFixings === 'brackets' || !canBatten
+			const g = new THREE.Group()
+			const top = b.y - r.th
+			if (b.door) {
+				const mx = (b.x0 + b.x1) / 2
+				g.position.set(mx, top, frontZ(r, mx) - b.d)
+				g.rotation.y = frontAngle(r)
+			} else if (b.wall === 'Left') {
+				g.position.set(b.x0, top, (b.z0 + b.z1) / 2)
+				g.rotation.y = Math.PI / 2
+			} else if (b.wall === 'Right') {
+				g.position.set(b.x1, top, (b.z0 + b.z1) / 2)
+				g.rotation.y = -Math.PI / 2
+			} else g.position.set((b.x0 + b.x1) / 2, top, b.z0)
+			if (battens) {
+				box(g, batten, [b.len, BH, BW], [0, -BH / 2, BW / 2])
+				// Side shelves also sit on a batten across the back wall under their back end.
+				if (b.wall === 'Left' || b.wall === 'Right') {
+					box(this.fixGroup, batten, [b.d, BH, BW], [(b.x0 + b.x1) / 2, top - BH / 2, b.z0 + BW / 2])
+				}
+				// A wall-to-wall back shelf is held at both ends too.
+				if (b.wall === 'Back') {
+					for (const x of [b.x0 + BW / 2, b.x1 - BW / 2]) box(this.fixGroup, batten, [BW, BH, b.d], [x, top - BH / 2, b.z0 + b.d / 2])
+				}
+			}
+			const n = brackets ? bracketsFor(b.len) : 0
+			const end = Math.min(BRACKET_END, b.len / 2)
+			for (let k = 0; k < n; k++) {
+				const x = -b.len / 2 + end + ((b.len - 2 * end) * k) / (n - 1)
+				box(g, bracket, [2, 0.5, b.d * 0.8], [x, -0.25, b.d * 0.4])
+				box(g, bracket, [2, 8, 0.5], [x, -4, 0.25])
+			}
+			this.fixGroup.add(g)
+		}
 	}
 
 	/**
@@ -325,7 +388,7 @@ export class ShelfScene {
 			const dy = e.clientY - p[1]
 			this.moved += Math.abs(dx) + Math.abs(dy)
 			this.th -= dx * 0.008
-			this.ph = Math.min(1.56, Math.max(0.05, this.ph - dy * 0.008))
+			this.ph = Math.min(Math.PI - 0.05, Math.max(0.05, this.ph - dy * 0.008))
 			this.update()
 		}
 		const up = (e: PointerEvent) => {

@@ -2,6 +2,7 @@
 import {
 	type Plan,
 	ROOM_FIELDS,
+	BRACKET_END,
 	BRACKET_GAP,
 	STOCK,
 	TYPES,
@@ -12,6 +13,7 @@ import {
 	fmt,
 	gapAbove,
 	groupLengths,
+	widthTotals,
 	joinNote,
 	notes,
 	sortLevels,
@@ -146,12 +148,29 @@ export async function savePdf(plan: Plan, name: string, image?: { url: string; r
 	doc.text(`${b.length} boards, ${fmt(b.reduce((a, s) => a + s.len, 0) / 100)}m total run`, M, y + 2)
 	y += 8
 
+	head('By board width')
+	table(
+		[
+			['Width (cm)', 40],
+			['Boards', 30],
+			['Total length (m)', 50],
+			[`${fmt(STOCK / 100)}m lengths`, 40],
+		],
+		widthTotals(b).map((w) => [fmt(w.d), w.count, fmt(w.run / 100), w.stock]),
+	)
+
 	const f = fixings(plan)
 	head('Fixings (use one, or mix them)')
 	doc.setFont('helvetica', 'normal')
+	const cut = `${f.stock} x ${fmt(STOCK / 100)}m lengths. Cut ${groupLengths(f.battens) || 'nothing'}.${joinNote(f.battens)}`
 	for (const t of [
-		`Battens: ${fmt(f.battenRun / 100)}m, ${f.stock} x ${fmt(STOCK / 100)}m lengths. Cut ${groupLengths(f.battens) || 'nothing'}.${joinNote(f.battens)} One under every shelf edge that meets a wall.`,
-		`Or shelf brackets (L-brackets): ${f.brackets}, at least 2 per shelf and at most ${BRACKET_GAP}cm apart.`,
+		`Brackets only (L-brackets): ${f.brackets}. 2 per shelf up to ${fmt(2 * BRACKET_END + BRACKET_GAP)}cm long, 3 or more over that, at most ${BRACKET_GAP}cm apart. Add screws and wall plugs for each.`,
+		f.battensOnly
+			? `Battens only: ${fmt(f.battenRun / 100)}m, ${cut} One under every shelf edge that meets a wall.`
+			: 'Battens only: not possible here. Some shelves have no wall at their ends, as in a U of shelves.',
+		...(f.battensOnly || !f.battens.length
+			? []
+			: [`Mix: battens on the shelves with a wall on two edges (${fmt(f.battenRun / 100)}m, ${cut}), and ${f.mixBrackets} brackets for the rest.`]),
 	]) {
 		const lines = doc.splitTextToSize(t, W)
 		need(lines.length * 4.5)

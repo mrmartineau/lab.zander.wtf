@@ -21,7 +21,10 @@ import {
 	fixings,
 	fmt,
 	gapAbove,
+	BRACKET_END,
+	BRACKET_GAP,
 	groupLengths,
+	widthTotals,
 	joinNote,
 	HEAD,
 	STOCK,
@@ -33,7 +36,7 @@ import {
 	sortLevels,
 	writeSaved,
 } from './model'
-import { type Highlight, ShelfScene, type View } from './scene'
+import { type Fixings, type Highlight, ShelfScene, type View } from './scene'
 
 /** A number box that only commits on change, clamped and rounded to half a cm. */
 function NumField(props: {
@@ -67,6 +70,7 @@ function NumField(props: {
 
 export default function Planner() {
 	const [plan, setPlan] = createSignal<Plan>(defaultPlan())
+	const [fixings3d, setFixings3d] = createSignal<Fixings>('none')
 	const [selId, setSelId] = createSignal<number | null>(null)
 	const [saved, setSaved] = createSignal<Record<string, SavedPlan>>({})
 	const [name, setName] = createSignal('')
@@ -91,9 +95,13 @@ export default function Planner() {
 	const levelIds = createMemo(() => levels().map((l) => l.id).reverse())
 	const selIndex = createMemo(() => levels().findIndex((l) => l.id === selId()))
 	const allBoards = createMemo(() => boards(plan()))
+	const totals = createMemo(() => widthTotals(allBoards()))
 	const totalRun = createMemo(() => allBoards().reduce((a, b) => a + b.len, 0))
 	const clear = createMemo(() => clearances(plan()))
 	const fix = createMemo(() => fixings(plan()))
+	const bracketRule = `2 per shelf up to ${fmt(2 * BRACKET_END + BRACKET_GAP)}cm long, 3 or more over that (at most ${BRACKET_GAP}cm apart). Add screws and wall plugs for each.`
+	const battenText = () =>
+		`${fix().stock} × ${fmt(STOCK / 100)}m lengths. Cut ${groupLengths(fix().battens) || 'nothing yet'}.${joinNote(fix().battens)}`
 
 	const say = (msg: string) => {
 		setToast(msg)
@@ -259,7 +267,9 @@ export default function Planner() {
 	const cutText = () =>
 		`Shelves (${fmt(plan().room.th * 10)}mm boards)\n${allBoards()
 			.map((b) => `L${b.i + 1} @ ${fmt(b.y)}cm  ${b.wall.padEnd(9)}  ${TYPES[b.t].name.padEnd(9)}  ${fmt(b.len)} x ${fmt(b.d)}cm`)
-			.join('\n')}\n\nBattens: ${groupLengths(fix().battens)} (${fix().stock} x ${fmt(STOCK / 100)}m lengths)${joinNote(fix().battens)}\nOr shelf brackets: ${fix().brackets}`
+			.join('\n')}\n\nBy board width\n${totals()
+			.map((w) => `${fmt(w.d)}cm wide  ${w.count} boards  ${fmt(w.run / 100)}m  (${w.stock} x ${fmt(STOCK / 100)}m lengths)`)
+			.join('\n')}\n\nBrackets only: ${fix().brackets}\n${fix().battensOnly ? `Battens only: ${groupLengths(fix().battens)} (${fix().stock} x ${fmt(STOCK / 100)}m lengths)${joinNote(fix().battens)}` : 'Battens only: not possible, some shelves have no wall at their ends'}\nMix: battens ${groupLengths(fix().battens) || 'none'} (${fix().stock} x ${fmt(STOCK / 100)}m lengths)${joinNote(fix().battens)}, plus ${fix().mixBrackets} brackets`
 	const copyCutList = async () => {
 		try {
 			await navigator.clipboard.writeText(cutText())
@@ -309,6 +319,9 @@ export default function Planner() {
 			say("This browser won't show the 3D view full screen."),
 		)
 	createEffect(() => scene?.setPlan(plan(), selIndex(), false))
+	// Battens alone stop working once a back shelf ends up between two side shelves.
+	createEffect(() => fixings3d() === 'battens' && !fix().battensOnly && setFixings3d('mix'))
+	createEffect(() => scene?.setFixings(fixings3d()))
 
 	/** Hover or focus a figure to see what it measures in the 3D view. Focus makes it work by tap and keyboard too. */
 	const shows = (h: Highlight) => ({
@@ -356,6 +369,23 @@ export default function Planner() {
 					</div>
 				</div>
 				<p class="sp-hint">Drag to rotate. Pinch or scroll to zoom. Tap a shelf to jump to its level.</p>
+				<fieldset class="sp-check">
+					<legend>Show in 3D</legend>
+					<For each={[['none', 'Neither'], ['battens', 'Battens'], ['brackets', 'Brackets'], ['mix', 'Mix']] as [Fixings, string][]}>
+						{([v, label]) => (
+							<label>
+								<input
+									type="radio"
+									name="sp-fixings"
+									checked={fixings3d() === v}
+									disabled={v === 'battens' && !fix().battensOnly}
+									onChange={() => setFixings3d(v)}
+								/>{' '}
+								{label}
+							</label>
+						)}
+					</For>
+				</fieldset>
 				<div class="sp-legend">
 					<For each={TYPE_KEYS}>
 						{(t) => (
@@ -365,10 +395,18 @@ export default function Planner() {
 							</span>
 						)}
 					</For>
-					<span>
-						<i class="sp-swatch" style={{ background: 'var(--color-text)' }} />
-						Light switch
-					</span>
+					<Show when={fixings3d() !== 'none' && fixings3d() !== 'brackets'}>
+						<span>
+							<i class="sp-swatch" style={{ background: 'var(--color-accent)' }} />
+							Battens
+						</span>
+					</Show>
+					<Show when={fixings3d() !== 'none' && fixings3d() !== 'battens'}>
+						<span>
+							<i class="sp-swatch" style={{ background: 'var(--color-text)' }} />
+							Brackets
+						</span>
+					</Show>
 				</div>
 				<div class="sp-stats">
 					<div {...shows('walk')}>
@@ -649,6 +687,31 @@ export default function Planner() {
 							</tfoot>
 						</table>
 					</div>
+					<h3>By board width</h3>
+					<div class="sp-tablewrap">
+						<table>
+							<thead>
+								<tr>
+									<th>Width</th>
+									<th>Boards</th>
+									<th>Total length</th>
+									<th>{fmt(STOCK / 100)}m lengths</th>
+								</tr>
+							</thead>
+							<tbody>
+								<For each={totals()}>
+									{(w) => (
+										<tr>
+											<td class="sp-mono">{fmt(w.d)}cm</td>
+											<td class="sp-mono">{w.count}</td>
+											<td class="sp-mono">{fmt(w.run / 100)}m</td>
+											<td class="sp-mono">{w.stock}</td>
+										</tr>
+									)}
+								</For>
+							</tbody>
+						</table>
+					</div>
 					<div class="sp-row">
 						<button class="zui-button zui-button-color-accent" type="button" onClick={downloadPdf}>
 							<i class="ph ph-file-pdf" aria-hidden="true" /> Save as PDF
@@ -668,22 +731,34 @@ export default function Planner() {
 				<section class="sp-card">
 					<h2>Fixings</h2>
 					<p class="sp-sub">
-						Two ways to hold the shelves up. Use one, or mix them. Battens are strips of timber, about 25 × 38mm, screwed to the wall
-						under every shelf edge that meets a wall. Shelf brackets (L-brackets) go under each shelf, at most 50cm apart.
+						Battens are strips of timber, about 25 × 38mm, screwed to the wall under every shelf edge that meets a wall. A shelf needs a
+						wall on at least two edges to sit on them. Shelf brackets (L-brackets) go under each shelf. Use one, or mix them.
 					</p>
 					<div class="sp-stats sp-stats-2">
 						<div>
-							<small>Battens</small>
-							<b>{fmt(fix().battenRun / 100)}m</b>
-							<span>
-								{fix().stock} × {fmt(STOCK / 100)}m lengths. Cut {groupLengths(fix().battens) || 'nothing yet'}.{joinNote(fix().battens)}
-							</span>
+							<small>Brackets only</small>
+							<b>{fix().brackets}</b>
+							<span>{bracketRule}</span>
 						</div>
 						<div>
-							<small>Or shelf brackets</small>
-							<b>{fix().brackets}</b>
-							<span>At least 2 per shelf, plus screws and wall plugs for each.</span>
+							<small>Battens only</small>
+							<Show
+								when={fix().battensOnly}
+								fallback={<span>Not possible here: some shelves have no wall at their ends, as in a U of shelves. Use brackets or a mix.</span>}
+							>
+								<b>{fmt(fix().battenRun / 100)}m</b>
+								<span>{battenText()}</span>
+							</Show>
 						</div>
+						<Show when={!fix().battensOnly && fix().battens.length > 0}>
+							<div>
+								<small>Mix</small>
+								<b>{fmt(fix().battenRun / 100)}m + {fix().mixBrackets}</b>
+								<span>
+									Battens on the shelves that have a wall on two edges, brackets for the rest ({fix().mixBrackets}). {battenText()}
+								</span>
+							</div>
+						</Show>
 					</div>
 				</section>
 			</div>

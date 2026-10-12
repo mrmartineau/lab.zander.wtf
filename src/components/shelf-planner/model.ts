@@ -32,8 +32,6 @@ export interface Room {
 	th: number
 	/** Lowest height an over-door shelf is allowed. */
 	doorMin: number
-	/** Light switch height, centred between the doors. */
-	sw: number
 }
 
 export interface Level {
@@ -95,7 +93,6 @@ export const ROOM_FIELDS: [keyof Room, string, [number, number]][] = [
 	['retRD', 'Right return depth', [0, 60]],
 	['h', 'Ceiling height', [120, 400]],
 	['door', 'Door height', [100, 350]],
-	['sw', 'Light switch height', [50, 400]],
 	['doorMin', 'Over-door min height', [100, 400]],
 	['setL', 'Left shelf setback', [0, 50]],
 	['set', 'Right shelf setback', [0, 50]],
@@ -116,7 +113,6 @@ export const DEFAULT_ROOM: Room = {
 	set: 3,
 	th: 1.8,
 	doorMin: 230,
-	sw: 220,
 }
 
 export const DEFAULT_DEPTHS: Depths = { sm: 17, md: 25, lg: 30, xl: 35 }
@@ -225,7 +221,7 @@ export const STOCK = 240
 const KERF = 0.3
 /** Brackets go at most this far apart (cm) for shelves loaded with jars and tins, and this far in from each end. */
 export const BRACKET_GAP = 50
-const BRACKET_END = 10
+export const BRACKET_END = 10
 
 export const bracketsFor = (len: number) => Math.max(2, Math.ceil((len - 2 * BRACKET_END) / BRACKET_GAP) + 1)
 
@@ -242,18 +238,47 @@ export function stockLengths(pieces: number[], stock = STOCK) {
 }
 
 /**
- * The two ways to hold the shelves up. Battens run under every board edge that meets a wall; side
- * shelves also need one across the back wall under their back end. Brackets go under each board.
+ * Batten pieces (cm) for one board, or null when a batten can't hold it. A batten needs a wall on at
+ * least two edges: side shelves have their side wall and the back wall, a back or over-door shelf
+ * only when it runs wall to wall (then it gets a batten at each end too). A back shelf between two
+ * side shelves has bare ends, so it needs brackets.
+ */
+export function battenPieces(plan: Plan, b: Board): number[] | null {
+	const r = plan.room
+	if (b.wall === 'Left' || b.wall === 'Right') return [b.len, b.d]
+	if (b.wall === 'Back') return b.x0 <= 0 && b.x1 >= r.w ? [b.len, b.d, b.d] : null
+	return b.x0 <= r.ret && b.x1 >= r.w - r.retR ? [b.len] : null
+}
+
+/**
+ * The ways to hold the shelves up. Battens go under every board edge that meets a wall; brackets go
+ * under each board. "Mix" uses battens where they hold and brackets for the rest.
  */
 export function fixings(plan: Plan) {
 	const all = boards(plan)
-	const battens = all.flatMap((b) => (b.wall === 'Left' || b.wall === 'Right' ? [b.len, b.d] : [b.len]))
+	const pieces = all.map((b) => battenPieces(plan, b))
+	const battens = pieces.flatMap((p) => p ?? [])
 	return {
 		battens,
 		battenRun: battens.reduce((a, b) => a + b, 0),
 		stock: stockLengths(battens),
+		/** Brackets if every shelf gets them. */
 		brackets: all.reduce((a, b) => a + bracketsFor(b.len), 0),
+		/** Brackets for only the shelves a batten can't hold. */
+		mixBrackets: all.reduce((a, b, i) => a + (pieces[i] ? 0 : bracketsFor(b.len)), 0),
+		/** Battens alone work only when none of the shelves need brackets. */
+		battensOnly: all.length > 0 && pieces.every(Boolean),
 	}
+}
+
+/** Boards grouped by width (depth), narrowest first: count, total run (cm) and stock lengths to buy. */
+export function widthTotals(bs: Board[]) {
+	return [...new Set(bs.map((b) => b.d))]
+		.sort((a, b) => a - b)
+		.map((d) => {
+			const lens = bs.filter((b) => b.d === d).map((b) => b.len)
+			return { d, count: lens.length, run: lens.reduce((a, b) => a + b, 0), stock: stockLengths(lens) }
+		})
 }
 
 /** Battens longer than one stock length have to be joined from two. Empty when none are. */
@@ -282,7 +307,7 @@ export function notes(r: Room) {
 	return [
 		sideNote('Left', r.dl, r.ret, r.retD, r.setL, leftLength(r)),
 		sideNote('Right', r.dr, r.retR, r.retRD, r.set, rightLength(r)),
-		`The over-door shelf follows the front wall (${fmt(r.dl)}cm on the left, ${fmt(r.dr)}cm on the right)${r.dl !== r.dr ? ", so its ends aren't square" : ''}. Light switch at ${fmt(r.sw)}cm, centred between the doors.`,
+		`The over-door shelf follows the front wall (${fmt(r.dl)}cm on the left, ${fmt(r.dr)}cm on the right)${r.dl !== r.dr ? ", so its ends aren't square" : ''}.`,
 		'Measure the back wall at a few heights before cutting. Walls are rarely square.',
 	]
 }
