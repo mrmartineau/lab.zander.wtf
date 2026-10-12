@@ -373,7 +373,7 @@ export function normalise(p: Partial<Plan> | null | undefined): Plan {
 }
 
 /**
- * Share links carry the whole plan in the URL hash (`#plan=…`), so nothing goes to a server.
+ * Share links carry the whole plan in the URL hash (`#plan-…`), so nothing goes to a server.
  * The JSON is UTF-8 so any plan name survives, then base64url so it sits in a URL as is.
  */
 export function encodeShare(name: string, p: Plan) {
@@ -383,6 +383,12 @@ export function encodeShare(name: string, p: Plan) {
 		.replace(/\//g, '_')
 		.replace(/=+$/, '')
 }
+
+/**
+ * The share code in a URL hash. New links use `#plan-CODE`: WhatsApp ends the link at an `=`, so the
+ * old `#plan=CODE` form (still read here) lost the plan when pasted into a chat.
+ */
+export const shareCodeFromHash = (hash: string) => /(?:^#|&)plan[-=]([\w-]+)/.exec(hash)?.[1] ?? ''
 
 export function decodeShare(code: string): { name: string; plan: Plan } | null {
 	try {

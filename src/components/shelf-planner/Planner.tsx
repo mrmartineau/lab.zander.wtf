@@ -17,6 +17,7 @@ import {
 	clone,
 	decodeShare,
 	encodeShare,
+	shareCodeFromHash,
 	defaultPlan,
 	fixings,
 	fmt,
@@ -252,7 +253,7 @@ export default function Planner() {
 		setPendingDelete(null)
 	}
 	const sharePlan = async (n: string) => {
-		const url = `${location.origin}${location.pathname}#plan=${encodeShare(n, saved()[n])}`
+		const url = `${location.origin}${location.pathname}#plan-${encodeShare(n, saved()[n])}`
 		try {
 			await navigator.clipboard.writeText(url)
 			setCopied(n)
@@ -289,7 +290,7 @@ export default function Planner() {
 
 	onMount(() => {
 		// A share link shows its plan without storing it, so opening one never replaces the plan kept here.
-		const shared = decodeShare(new URLSearchParams(location.hash.slice(1)).get('plan') ?? '')
+		const shared = decodeShare(shareCodeFromHash(location.hash))
 		setPlan(shared ? shared.plan : loadCurrent())
 		if (shared) {
 			setName(shared.name)
