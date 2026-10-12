@@ -1,6 +1,6 @@
 ---
 import Layout from '../../layouts/Layout.astro'
-import { Badge } from '@mrmartineau/zui/astro'
+import { Badge, Collapsible, CollapsibleTrigger, CollapsibleContent } from '@mrmartineau/zui/astro'
 import Planner from '../../components/shelf-planner/Planner'
 import '../../components/shelf-planner/shelf-planner.css'
 
@@ -47,8 +47,9 @@ const jsonLd = {
 			<p class="sp-loading" slot="fallback">Measuring the cupboard…</p>
 		</Planner>
 
-		<section class="sp-card">
-			<h2>How it works</h2>
+		<Collapsible open>
+			<CollapsibleTrigger>How it works</CollapsibleTrigger>
+			<CollapsibleContent>
 			<ol class="sp-notes">
 				<li>Enter the room: the back wall width, each side wall depth, the ceiling and door heights, and the short return walls beside the door.</li>
 				<li>Set a depth for each shelf size, from SM to XL. Change one and every shelf of that size follows.</li>
@@ -57,7 +58,7 @@ const jsonLd = {
 			</ol>
 			<p class="sp-sub">
 				Everything stays in your browser. Nothing is uploaded, and you can save as many plans as you like to compare.
-			</p>
-		</section>
+			</p></CollapsibleContent>
+		</Collapsible>
 	</main>
 </Layout>
