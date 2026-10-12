@@ -1,0 +1,9 @@
+---
+// A shared plan: /shelf-planner/p/<code>. The planner reads the code from the path in the browser,
+// so this just serves the normal page. Server-rendered because the code is different every time.
+import Page from '../index.astro'
+
+export const prerender = false
+---
+
+<Page />

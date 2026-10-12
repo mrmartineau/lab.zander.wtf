@@ -373,11 +373,21 @@ export function normalise(p: Partial<Plan> | null | undefined): Plan {
 }
 
 /**
- * Share links carry the whole plan in the URL hash (`?plan=…`), so nothing goes to a server.
- * The JSON is UTF-8 so any plan name survives, then base64url so it sits in a URL as is.
+ * Share links carry the whole plan in the URL path (`/shelf-planner/p/CODE`), so nothing goes to a
+ * server. Chat apps like WhatsApp cut a link short at `=` and inside a `#` fragment, but a path of
+ * letters, digits, `-` and `_` stays whole. The plan is a short positional array (room figures in
+ * `Object.keys(DEFAULT_ROOM)` order, so only ever add new room fields at the end), UTF-8 so any
+ * name survives, then base64url.
  */
+const SHARE_TYPES = ['', ...TYPE_KEYS]
+
 export function encodeShare(name: string, p: Plan) {
-	const json = JSON.stringify({ n: name, p: { room: p.room, depths: p.depths, levels: p.levels.map(({ id, ...l }) => l) } })
+	const json = JSON.stringify([
+		name,
+		Object.keys(DEFAULT_ROOM).map((k) => p.room[k as keyof Room]),
+		TYPE_KEYS.map((t) => p.depths[t]),
+		p.levels.map((l) => [l.y, ...(['L', 'B', 'R', 'D'] as const).map((w) => SHARE_TYPES.indexOf(l[w]))]),
+	])
 	return btoa(String.fromCharCode(...new TextEncoder().encode(json)))
 		.replace(/\+/g, '-')
 		.replace(/\//g, '_')
@@ -385,18 +395,32 @@ export function encodeShare(name: string, p: Plan) {
 }
 
 /**
- * The share code in a URL's query or hash. New links use `?plan=CODE`: chat apps like WhatsApp cut a
- * link short inside a `#` fragment, so the old `#plan=CODE` and `#plan-CODE` forms (still read here)
- * lost the plan when pasted into a chat. Pass `location.search + location.hash`.
+ * The share code in a URL: `/p/CODE` in the path, or the older `?plan=CODE`, `#plan-CODE` and
+ * `#plan=CODE` forms, which are still read. Pass `location.pathname + location.search + location.hash`.
  */
-export const shareCodeFrom = (url: string) => /[?#&]plan[-=]([\w-]+)/.exec(url)?.[1] ?? ''
+export const shareCodeFrom = (url: string) => /\/p\/([\w-]+)|[?#&]plan[-=]([\w-]+)/.exec(url)?.slice(1).find(Boolean) ?? ''
 
 export function decodeShare(code: string): { name: string; plan: Plan } | null {
 	try {
 		const bin = atob(code.replace(/-/g, '+').replace(/_/g, '/'))
-		const { n, p } = JSON.parse(new TextDecoder().decode(Uint8Array.from(bin, (c) => c.charCodeAt(0))))
-		if (!p || typeof p !== 'object' || !Array.isArray(p.levels)) return null
-		return { name: typeof n === 'string' ? n.trim().slice(0, 60) : '', plan: normalise(p) }
+		const j = JSON.parse(new TextDecoder().decode(Uint8Array.from(bin, (c) => c.charCodeAt(0))))
+		// The long form from older links: { n: name, p: plan }.
+		if (!Array.isArray(j)) {
+			const { n, p } = j
+			if (!p || typeof p !== 'object' || !Array.isArray(p.levels)) return null
+			return { name: typeof n === 'string' ? n.trim().slice(0, 60) : '', plan: normalise(p) }
+		}
+		const [n, r, d, l] = j
+		if (!Array.isArray(l)) return null
+		const levels = l.map((x) =>
+			Array.isArray(x) ? { y: x[0], L: SHARE_TYPES[x[1]], B: SHARE_TYPES[x[2]], R: SHARE_TYPES[x[3]], D: SHARE_TYPES[x[4]] } : null,
+		)
+		const plan = normalise({
+			room: Object.fromEntries(Object.keys(DEFAULT_ROOM).map((k, i) => [k, r?.[i]])),
+			depths: Object.fromEntries(TYPE_KEYS.map((t, i) => [t, d?.[i]])),
+			levels,
+		} as unknown as Partial<Plan>)
+		return { name: typeof n === 'string' ? n.trim().slice(0, 60) : '', plan }
 	} catch {
 		return null
 	}

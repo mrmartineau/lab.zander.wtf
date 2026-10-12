@@ -9,6 +9,8 @@ interface Props {
 	description?: string
 	/** Social card image, relative to the site root or absolute. */
 	image?: string
+	/** Canonical path, when it isn't the page's own URL. */
+	canonical?: string
 	/** Disable pinch / double-tap zoom — for game-like, app-like pages. */
 	lockZoom?: boolean
 	/** Skip the lab bar and footer — for full-screen pages. */
@@ -21,6 +23,7 @@ const {
 	title = 'lab.zander.wtf',
 	description = 'Ideas, experiments, toys and small tools. Some of them work.',
 	image,
+	canonical: canonicalPath,
 	lockZoom = false, bare = false, reactions: forceReactions } = Astro.props
 
 // Lab item pages (`/<slug>`) get a bar with a quick switcher. Every page but
@@ -34,7 +37,7 @@ const items = showChrome
 const isItem = items.some((item) => item.slug === slug)
 // Hearts and views (components/Reactions.astro).
 const reactions = showChrome && (forceReactions ?? isItem)
-const canonical = new URL(Astro.url.pathname, Astro.site)
+const canonical = new URL(canonicalPath ?? Astro.url.pathname, Astro.site)
 const imageUrl = image && new URL(image, Astro.site)
 const viewport = lockZoom
 	? 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no'

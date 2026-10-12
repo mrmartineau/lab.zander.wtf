@@ -18,6 +18,8 @@ assert.ok(back.plan.levels.every((l) => typeof l.id === 'number' && Number.isFin
 assert.equal(new Set(back.plan.levels.map((l) => l.id)).size, back.plan.levels.length)
 // The code is URL-safe as it is.
 assert.match(encodeShare('x', plan), /^[\w-]+$/)
+// Short enough for a chat message: the starting plan is under 250 characters.
+assert.ok(encodeShare('Pantry', plan).length < 250, String(encodeShare('Pantry', plan).length))
 
 // Broken or hostile links give null or a safe plan, never a crash.
 assert.equal(decodeShare(''), null)
@@ -36,14 +38,20 @@ assert.ok(wild)
 assert.equal(wild.plan.levels.length, 1)
 assert.ok(Object.values(wild.plan.room).every((v) => Number.isFinite(v) && v <= 500))
 
-// New `?plan=CODE` links and old `#plan-CODE` / `#plan=CODE` links all read; other hashes give nothing.
+// New `/p/CODE` links and old `?plan=CODE`, `#plan-CODE` and `#plan=CODE` links all read; other hashes give nothing.
 const code = encodeShare('x', plan)
+assert.equal(shareCodeFrom(`/shelf-planner/p/${code}`), code)
+assert.equal(shareCodeFrom(`/shelf-planner/p/${code}/`), code)
 assert.equal(shareCodeFrom(`#plan-${code}`), code)
 assert.equal(shareCodeFrom(`?plan=${code}`), code)
 assert.equal(shareCodeFrom(`#plan=${code}`), code)
 assert.equal(shareCodeFrom(`#admin=abc&plan=${code}`), code)
-assert.equal(shareCodeFrom('#admin=abc'), '')
+assert.equal(shareCodeFrom('/shelf-planner/#admin=abc'), '')
 assert.equal(shareCodeFrom(`?plan=${code}#admin=abc`), code)
 assert.ok(decodeShare(shareCodeFrom(`?plan=${code}`)))
+
+// The long form from older links still decodes.
+const oldCode = btoa(JSON.stringify({ n: 'Old', p: { room: plan.room, depths: plan.depths, levels: plan.levels } }))
+assert.deepEqual(decodeShare(oldCode)?.plan.depths, plan.depths)
 
 console.log('share ok')

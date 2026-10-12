@@ -253,7 +253,7 @@ export default function Planner() {
 		setPendingDelete(null)
 	}
 	const sharePlan = async (n: string) => {
-		const url = `${location.origin}${location.pathname}?plan=${encodeShare(n, saved()[n])}`
+		const url = `${location.origin}/shelf-planner/p/${encodeShare(n, saved()[n])}`
 		try {
 			await navigator.clipboard.writeText(url)
 			setCopied(n)
@@ -290,7 +290,7 @@ export default function Planner() {
 
 	onMount(() => {
 		// A share link shows its plan without storing it, so opening one never replaces the plan kept here.
-		const shared = decodeShare(shareCodeFrom(location.search + location.hash))
+		const shared = decodeShare(shareCodeFrom(location.pathname + location.search + location.hash))
 		setPlan(shared ? shared.plan : loadCurrent())
 		if (shared) {
 			setName(shared.name)
