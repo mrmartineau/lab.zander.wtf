@@ -103,6 +103,7 @@ const firstDrum = ROWS.findIndex((r) => 'drum' in r)
 		<div class="ls-main">
 			<aside class="ls-side ls-left" aria-labelledby="ls-comp-title">
 				<h2 id="ls-comp-title"><i class="ph ph-music-notes"></i> Compositions</h2>
+				<Button id="ls-new" variant="outline" size="sm"><i class="ph ph-file-plus"></i> New song</Button>
 				<form id="ls-save" class="ls-save">
 					<Field>
 						<Label for="ls-name">Name</Label>
@@ -133,6 +134,14 @@ const firstDrum = ROWS.findIndex((r) => 'drum' in r)
 							<i class="ph ph-dots-three"></i>
 						</MenuTrigger>
 						<MenuContent class="ls-menu">
+							{
+								SLOTS.map((s, i) => (
+									<MenuItem class="ls-menu-item" data-copy-to={i}>
+										<i class="ph ph-copy-simple" />
+										Copy to {s}
+									</MenuItem>
+								))
+							}
 							<MenuItem id="ls-copy" class="ls-menu-item"><i class="ph ph-copy"></i> Copy pattern</MenuItem>
 							<MenuItem id="ls-paste" class="ls-menu-item" disabled
 								><i class="ph ph-clipboard-text"></i> Paste pattern</MenuItem
@@ -230,6 +239,7 @@ const firstDrum = ROWS.findIndex((r) => 'drum' in r)
 	const chain = $<HTMLOListElement>('ls-chain')
 	const waveItems = [...document.querySelectorAll<HTMLElement>('[data-wave]')]
 	const stepItems = [...document.querySelectorAll<HTMLElement>('[data-steps-option]')]
+	const copyItems = [...document.querySelectorAll<HTMLElement>('[data-copy-to]')]
 	const nameInput = $<HTMLInputElement>('ls-name')
 	const status = $('ls-status')
 	let sayTimer = 0
@@ -253,6 +263,7 @@ const firstDrum = ROWS.findIndex((r) => 'drum' in r)
 		grid.dataset.steps = String(song.steps)
 		playPattern.querySelector('span')!.textContent = `Loop ${SLOTS[edit]}`
 		$('ls-clear').querySelector('span')!.textContent = `Clear ${SLOTS[edit]}`
+		for (const el of copyItems) el.hidden = +el.dataset.copyTo! === edit
 	}
 
 	function renderChain() {
@@ -434,6 +445,17 @@ const firstDrum = ROWS.findIndex((r) => 'drum' in r)
 		}
 	})
 
+	for (const el of copyItems) {
+		el.onclick = () => {
+			const to = +el.dataset.copyTo!
+			song.patterns[to] = [...song.patterns[edit]]
+			edit = to // jump there so the copy is visible
+			renderGrid()
+			save()
+			say(`Copied to pattern ${SLOTS[to]}.`)
+		}
+	}
+
 	$('ls-copy').onclick = () => {
 		clip = [...song.patterns[edit]]
 		const paste = $<HTMLButtonElement>('ls-paste')
@@ -466,6 +488,21 @@ const firstDrum = ROWS.findIndex((r) => 'drum' in r)
 		renderAll()
 		save()
 		say('Song cleared.')
+	}
+
+	// Back to a blank song with the default tempo, sound and mix.
+	$('ls-new').onclick = () => {
+		if (!confirm('Start a new song? Unsaved changes are lost.')) return
+		Object.assign(song, structuredClone(DEFAULT_SONG), {
+			patterns: DEFAULT_SONG.patterns.map(() => ROWS.map(() => 0)),
+			chain: [0],
+		})
+		edit = 0
+		resumeAt = 0
+		nameInput.value = ''
+		renderAll()
+		save()
+		say('New song.')
 	}
 
 	$('ls-add').onclick = () => {
