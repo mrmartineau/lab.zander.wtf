@@ -455,3 +455,8 @@
   outline: 2px var(--border-style) var(--color-accent);
   outline-offset: -2px;
 }
+
+.sp-sizes {
+  margin: var(--space-sm) 0;
+  padding-inline-start: var(--space-md);
+}

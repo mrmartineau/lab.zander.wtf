@@ -9,10 +9,12 @@ import {
 	TYPE_KEYS,
 	type TypeKey,
 	boards,
+	encodeShare,
 	fixings,
 	fmt,
 	gapAbove,
 	groupLengths,
+	sizeGroups,
 	widthTotals,
 	joinNote,
 	notes,
@@ -43,6 +45,12 @@ export async function savePdf(plan: Plan, name: string, image?: { url: string; r
 	doc.setTextColor(90)
 	const date = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
 	doc.text(name ? `${name}  ·  ${date}` : date, M, y)
+	y += 5
+	// The link carries the whole plan, so opening it in the planner brings this exact plan back.
+	doc.setTextColor(30, 90, 200)
+	doc.textWithLink('Open this plan in the shelf planner: lab.zander.wtf/shelf-planner', M, y, {
+		url: `https://lab.zander.wtf/shelf-planner/p/${encodeShare(name, plan)}`,
+	})
 	doc.setTextColor(0)
 	y += 6
 
@@ -147,6 +155,19 @@ export async function savePdf(plan: Plan, name: string, image?: { url: string; r
 	doc.setFont('helvetica', 'bold')
 	doc.text(`${b.length} boards, ${fmt(b.reduce((a, s) => a + s.len, 0) / 100)}m total run`, M, y + 2)
 	y += 8
+
+	const sizes = sizeGroups(b)
+	if (sizes.some((s) => s.n > 1)) {
+		head('Cut sizes (depth x length)')
+		table(
+			[
+				['Boards', 30],
+				['Depth (cm)', 40],
+				['Length (cm)', 40],
+			],
+			sizes.map((s) => [s.n, fmt(s.d), fmt(s.len)]),
+		)
+	}
 
 	head('By board width')
 	table(

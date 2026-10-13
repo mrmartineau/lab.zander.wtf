@@ -96,7 +96,7 @@ export const ROOM_FIELDS: [keyof Room, string, [number, number]][] = [
 	['doorMin', 'Over-door min height', [100, 400]],
 	['setL', 'Left shelf setback', [0, 50]],
 	['set', 'Right shelf setback', [0, 50]],
-	['th', 'Board thickness', [0.5, 5]],
+	['th', 'Board thickness', [0.3, 10]],
 ]
 
 export const DEFAULT_ROOM: Room = {
@@ -269,6 +269,18 @@ export function fixings(plan: Plan) {
 		/** Battens alone work only when none of the shelves need brackets. */
 		battensOnly: all.length > 0 && pieces.every(Boolean),
 	}
+}
+
+/** Identical boards (same depth and length to 1mm) grouped, narrowest first: "5 × 14cm × 96cm". */
+export function sizeGroups(bs: Board[]) {
+	const groups = new Map<string, { n: number; d: number; len: number }>()
+	for (const b of bs) {
+		const key = `${fmt(b.d)}x${fmt(b.len)}`
+		const g = groups.get(key)
+		if (g) g.n++
+		else groups.set(key, { n: 1, d: Number(fmt(b.d)), len: Number(fmt(b.len)) })
+	}
+	return [...groups.values()].sort((a, b) => a.d - b.d || b.len - a.len)
 }
 
 /** Boards grouped by width (depth), narrowest first: count, total run (cm) and stock lengths to buy. */

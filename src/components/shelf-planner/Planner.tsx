@@ -25,6 +25,7 @@ import {
 	BRACKET_END,
 	BRACKET_GAP,
 	groupLengths,
+	sizeGroups,
 	widthTotals,
 	joinNote,
 	HEAD,
@@ -47,23 +48,29 @@ function NumField(props: {
 	min: number
 	max: number
 	color?: string
+	/** Show and type the value in other units: `scale` display units per cm (10 for mm). */
+	unit?: string
+	scale?: number
+	step?: number
 	onCommit: (v: number) => void
 }) {
 	let input!: HTMLInputElement
+	const scale = () => props.scale ?? 1
 	const commit = () => {
-		const v = Number.parseFloat(input.value)
-		if (Number.isFinite(v)) props.onCommit(Math.min(props.max, Math.max(props.min, Math.round(v * 2) / 2)))
-		input.value = fmt(props.value)
+		const v = Number.parseFloat(input.value) / scale()
+		const step = props.step ?? 0.5
+		if (Number.isFinite(v)) props.onCommit(Math.min(props.max, Math.max(props.min, Number((Math.round(v / step) * step).toFixed(3)))))
+		input.value = fmt(props.value * scale())
 	}
 	createEffect(() => {
-		if (document.activeElement !== input) input.value = fmt(props.value)
+		if (document.activeElement !== input) input.value = fmt(props.value * scale())
 	})
 	return (
 		<label class="sp-num" for={props.id}>
 			<span class="sp-num-label">{props.label}</span>
 			<span class="sp-num-box" style={{ 'border-inline-start-color': props.color ? `var(${props.color})` : undefined }}>
-				<input ref={input} id={props.id} type="number" inputmode="decimal" step="0.5" min={props.min} max={props.max} onChange={commit} />
-				<span>cm</span>
+				<input ref={input} id={props.id} type="number" inputmode="decimal" step={(props.step ?? 0.5) * scale()} min={props.min * scale()} max={props.max * scale()} onChange={commit} />
+				<span>{props.unit ?? 'cm'}</span>
 			</span>
 		</label>
 	)
@@ -96,6 +103,7 @@ export default function Planner() {
 	const levelIds = createMemo(() => levels().map((l) => l.id).reverse())
 	const selIndex = createMemo(() => levels().findIndex((l) => l.id === selId()))
 	const allBoards = createMemo(() => boards(plan()))
+	const sizes = createMemo(() => sizeGroups(allBoards()))
 	const totals = createMemo(() => widthTotals(allBoards()))
 	const totalRun = createMemo(() => allBoards().reduce((a, b) => a + b.len, 0))
 	const clear = createMemo(() => clearances(plan()))
@@ -268,7 +276,7 @@ export default function Planner() {
 	const cutText = () =>
 		`Shelves (${fmt(plan().room.th * 10)}mm boards)\n${allBoards()
 			.map((b) => `L${b.i + 1} @ ${fmt(b.y)}cm  ${b.wall.padEnd(9)}  ${TYPES[b.t].name.padEnd(9)}  ${fmt(b.len)} x ${fmt(b.d)}cm`)
-			.join('\n')}\n\nBy board width\n${totals()
+			.join('\n')}\n\n${sizes().some((s) => s.n > 1) ? `Cut sizes\n${sizes().map((s) => `${s.n} x ${fmt(s.d)}cm x ${fmt(s.len)}cm`).join('\n')}\n\n` : ''}By board width\n${totals()
 			.map((w) => `${fmt(w.d)}cm wide  ${w.count} boards  ${fmt(w.run / 100)}m  (${w.stock} x ${fmt(STOCK / 100)}m lengths)`)
 			.join('\n')}\n\nBrackets only: ${fix().brackets}\n${fix().battensOnly ? `Battens only: ${groupLengths(fix().battens)} (${fix().stock} x ${fmt(STOCK / 100)}m lengths)${joinNote(fix().battens)}` : 'Battens only: not possible, some shelves have no wall at their ends'}\nMix: battens ${groupLengths(fix().battens) || 'none'} (${fix().stock} x ${fmt(STOCK / 100)}m lengths)${joinNote(fix().battens)}, plus ${fix().mixBrackets} brackets`
 	const copyCutList = async () => {
@@ -525,7 +533,15 @@ export default function Planner() {
 					<div class="sp-cells">
 						<For each={ROOM_FIELDS}>
 							{([k, label, [min, max]]) => (
-								<NumField id={`sp-room-${k}`} label={label} value={plan().room[k]} min={min} max={max} onCommit={(v) => setRoom(k, v)} />
+								<NumField
+									id={`sp-room-${k}`}
+									label={label}
+									value={plan().room[k]}
+									min={min}
+									max={max}
+									{...(k === 'th' ? { unit: 'mm', scale: 10, step: 0.1 } : {})}
+									onCommit={(v) => setRoom(k, v)}
+								/>
 							)}
 						</For>
 					</div>
@@ -649,7 +665,7 @@ export default function Planner() {
 					<p class="sp-sub">
 						Length × depth for each board, {fmt(plan().room.th * 10)}mm thick. Back shelves fit between the side shelves on the same level.
 					</p>
-					<div class="sp-tablewrap">
+					<div class="sp-tablewrap mb-sm">
 						<table>
 							<thead>
 								<tr>
@@ -688,6 +704,19 @@ export default function Planner() {
 							</tfoot>
 						</table>
 					</div>
+					<Show when={sizes().some((s) => s.n > 1)}>
+						<h3>Cut sizes</h3>
+						<p class="sp-sub">Boards that are the same size, so you can cut them in one go. Depth × length.</p>
+						<ul class="sp-sizes sp-mono">
+							<For each={sizes()}>
+								{(s) => (
+									<li>
+										{s.n} × {fmt(s.d)}cm × {fmt(s.len)}cm
+									</li>
+								)}
+							</For>
+						</ul>
+					</Show>
 					<h3>By board width</h3>
 					<div class="sp-tablewrap">
 						<table>
