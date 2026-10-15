@@ -4,7 +4,7 @@ import { Menu, MenuContent, MenuItem, MenuTrigger, Tooltip } from '@mrmartineau/
 
 // Lab item metadata — read by the homepage listing.
 export const title = 'Drawing app'
-export const description = 'Kid-friendly drawing app built with p5.js — magic brushes, neon and ribbon pens, paint-bucket fill, colouring pages, text, stickers and snowflake mirrors.'
+export const description = 'Kid-friendly drawing app built with p5.js — magic brushes, neon and ribbon pens, paint-bucket fill, editable vector shapes with SVG export, colouring pages, text, stickers and snowflake mirrors.'
 export const date = '2026-05-19'
 export const status = 'live'
 export const tags = ['drawing', 'p5.js']
@@ -35,7 +35,14 @@ const shapes: Tool[] = [
   { mode: 'star', name: 'Star', icon: 'ph-star', desc: 'Drag to stamp stars. Speed packs them closer.' },
   { mode: 'heart', name: 'Heart', icon: 'ph-heart', desc: 'Drag to stamp hearts. Speed packs them closer.' },
 ]
-const stamp: Tool = { mode: 'emoji', name: 'Stickers', icon: 'ph-stamp', desc: 'Drag to stamp stickers. Speed packs them closer.' }
+const vectors: Tool[] = [
+  { mode: 'v-select', name: 'Select', icon: 'ph-cursor', desc: 'Tap a shape to pick it. Drag to move it, pull the dots to stretch it.' },
+  { mode: 'v-line', name: 'Line', icon: 'ph-line-segment', desc: 'Drag a straight line. Hold Shift to snap the angle.' },
+  { mode: 'v-rect', name: 'Box', icon: 'ph-rectangle', desc: 'Drag a box. Hold Shift for a square.' },
+  { mode: 'v-oval', name: 'Oval', icon: 'ph-circle-dashed', desc: 'Drag an oval. Hold Shift for a circle.' },
+  { mode: 'v-curve', name: 'Curve', icon: 'ph-bezier-curve', desc: 'Draw a smooth line you can move and stretch later.' },
+]
+const stamp: Tool ={ mode: 'emoji', name: 'Stickers', icon: 'ph-stamp', desc: 'Drag to stamp stickers. Speed packs them closer.' }
 const stickers = ['🌈', '🐱', '🚀', '🦄', '🌟', '🌸', '🐶', '🦋', '❤️', '🦖', '🐠', '🍕', '🍩', '🌻', '🐝', '👑', '🎈', '⚽']
 const colours = ['#ffffff', '#ff4d6d', '#ff9f1c', '#ffd60a', '#52d273', '#2ec4f1', '#4d7cff', '#a66cff', '#ff7ac6', '#8b5a2b', '#1a1a1a']
 const mirrors = [
@@ -75,6 +82,11 @@ const papers = [
     </div>
     <div class="group" aria-label="Pens">
       {pens.map((t) => (
+        <Tooltip text={t.name} placement="bottom"><button class="tool" data-mode={t.mode} data-desc={t.desc} data-name={t.name} aria-label={t.name} aria-pressed="false"><i class={`ph ${t.icon}`}></i></button></Tooltip>
+      ))}
+    </div>
+    <div class="group" aria-label="Vector shapes">
+      {vectors.map((t) => (
         <Tooltip text={t.name} placement="bottom"><button class="tool" data-mode={t.mode} data-desc={t.desc} data-name={t.name} aria-label={t.name} aria-pressed="false"><i class={`ph ${t.icon}`}></i></button></Tooltip>
       ))}
     </div>
@@ -151,6 +163,7 @@ const papers = [
       <canvas id="c"></canvas>
       <canvas id="lines" aria-hidden="true"></canvas>
       <div class="guides" id="guides" data-sym="off" aria-hidden="true"></div>
+      <svg class="vectors" id="vectors" aria-hidden="true"></svg>
       <div class="texts" id="texts"></div>
     </div>
 
@@ -163,7 +176,7 @@ const papers = [
         </div>
       </div>
 
-      <section class="field" data-for="fx pen eraser shape emoji text">
+      <section class="field" data-for="fx pen eraser shape emoji text vector">
         <label for="size">Size <output id="size-v">12</output></label>
         <input type="range" id="size" min="2" max="40" value="12">
       </section>
@@ -184,7 +197,7 @@ const papers = [
           <button class="small" data-action="shuffle" aria-label="Jump to new colours" title="Jump to new colours"><i class="ph ph-shuffle"></i></button>
         </div>
       </section>
-      <section class="field" data-for="pen shape fill text">
+      <section class="field" data-for="pen shape fill text vector">
         <span class="label" id="colour-label">Colour</span>
         <div class="swatches" role="radiogroup" aria-labelledby="colour-label">
           <button class="swatch swatch-rainbow" role="radio" aria-checked="false" data-colour="rainbow" aria-label="Rainbow"></button>
@@ -205,6 +218,21 @@ const papers = [
           ))}
         </div>
         <p class="hint">Changes the text you are typing, and any new text.</p>
+      </section>
+      <section class="field" data-for="vector">
+        <span class="label" id="vfill-label">Inside</span>
+        <div class="choices" role="radiogroup" aria-labelledby="vfill-label">
+          <button class="choice vfill" role="radio" aria-checked="true" data-fill=""><i class="ph ph-square"></i>Empty</button>
+          <button class="choice vfill" role="radio" aria-checked="false" data-fill="1"><i class="ph ph-paint-bucket"></i>Filled</button>
+        </div>
+      </section>
+      <section class="field" data-for="vector">
+        <span class="label">Shapes</span>
+        <p class="hint">Shapes stay editable. Pick one with Select to move, stretch, recolour or delete it.</p>
+        <div class="choices">
+          <button class="choice" data-action="vdelete" id="v-delete" disabled><i class="ph ph-trash"></i>Delete</button>
+          <button class="choice" data-action="svg"><i class="ph ph-file-svg"></i>Save SVG</button>
+        </div>
       </section>
       <section class="field" data-for="emoji">
         <span class="label">Sticker</span>
@@ -402,6 +430,7 @@ function setPage(name) {
 // ---------- Actions ----------
 function setMode(m) {
   if (mode === 'text' && m !== 'text') document.activeElement?.closest('.text-box') && document.activeElement.blur();
+  if (m !== 'v-select' && selected) select(null);
   mode = m;
   stage.dataset.mode = m;
   pruneEmptyTexts();
@@ -417,7 +446,7 @@ function setMode(m) {
 let textFont = $('.font').dataset.font;
 let activeBox = null;
 const textSize = () => brushSize * 3;
-const textColour = () => (rainbowPen ? `hsl(${hue} 85% 55%)` : penColour);
+const cssColour = () => (rainbowPen ? `hsl(${hue} 85% 55%)` : penColour);
 
 function makeTextBox({ x, y, text = '', size, colour, font }) {
   const box = document.createElement('div');
@@ -484,7 +513,7 @@ function addTextAt(x, y) {
   pruneEmptyTexts();
   pushHistory();
   const size = textSize();
-  const box = makeTextBox({ x: Math.round(x), y: Math.round(y - size * 0.7), size, colour: textColour(), font: textFont });
+  const box = makeTextBox({ x: Math.round(x), y: Math.round(y - size * 0.7), size, colour: cssColour(), font: textFont });
   setTimeout(() => box.querySelector('.text-body').focus());
 }
 
@@ -502,6 +531,235 @@ function restoreTexts(list) {
   list.forEach((t) => makeTextBox(t));
 }
 
+// ---------- Vector shapes ----------
+// Vector shapes live as data and render into an SVG layer above the paint, so
+// they stay editable: Select moves them, the end dots stretch them. Each shape
+// keeps two points (x1,y1)–(x2,y2): a line's ends, or a box's corners. A curve
+// keeps its points as 0–1 fractions of that box, so stretching the box
+// stretches the curve. Save draws them onto the picture.
+const SVGNS = 'http://www.w3.org/2000/svg';
+const vecLayer = $('#vectors');
+let shapes = [];
+let draft = []; // the shape being drawn, plus its mirror copies
+let selected = null;
+let vecFill = false;
+
+const r1 = (n) => Math.round(n * 10) / 10;
+const pt = (x, y) => `${r1(x)} ${r1(y)}`;
+const isFilled = (s) => s.fill && s.type !== 'line';
+
+function shapePath(s) {
+  const { x1, y1, x2, y2 } = s;
+  if (s.type === 'line') return `M${pt(x1, y1)}L${pt(x2, y2)}`;
+  const l = Math.min(x1, x2), r = Math.max(x1, x2), t = Math.min(y1, y2), b = Math.max(y1, y2);
+  if (s.type === 'rect') return `M${pt(l, t)}H${r1(r)}V${r1(b)}H${r1(l)}Z`;
+  if (s.type === 'oval') {
+    const a = `A${pt((r - l) / 2, (b - t) / 2)} 0 1 0 `, cy = (t + b) / 2;
+    return `M${pt(l, cy)}${a}${pt(r, cy)}${a}${pt(l, cy)}Z`;
+  }
+  // Curve: a quadratic through the midpoints between points smooths the line.
+  const ps = s.pts.map(([u, v]) => [x1 + u * (x2 - x1), y1 + v * (y2 - y1)]);
+  let d = `M${pt(...ps[0])}`;
+  if (ps.length === 1) return d + 'h0.01'; // a dot
+  for (let i = 1; i < ps.length - 1; i++) {
+    const [ax, ay] = ps[i], [bx, by] = ps[i + 1];
+    d += `Q${pt(ax, ay)} ${pt((ax + bx) / 2, (ay + by) / 2)}`;
+  }
+  d += `L${pt(...ps.at(-1))}`;
+  return s.fill ? d + 'Z' : d;
+}
+
+function svgEl(tag, attrs) {
+  const el = document.createElementNS(SVGNS, tag);
+  for (const k in attrs) el.setAttribute(k, attrs[k]);
+  return el;
+}
+
+const inkEl = (s, d = shapePath(s)) => svgEl('path', {
+  d, fill: isFilled(s) ? s.colour : 'none', stroke: s.colour, 'stroke-width': s.width,
+  'stroke-linecap': 'round', 'stroke-linejoin': 'round',
+});
+
+function shapeEl(s) {
+  const g = svgEl('g', {}), d = shapePath(s);
+  // A wide see-through copy makes thin lines easy to tap.
+  const hit = svgEl('path', {
+    d, class: 'v-hit', fill: isFilled(s) ? 'transparent' : 'none', stroke: 'transparent',
+    'stroke-width': s.width + 16, 'stroke-linecap': 'round', 'pointer-events': isFilled(s) ? 'all' : 'stroke',
+  });
+  hit.addEventListener('pointerdown', (e) => dragShape(e, s, 0));
+  g.append(inkEl(s, d), hit);
+  return g;
+}
+
+function selectionEl(s) {
+  const g = svgEl('g', { class: 'v-sel' });
+  if (s.type !== 'line') {
+    const pad = s.width / 2 + 4;
+    g.append(svgEl('rect', {
+      class: 'v-box', x: Math.min(s.x1, s.x2) - pad, y: Math.min(s.y1, s.y2) - pad,
+      width: Math.abs(s.x2 - s.x1) + pad * 2, height: Math.abs(s.y2 - s.y1) + pad * 2,
+    }));
+  }
+  for (const end of [1, 2]) {
+    const h = svgEl('circle', { class: 'v-handle', cx: s['x' + end], cy: s['y' + end], r: 9 });
+    h.addEventListener('pointerdown', (e) => dragShape(e, s, end));
+    g.append(h);
+  }
+  return g;
+}
+
+function renderVectors() {
+  vecLayer.replaceChildren(...[...shapes, ...draft].map(shapeEl));
+  if (selected) vecLayer.append(selectionEl(selected));
+  $('#v-delete').disabled = !selected;
+}
+
+function select(s) {
+  selected = s;
+  if (s) {
+    // Show the picked shape's settings in the panel.
+    brushSize = s.width;
+    $('#size').value = s.width;
+    $('#size-v').textContent = s.width;
+    vecFill = s.fill;
+    checkOne(fillBtns, fillBtns.find((b) => !!b.dataset.fill === s.fill));
+  }
+  renderVectors();
+}
+
+// Change the picked shape (if any) when a setting changes.
+function updateSelected(props) {
+  if (mode !== 'v-select' || !selected) return;
+  Object.assign(selected, props);
+  renderVectors();
+}
+
+function deleteSelected() {
+  if (!selected) return;
+  pushHistory();
+  shapes = shapes.filter((s) => s !== selected);
+  select(null);
+}
+
+function restoreVectors(list) {
+  shapes = list;
+  draft = [];
+  select(null);
+}
+
+function stagePoint(e) {
+  const r = stage.getBoundingClientRect();
+  return [e.clientX - r.left, e.clientY - r.top];
+}
+
+// Follow the pointer on the window, since re-rendering replaces the element pressed.
+function track(onMove, onEnd) {
+  const end = () => {
+    removeEventListener('pointermove', onMove);
+    removeEventListener('pointerup', end);
+    removeEventListener('pointercancel', end);
+    onEnd?.();
+  };
+  addEventListener('pointermove', onMove);
+  addEventListener('pointerup', end);
+  addEventListener('pointercancel', end);
+}
+
+// Move a shape (end 0) or drag one of its dots (end 1 or 2).
+function dragShape(e, s, end) {
+  if (mode !== 'v-select' || e.button > 0) return;
+  e.preventDefault();
+  e.stopPropagation();
+  if (s !== selected) select(s);
+  const [x0, y0] = stagePoint(e), o = { ...s };
+  let moved = false;
+  track((ev) => {
+    const [x, y] = stagePoint(ev), dx = x - x0, dy = y - y0;
+    if (!moved) {
+      if (Math.hypot(dx, dy) < 3) return;
+      moved = true;
+      pushHistory();
+    }
+    if (end !== 2) { s.x1 = o.x1 + dx; s.y1 = o.y1 + dy; }
+    if (end !== 1) { s.x2 = o.x2 + dx; s.y2 = o.y2 + dy; }
+    renderVectors();
+  });
+}
+
+// Butterfly and Four ways flip shapes too. Snowflake turns would tilt boxes,
+// which this model can't hold, so it leaves vector shapes alone.
+function mirrored(s) {
+  const W = stage.clientWidth, H = stage.clientHeight;
+  const fx = (c) => ({ ...c, x1: W - c.x1, x2: W - c.x2 });
+  const fy = (c) => ({ ...c, y1: H - c.y1, y2: H - c.y2 });
+  if (symMode === 'lr') return [s, fx(s)];
+  if (symMode === 'four') return [s, fx(s), fy(s), fy(fx(s))];
+  return [s];
+}
+
+// Shift snaps lines to 45° steps and makes boxes and ovals even.
+function constrain(s, x, y) {
+  const dx = x - s.x1, dy = y - s.y1;
+  if (s.type === 'line') {
+    const a = Math.round(Math.atan2(dy, dx) / (Math.PI / 4)) * (Math.PI / 4), len = Math.hypot(dx, dy);
+    return [s.x1 + Math.cos(a) * len, s.y1 + Math.sin(a) * len];
+  }
+  const side = Math.max(Math.abs(dx), Math.abs(dy));
+  return [s.x1 + (dx < 0 ? -side : side), s.y1 + (dy < 0 ? -side : side)];
+}
+
+// Fit a curve's box round its points and store them as fractions of it.
+function fitCurve(s, raw) {
+  const xs = raw.map((p) => p[0]), ys = raw.map((p) => p[1]);
+  s.x1 = Math.min(...xs); s.x2 = Math.max(...xs);
+  s.y1 = Math.min(...ys); s.y2 = Math.max(...ys);
+  const w = s.x2 - s.x1, h = s.y2 - s.y1;
+  s.pts = raw.map(([x, y]) => [w ? (x - s.x1) / w : 0, h ? (y - s.y1) / h : 0]);
+}
+
+$('#c').addEventListener('pointerdown', (e) => {
+  if (!mode.startsWith('v-') || !fromCanvas(e)) return;
+  if (mode === 'v-select') return select(null);
+  e.preventDefault();
+  const [x, y] = stagePoint(e), raw = [[x, y]];
+  const s = { type: mode.slice(2), x1: x, y1: y, x2: x, y2: y, colour: cssColour(), width: brushSize, fill: vecFill };
+  if (s.type === 'curve') fitCurve(s, raw);
+  pushHistory();
+  draft = mirrored(s);
+  renderVectors();
+  track((ev) => {
+    let [x, y] = stagePoint(ev);
+    if (s.type === 'curve') {
+      if (Math.hypot(x - raw.at(-1)[0], y - raw.at(-1)[1]) < 4) return;
+      raw.push([x, y]);
+      fitCurve(s, raw);
+    } else {
+      if (ev.shiftKey) [x, y] = constrain(s, x, y);
+      s.x2 = x; s.y2 = y;
+    }
+    draft = mirrored(s);
+    renderVectors();
+  }, () => {
+    // A tap with a line, box or oval makes nothing, so drop its undo step too.
+    if (s.type !== 'curve' && Math.hypot(s.x2 - s.x1, s.y2 - s.y1) < 3) undoStack.pop();
+    else shapes.push(...draft);
+    draft = [];
+    renderVectors();
+  });
+});
+
+function drawVectors(ctx) {
+  for (const s of shapes) {
+    const path = new Path2D(shapePath(s));
+    ctx.lineCap = ctx.lineJoin = 'round';
+    if (isFilled(s)) { ctx.fillStyle = s.colour; ctx.fill(path); }
+    ctx.strokeStyle = s.colour;
+    ctx.lineWidth = s.width;
+    ctx.stroke(path);
+  }
+}
+
 function randomColour() {
   hue = Math.random() * 360;
 }
@@ -509,7 +767,7 @@ function randomColour() {
 // Snapshot the paint (and which colouring page is showing) so it can be undone.
 function pushHistory() {
   if (!p5Instance) return;
-  undoStack.push({ img: p5Instance.get(), page, pageBox, texts: readTexts() });
+  undoStack.push({ img: p5Instance.get(), page, pageBox, texts: readTexts(), vectors: structuredClone(shapes) });
   if (undoStack.length > 12) undoStack.shift();
 }
 
@@ -518,6 +776,7 @@ function undo() {
   if (!last) return;
   p5Instance.image(last.img, 0, 0);
   restoreTexts(last.texts);
+  restoreVectors(last.vectors);
   if (last.page !== page || last.pageBox !== pageBox) {
     page = last.page;
     pageBox = last.pageBox;
@@ -530,6 +789,7 @@ function clearCanvas() {
   pushHistory();
   p5Instance.background(bgColour);
   restoreTexts([]);
+  restoreVectors([]);
 }
 
 function newPaper(colour, pageName = null) {
@@ -538,35 +798,75 @@ function newPaper(colour, pageName = null) {
   bgColour = colour;
   p5Instance.background(bgColour);
   restoreTexts([]);
+  restoreVectors([]);
   setPage(pageName);
 }
 
-function saveImage() {
+// The paint with the colouring-page lines on top, at full pixel density.
+function paintImage() {
   const out = document.createElement('canvas');
   out.width = $('#c').width;
   out.height = $('#c').height;
   const ctx = out.getContext('2d');
   ctx.drawImage($('#c'), 0, 0);
   ctx.drawImage(linesCanvas, 0, 0);
-  // Draw each text box where it sits on screen.
-  const pd = out.width / stage.clientWidth;
+  return out;
+}
+
+// Each text box where it sits on screen, split into lines.
+function textRuns() {
   const origin = stage.getBoundingClientRect();
-  ctx.scale(pd, pd);
-  ctx.textBaseline = 'top';
-  for (const box of textBoxes()) {
+  return textBoxes().map((box) => {
     const body = box.querySelector('.text-body');
     const r = body.getBoundingClientRect(), cs = getComputedStyle(body);
     const size = parseFloat(cs.fontSize), lineH = parseFloat(cs.lineHeight) || size * 1.2;
-    ctx.font = `${cs.fontWeight} ${size}px ${cs.fontFamily}`;
-    ctx.fillStyle = cs.color;
-    const x = r.left - origin.left + parseFloat(cs.paddingLeft);
-    const y = r.top - origin.top + parseFloat(cs.paddingTop) + (lineH - size) / 2;
-    body.innerText.split('\n').forEach((line, i) => ctx.fillText(line, x, y + i * lineH));
-  }
+    return {
+      size, lineH, weight: cs.fontWeight, family: cs.fontFamily, colour: cs.color,
+      x: r.left - origin.left + parseFloat(cs.paddingLeft),
+      y: r.top - origin.top + parseFloat(cs.paddingTop) + (lineH - size) / 2,
+      lines: body.innerText.split('\n'),
+    };
+  });
+}
+
+function download(name, href) {
   const link = document.createElement('a');
-  link.download = 'my-art-' + Date.now() + '.png';
-  link.href = out.toDataURL('image/png');
+  link.download = name;
+  link.href = href;
   link.click();
+}
+
+function saveImage() {
+  const out = paintImage(), ctx = out.getContext('2d');
+  const pd = out.width / stage.clientWidth;
+  ctx.scale(pd, pd);
+  drawVectors(ctx);
+  ctx.textBaseline = 'top';
+  for (const t of textRuns()) {
+    ctx.font = `${t.weight} ${t.size}px ${t.family}`;
+    ctx.fillStyle = t.colour;
+    t.lines.forEach((line, i) => ctx.fillText(line, t.x, t.y + i * t.lineH));
+  }
+  download('my-art-' + Date.now() + '.png', out.toDataURL('image/png'));
+}
+
+// An SVG keeps the vector shapes and text as real shapes; the paint goes in as a picture.
+function saveSvg() {
+  const W = stage.clientWidth, H = stage.clientHeight;
+  const esc = (v) => String(v).replace(/[&<>"]/g, (c) => `&#${c.charCodeAt(0)};`);
+  const parts = [
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">`,
+    `<image href="${paintImage().toDataURL('image/png')}" width="${W}" height="${H}"/>`,
+    ...shapes.map((s) => inkEl(s).outerHTML),
+    ...textRuns().map((t) =>
+      `<text font-family="${esc(t.family)}" font-size="${t.size}" font-weight="${t.weight}" fill="${esc(t.colour)}" dominant-baseline="text-before-edge" xml:space="preserve">` +
+      t.lines.map((line, i) => `<tspan x="${r1(t.x)}" y="${r1(t.y + i * t.lineH)}">${esc(line)}</tspan>`).join('') +
+      '</text>'),
+    '</svg>',
+  ];
+  const url = URL.createObjectURL(new Blob(parts, { type: 'image/svg+xml' }));
+  download('my-art-' + Date.now() + '.svg', url);
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 // Draw only when the press lands on the canvas with the main button.
@@ -577,6 +877,7 @@ function fromCanvas(e) {
 // ---------- Panel ----------
 function kindOf(m) {
   if (m === 'pen' || m === 'neon') return 'pen';
+  if (m.startsWith('v-')) return 'vector';
   if (['fill', 'eraser', 'emoji', 'text'].includes(m)) return m;
   if (shapeModes.includes(m)) return 'shape';
   return 'fx';
@@ -613,7 +914,7 @@ $$('.zui-menu').forEach((menu) => {
 });
 const markCurrent = (items, on) => items.forEach((x) => (x === on ? (x.dataset.current = 'true') : delete x.dataset.current));
 
-for (const [id, set] of [['size', (v) => { brushSize = v; updateActiveBox({ size: textSize() }); }], ['speed', (v) => (speed = v)]]) {
+for (const [id, set] of [['size', (v) => { brushSize = v; updateActiveBox({ size: textSize() }); updateSelected({ width: v }); }], ['speed', (v) => (speed = v)]]) {
   const el = $('#' + id), out = $('#' + id + '-v');
   el.addEventListener('input', () => { set(+el.value); out.textContent = el.value; });
 }
@@ -630,13 +931,15 @@ swatches.forEach((b) => b.addEventListener('click', () => {
   rainbowPen = b.dataset.colour === 'rainbow';
   if (!rainbowPen) penColour = b.dataset.colour;
   checkOne(swatches, b);
-  updateActiveBox({ colour: textColour() });
+  updateActiveBox({ colour: cssColour() });
+  updateSelected({ colour: cssColour() });
 }));
 $('#custom-colour').addEventListener('input', (e) => {
   rainbowPen = false;
   penColour = e.target.value;
   checkOne(swatches, null);
-  updateActiveBox({ colour: textColour() });
+  updateActiveBox({ colour: cssColour() });
+  updateSelected({ colour: cssColour() });
 });
 
 const fontBtns = $$('.font');
@@ -644,6 +947,13 @@ fontBtns.forEach((b) => b.addEventListener('click', () => {
   textFont = b.dataset.font;
   checkOne(fontBtns, b);
   updateActiveBox({ font: textFont });
+}));
+
+const fillBtns = $$('.vfill');
+fillBtns.forEach((b) => b.addEventListener('click', () => {
+  vecFill = !!b.dataset.fill;
+  checkOne(fillBtns, b);
+  updateSelected({ fill: vecFill });
 }));
 
 const stickerBtns = $$('.sticker');
@@ -671,9 +981,11 @@ const actions = {
   undo,
   clear: clearCanvas,
   save: saveImage,
+  svg: saveSvg,
+  vdelete: deleteSelected,
   shuffle: randomColour,
   surprise() {
-    const choices = [...tools.filter((t) => !['eraser', 'fill', 'text'].includes(t.dataset.mode)), ...shapeItems];
+    const choices = [...tools.filter((t) => !['eraser', 'fill', 'text', 'v-select'].includes(t.dataset.mode)), ...shapeItems];
     const pick = pickOne(choices);
     if (pick.dataset.shape) pickShape(pick);
     else setMode(pick.dataset.mode);
@@ -688,6 +1000,8 @@ const magic = $$('.group[aria-label="Magic brushes"] .tool').map((b) => b.datase
 document.addEventListener('keydown', (e) => {
   if (e.target.closest('input, select, textarea, [contenteditable]')) return;
   if ((e.metaKey || e.ctrlKey) && e.key === 'z') { e.preventDefault(); undo(); return; }
+  if (selected && (e.key === 'Delete' || e.key === 'Backspace')) { e.preventDefault(); deleteSelected(); return; }
+  if (selected && e.key === 'Escape') { select(null); return; }
   const n = +e.key;
   if (n >= 1 && n <= magic.length) setMode(magic[n - 1]);
 });
@@ -744,7 +1058,7 @@ new p5(function(p) {
   };
 
   p.mousePressed = function(e) {
-    if (!fromCanvas(e)) return;
+    if (!fromCanvas(e) || mode.startsWith('v-')) return; // vector tools handle their own pointer
     if (mode === 'text') {
       e.preventDefault(); // keep focus off the canvas so the new box can take it
       addTextAt(p.mouseX, p.mouseY);
@@ -1157,6 +1471,7 @@ new p5(function(p) {
   #c { cursor: crosshair; touch-action: none; }
   #lines { pointer-events: none; }
   .stage[data-mode=text] #c { cursor: text; }
+  .stage[data-mode=v-select] #c { cursor: default; }
   /* Faint lines through the centre showing where the mirror folds. */
   .guides {
     position: absolute; inset: 0; pointer-events: none;
@@ -1219,6 +1534,8 @@ new p5(function(p) {
   .choice:hover { background: var(--color-background); }
   .font { justify-content: center; font-size: var(--step-0); font-weight: 700; }
   .choice[aria-checked=true] { background: var(--color-accent); color: var(--color-black); }
+  .choice:disabled { opacity: 0.45; cursor: default; }
+  .choice:disabled:hover { background: transparent; }
 
   @media (width < 1440px) {
     .act span { display: none; }
@@ -1250,5 +1567,14 @@ new p5(function(p) {
   #stage[data-mode=text] .text-body { outline: 2px dashed var(--color-gray-500); }
   #stage[data-mode=text] .text-body:focus { outline: var(--border-style) 2px var(--color-accent); }
   #stage[data-mode=text] .text-handles { display: flex; }
+
+  /* Vector shapes only take the pointer with the Select tool. */
+  .vectors { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; }
+  #stage:not([data-mode=v-select]) .vectors * { pointer-events: none; }
+  #stage[data-mode=v-select] .vectors { touch-action: none; }
+  .v-hit { cursor: move; }
+  .v-box { fill: none; stroke: var(--color-accent); stroke-width: 2; stroke-dasharray: 6 4; pointer-events: none; }
+  .v-handle { fill: var(--color-surface); stroke: var(--color-accent); stroke-width: 3; cursor: grab; }
+  .v-handle:active { cursor: grabbing; }
 
 </style>
