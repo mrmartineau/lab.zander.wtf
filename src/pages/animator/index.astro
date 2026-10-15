@@ -1,0 +1,735 @@
+---
+import Layout from '../../layouts/Layout.astro'
+import { Button, Menu, MenuContent, MenuItem, MenuTrigger, Tooltip } from '@mrmartineau/zui/astro'
+import { FONTS, MAX_FPS, MAX_FRAMES, SIZES } from '../../components/animator/doc'
+
+export const title = 'Animator'
+export const description =
+	'Draw vector shapes and text, then move them frame by frame. A move holds until the next frame you moved it on. Set the fps, frame count and looping; export MP4.'
+export const date = '2026-10-15'
+export const status = 'live'
+export const tags = ['animation', 'svg', 'drawing', 'tool']
+
+const tools = [
+	{ id: 'select', name: 'Select and move', key: 'V', icon: 'ph-cursor' },
+	{ id: 'rect', name: 'Rectangle', key: 'R', icon: 'ph-square' },
+	{ id: 'ellipse', name: 'Ellipse', key: 'O', icon: 'ph-circle' },
+	{ id: 'line', name: 'Line', key: 'L', icon: 'ph-line-segment' },
+	{ id: 'pen', name: 'Pen', key: 'P', icon: 'ph-pen-nib' },
+	{ id: 'text', name: 'Text', key: 'T', icon: 'ph-text-t' },
+]
+const sizes: Record<keyof typeof SIZES, string> = {
+	wide: 'Wide 16:9',
+	square: 'Square 1:1',
+	tall: 'Tall 9:16',
+	classic: 'Classic 4:3',
+}
+const fontNames: Record<keyof typeof FONTS, string> = {
+	sans: 'Sans',
+	serif: 'Serif',
+	mono: 'Mono',
+	round: 'Rounded',
+	hand: 'Comic',
+}
+const keys = [
+	['V R O L P T', 'Tools'],
+	['Space', 'Play / pause'],
+	[', .', 'Previous / next frame'],
+	['← → ↑ ↓', 'Nudge (Shift: 10px)'],
+	['K', 'Key the selection here'],
+	['⌘D', 'Duplicate'],
+	['⌫', 'Delete'],
+	['⌘Z', 'Undo'],
+]
+---
+
+<Layout title="Animator — lab.zander.wtf" description={description} lockZoom>
+	<div class="an-app">
+		<h1 class="sr-only">Animator</h1>
+
+		<header class="an-bar">
+			<div class="an-group" role="group" aria-label="Tools">
+				{
+					tools.map((t) => (
+						<Tooltip text={`${t.name} (${t.key})`} placement="bottom">
+							<Button class="an-tool an-toggle" variant="ghost" size="sm" icon data-tool={t.id} aria-label={t.name} aria-pressed={t.id === 'select' ? 'true' : 'false'}>
+								<i class={`ph ${t.icon}`} />
+							</Button>
+						</Tooltip>
+					))
+				}
+			</div>
+
+			<div class="an-group" aria-label="Paint">
+				<label class="an-swatch" title="Fill">
+					<span class="sr-only">Fill</span>
+					<input id="an-fill" type="color" />
+				</label>
+				<Button id="an-nofill" class="an-toggle" variant="ghost" size="sm" icon aria-label="No fill" aria-pressed="false" title="No fill">
+					<i class="ph ph-prohibit"></i>
+				</Button>
+				<label class="an-swatch an-swatch-stroke" title="Outline">
+					<span class="sr-only">Outline colour</span>
+					<input id="an-stroke" type="color" />
+				</label>
+				<label class="an-num" title="Outline width">
+					<i class="ph ph-line-segments" aria-hidden="true"></i>
+					<span class="sr-only">Outline width</span>
+					<input id="an-stroke-width" type="number" min="0" max="80" step="1" />
+				</label>
+			</div>
+
+			<div class="an-group">
+				<Button id="an-undo" variant="ghost" size="sm" icon aria-label="Undo" title="Undo (⌘Z)"><i class="ph ph-arrow-counter-clockwise"></i></Button>
+				<Button id="an-redo" variant="ghost" size="sm" icon aria-label="Redo" title="Redo (⇧⌘Z)"><i class="ph ph-arrow-clockwise"></i></Button>
+			</div>
+
+			<span class="an-spacer"></span>
+			<span id="an-status" class="an-status" role="status"></span>
+			<Button id="an-cancel" variant="outline" size="sm" hidden>Cancel</Button>
+
+			<div class="an-group">
+				<Menu>
+					<MenuTrigger size="sm" aria-label="Canvas">
+						<i class="ph ph-frame-corners"></i> <span id="an-size-label">Canvas</span>
+						<i class="ph ph-caret-down an-caret" aria-hidden="true"></i>
+					</MenuTrigger>
+					<MenuContent class="an-menu">
+						{
+							Object.entries(sizes).map(([id, name]) => (
+								<MenuItem class="an-menu-item" data-size={id}>
+									{name} <small>{SIZES[id as keyof typeof SIZES].join('×')}</small>
+								</MenuItem>
+							))
+						}
+						<MenuItem id="an-new" class="an-menu-item"><i class="ph ph-file-plus"></i> New animation</MenuItem>
+						<MenuItem id="an-demo" class="an-menu-item"><i class="ph ph-shooting-star"></i> Load the demo</MenuItem>
+					</MenuContent>
+				</Menu>
+				<label class="an-swatch" title="Background">
+					<span class="sr-only">Background colour</span>
+					<input id="an-bg" type="color" />
+				</label>
+				<Menu>
+					<MenuTrigger size="sm" aria-label="Export">
+						<i class="ph ph-export"></i> Export
+						<i class="ph ph-caret-down an-caret" aria-hidden="true"></i>
+					</MenuTrigger>
+					<MenuContent class="an-menu">
+						<MenuItem class="an-menu-item" data-export="video"><i class="ph ph-film-strip"></i> Video (MP4)</MenuItem>
+						<MenuItem class="an-menu-item" data-export="png"><i class="ph ph-image"></i> PNG of this frame</MenuItem>
+						<MenuItem class="an-menu-item" data-export="svg"><i class="ph ph-file-svg"></i> SVG of this frame</MenuItem>
+						<MenuItem class="an-menu-item" data-export="link"><i class="ph ph-link"></i> Copy share link</MenuItem>
+						<MenuItem class="an-menu-item" data-export="json"><i class="ph ph-floppy-disk"></i> Save file</MenuItem>
+						<MenuItem class="an-menu-item" data-export="open"><i class="ph ph-folder-open"></i> Open file…</MenuItem>
+					</MenuContent>
+				</Menu>
+				<input id="an-file" type="file" accept=".json,application/json" hidden />
+			</div>
+		</header>
+
+		<div class="an-main">
+			<section class="an-stage" id="an-stage" aria-label="Canvas">
+				<svg id="an-svg" xmlns="http://www.w3.org/2000/svg">
+					<rect id="an-bg-rect"></rect>
+					<g id="an-onion"></g>
+					<g id="an-els"></g>
+					<g id="an-draft"></g>
+					<g id="an-sel"></g>
+				</svg>
+			</section>
+
+			<aside class="an-side" id="an-inspect" aria-label="Inspector">
+				<div id="an-empty" class="an-empty">
+					<h2><i class="ph ph-cursor-click"></i> Nothing selected</h2>
+					<p>Draw something, or click a shape to edit it. Moving a shape on a frame changes that frame and the ones after it, up to the next frame you moved it on.</p>
+					<dl class="an-keys">
+						{
+							keys.map(([k, v]) => (
+								<>
+									<dt>
+										<kbd>{k}</kbd>
+									</dt>
+									<dd>{v}</dd>
+								</>
+							))
+						}
+					</dl>
+				</div>
+
+				<div id="an-props" class="an-props" hidden>
+					<div class="an-props-head">
+						<h2 id="an-el-name"></h2>
+						<div class="an-row-btns">
+							<Button id="an-raise" variant="ghost" size="xs" icon aria-label="Bring forward" title="Bring forward"><i class="ph ph-arrow-up"></i></Button>
+							<Button id="an-lower" variant="ghost" size="xs" icon aria-label="Send backward" title="Send backward"><i class="ph ph-arrow-down"></i></Button>
+							<Button id="an-dupe" variant="ghost" size="xs" icon aria-label="Duplicate" title="Duplicate (⌘D)"><i class="ph ph-copy"></i></Button>
+							<Button id="an-delete" variant="ghost" size="xs" icon aria-label="Delete" title="Delete (⌫)"><i class="ph ph-trash"></i></Button>
+						</div>
+					</div>
+
+					<fieldset class="an-set">
+						<legend><i class="ph ph-diamond"></i> <span id="an-key-state"></span></legend>
+						<div class="an-fields">
+							<label>X <input type="number" data-pose="x" step="1" /></label>
+							<label>Y <input type="number" data-pose="y" step="1" /></label>
+							<label>Rotate <input type="number" data-pose="rotate" step="1" /></label>
+							<label>Scale % <input type="number" data-pose="scale" step="1" min="1" /></label>
+							<label>Opacity % <input type="number" data-pose="opacity" step="5" min="0" max="100" /></label>
+						</div>
+						<div class="an-row-btns">
+							<Button id="an-key" variant="outline" size="xs"><i class="ph ph-diamond"></i> <span>Add key</span></Button>
+							<Button id="an-clear-keys" variant="ghost" size="xs" title="Keep this frame's pose on every frame">Clear keys</Button>
+						</div>
+					</fieldset>
+
+					<fieldset class="an-set">
+						<legend><i class="ph ph-eye"></i> Shows on frames</legend>
+						<div class="an-fields">
+							<label>From <input type="number" id="an-from" min="1" step="1" /></label>
+							<label>To <input type="number" id="an-to" min="1" step="1" /></label>
+						</div>
+						<div class="an-row-btns">
+							<Button id="an-from-here" variant="ghost" size="xs">Start here</Button>
+							<Button id="an-to-here" variant="ghost" size="xs">End here</Button>
+							<Button id="an-all-frames" variant="ghost" size="xs">All</Button>
+						</div>
+					</fieldset>
+
+					<fieldset class="an-set" id="an-box-set">
+						<legend><i class="ph ph-bounding-box"></i> Size</legend>
+						<div class="an-fields">
+							<label>Width <input type="number" id="an-w" min="1" step="1" /></label>
+							<label>Height <input type="number" id="an-h" min="1" step="1" /></label>
+						</div>
+					</fieldset>
+
+					<fieldset class="an-set" id="an-path-set">
+						<legend><i class="ph ph-pen-nib"></i> Path</legend>
+						<label class="an-check"><input type="checkbox" id="an-closed" /> Closed shape</label>
+					</fieldset>
+
+					<fieldset class="an-set" id="an-text-set">
+						<legend><i class="ph ph-text-t"></i> Text</legend>
+						<textarea id="an-text" rows="3" class="zui-input"></textarea>
+						<div class="an-fields">
+							<label
+								>Font
+								<select id="an-font" class="zui-select">
+									{Object.entries(fontNames).map(([v, name]) => <option value={v}>{name}</option>)}
+								</select>
+							</label>
+							<label>Size <input type="number" id="an-size" min="4" max="400" step="1" /></label>
+						</div>
+						<label class="an-check"><input type="checkbox" id="an-bold" /> Bold</label>
+					</fieldset>
+				</div>
+			</aside>
+		</div>
+
+		<section class="an-timeline" aria-label="Timeline">
+			<div class="an-transport">
+				<Button id="an-first" variant="ghost" size="sm" icon aria-label="First frame" title="First frame"><i class="ph ph-skip-back"></i></Button>
+				<Button id="an-prev" variant="ghost" size="sm" icon aria-label="Previous frame" title="Previous frame (,)"><i class="ph ph-caret-left"></i></Button>
+				<Button id="an-play" size="sm" class="an-play"><i class="ph ph-play"></i> <span>Play</span></Button>
+				<Button id="an-next" variant="ghost" size="sm" icon aria-label="Next frame" title="Next frame (.)"><i class="ph ph-caret-right"></i></Button>
+				<output id="an-frame-out" class="an-frame-out"></output>
+
+				<span class="an-divider"></span>
+
+				<label class="an-num">
+					FPS <input id="an-fps" type="number" min="1" max={MAX_FPS} step="1" />
+				</label>
+				<label class="an-num">
+					Frames <input id="an-frames" type="number" min="1" max={MAX_FRAMES} step="1" />
+				</label>
+				<output id="an-length" class="an-length"></output>
+
+				<span class="an-divider"></span>
+
+				<Button id="an-loop" class="an-toggle" variant="ghost" size="sm" aria-pressed="false" title="Play again from the start"><i class="ph ph-repeat"></i> Loop</Button>
+				<Button id="an-tween" class="an-toggle" variant="ghost" size="sm" aria-pressed="false" title="Ease between keys instead of holding each one"><i class="ph ph-wave-sine"></i> Tween</Button>
+				<Button id="an-onion-btn" class="an-toggle" variant="ghost" size="sm" aria-pressed="false" title="Show the frames either side, faded"><i class="ph ph-stack"></i> Onion skin</Button>
+			</div>
+
+			<div class="an-scroll" id="an-scroll">
+				<div class="an-tracks" id="an-tracks">
+					<div class="an-ruler" id="an-ruler"></div>
+					<div id="an-lanes"></div>
+					<div class="an-playhead" id="an-playhead" aria-hidden="true"></div>
+				</div>
+			</div>
+		</section>
+	</div>
+</Layout>
+
+<script>
+	import { start } from '../../components/animator/editor'
+	start()
+</script>
+
+<style>
+	.an-app {
+		flex: 1 1 0px;
+		min-height: 36rem;
+		display: grid;
+		grid-template-rows: auto minmax(0, 1fr) auto;
+		/* Keeps the wide timeline scrolling inside itself. */
+		grid-template-columns: minmax(0, 1fr);
+	}
+
+	/* ───────────── toolbar ───────────── */
+
+	.an-bar,
+	.an-transport {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: var(--space-xs);
+		padding: var(--space-2xs) var(--space-md);
+	}
+	.an-bar {
+		border-block-end: var(--border-style) 2px var(--color-border);
+	}
+	.an-group {
+		display: flex;
+		align-items: center;
+		gap: var(--space-3xs);
+	}
+	.an-group + .an-group,
+	.an-divider {
+		padding-inline-start: var(--space-xs);
+		border-inline-start: var(--border-style) 2px var(--color-border);
+	}
+	.an-divider {
+		align-self: stretch;
+	}
+	.an-spacer {
+		flex: 1;
+	}
+	.an-status {
+		font-size: var(--step--1);
+		color: var(--color-muted);
+	}
+	:global(.an-caret) {
+		font-size: var(--step--2);
+	}
+	:global(.an-menu) {
+		z-index: var(--z-3);
+		min-inline-size: 11rem;
+		inline-size: max-content;
+	}
+	:global(.an-menu-item) {
+		justify-content: start;
+		gap: var(--space-2xs);
+		white-space: nowrap;
+	}
+	:global(.an-menu-item small) {
+		margin-inline-start: auto;
+		color: var(--color-muted);
+	}
+	:global(.an-menu-item[data-current]) {
+		background: var(--color-accent);
+		--zui-btn-fg: light-dark(var(--color-text), var(--color-background));
+	}
+	:global(.an-toggle[aria-pressed='true']) {
+		--zui-btn-bg: var(--color-accent);
+		--zui-btn-fg: light-dark(var(--color-text), var(--color-background));
+		--zui-btn-border: var(--color-accent);
+		--zui-btn-hover-bg: var(--zui-btn-bg);
+		--zui-btn-hover-fg: var(--zui-btn-fg);
+		--zui-btn-hover-border: var(--zui-btn-border);
+	}
+
+	.an-swatch {
+		position: relative;
+		display: grid;
+		place-items: center;
+		inline-size: var(--space-lg);
+		block-size: var(--space-lg);
+		border-radius: var(--radius-sm);
+		border: var(--border-style) 2px var(--color-border);
+		overflow: hidden;
+		cursor: pointer;
+	}
+	.an-swatch input {
+		position: absolute;
+		inset: -25%;
+		inline-size: 150%;
+		block-size: 150%;
+		border: 0;
+		padding: 0;
+		cursor: pointer;
+	}
+	/* The outline swatch is a ring. */
+	.an-swatch-stroke::after {
+		content: '';
+		position: absolute;
+		inset: 25%;
+		border-radius: var(--radius-xs);
+		background: var(--color-background);
+		pointer-events: none;
+	}
+	.an-swatch[data-none]::before {
+		content: '';
+		position: absolute;
+		inset: 0;
+		z-index: 1;
+		background: linear-gradient(to top right, transparent calc(50% - 1px), var(--color-error) 50%, transparent calc(50% + 1px)) var(--color-background);
+		pointer-events: none;
+	}
+
+	.an-num {
+		display: flex;
+		align-items: center;
+		gap: var(--space-3xs);
+		font-size: var(--step--1);
+		font-weight: 700;
+	}
+	input[type='number'] {
+		inline-size: 4.5rem;
+		padding: var(--space-3xs) var(--space-2xs);
+		border: var(--border-style) 1px var(--color-border);
+		border-radius: var(--radius-sm);
+		background: var(--color-background);
+		color: var(--color-text);
+		font: inherit;
+		font-family: var(--font-code);
+		font-weight: 400;
+	}
+	.an-num input {
+		inline-size: 4rem;
+	}
+
+	/* ───────────── stage ───────────── */
+
+	.an-main {
+		display: grid;
+		grid-template-columns: minmax(0, 1fr) 17rem;
+		min-height: 0;
+	}
+	.an-stage {
+		position: relative;
+		min-height: 16rem;
+		padding: var(--space-md);
+		/* Shapes can sit off the canvas, so the stage shows them, faded by the overlay. */
+		overflow: hidden;
+		background: var(--color-surface);
+		touch-action: none;
+		user-select: none;
+	}
+	#an-svg {
+		position: absolute;
+		inset: var(--space-md);
+		inline-size: calc(100% - 2 * var(--space-md));
+		block-size: calc(100% - 2 * var(--space-md));
+		overflow: visible;
+	}
+	#an-bg-rect {
+		filter: drop-shadow(0 2px 8px rgb(0 0 0 / 0.25));
+	}
+	.an-stage[data-tool='select'] {
+		cursor: default;
+	}
+	.an-stage:not([data-tool='select']) {
+		cursor: crosshair;
+	}
+	.an-stage[data-tool='text'] {
+		cursor: text;
+	}
+	.an-stage[data-tool='select'] :global(#an-els [data-id]) {
+		cursor: move;
+	}
+	:global(#an-els .hit) {
+		stroke: transparent;
+		fill: none;
+	}
+	#an-onion {
+		opacity: 0.25;
+		pointer-events: none;
+	}
+	#an-draft {
+		pointer-events: none;
+	}
+	:global(#an-sel .an-outline) {
+		fill: none;
+		stroke: var(--color-accent);
+		stroke-width: 1.5;
+		vector-effect: non-scaling-stroke;
+		pointer-events: none;
+	}
+	:global(#an-sel .an-handle) {
+		fill: var(--color-background);
+		stroke: var(--color-accent);
+		stroke-width: 2;
+		vector-effect: non-scaling-stroke;
+	}
+	:global(#an-sel [data-handle='scale']) {
+		cursor: nwse-resize;
+	}
+	:global(#an-sel [data-handle='rotate']) {
+		cursor: grab;
+	}
+
+	/* ───────────── inspector ───────────── */
+
+	.an-side {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-sm);
+		padding: var(--space-sm);
+		border-inline-start: var(--border-style) 2px var(--color-border);
+		overflow-y: auto;
+		font-size: var(--step--1);
+	}
+	h2 {
+		display: flex;
+		align-items: center;
+		gap: var(--space-2xs);
+		margin: 0;
+		font-size: var(--step-0);
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+	.an-empty p {
+		margin-block: var(--space-xs);
+		color: var(--color-muted);
+	}
+	.an-keys {
+		display: grid;
+		grid-template-columns: auto 1fr;
+		gap: var(--space-3xs) var(--space-xs);
+		margin: 0;
+	}
+	.an-keys dd {
+		margin: 0;
+		color: var(--color-muted);
+	}
+	kbd {
+		font-family: var(--font-code);
+		font-size: var(--step--2);
+		padding: 0 var(--space-3xs);
+		border: var(--border-style) 1px var(--color-border);
+		border-radius: var(--radius-xs);
+	}
+	.an-props {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-sm);
+	}
+	.an-props[hidden],
+	.an-set[hidden] {
+		display: none;
+	}
+	.an-props-head {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: var(--space-2xs);
+		min-inline-size: 0;
+	}
+	.an-row-btns {
+		display: flex;
+		flex-wrap: wrap;
+		gap: var(--space-3xs);
+	}
+	.an-set {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-xs);
+		margin: 0;
+		padding: var(--space-xs);
+		border: var(--border-style) 1px var(--color-border);
+		border-radius: var(--radius-md);
+	}
+	legend {
+		display: flex;
+		align-items: center;
+		gap: var(--space-3xs);
+		padding-inline: var(--space-3xs);
+		font-weight: 700;
+	}
+	.an-set[data-key] legend i {
+		color: var(--color-accent);
+		-webkit-text-stroke: 2px currentColor;
+	}
+	.an-fields {
+		display: grid;
+		grid-template-columns: 1fr 1fr;
+		gap: var(--space-xs);
+	}
+	.an-fields label {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-3xs);
+		color: var(--color-muted);
+	}
+	.an-fields input,
+	.an-fields select {
+		inline-size: 100%;
+		color: var(--color-text);
+	}
+	.an-check {
+		display: flex;
+		align-items: center;
+		gap: var(--space-2xs);
+	}
+	textarea {
+		resize: vertical;
+		font: inherit;
+	}
+
+	/* ───────────── timeline ───────────── */
+
+	.an-timeline {
+		border-block-start: var(--border-style) 2px var(--color-border);
+		--fw: 1.1rem;
+		--label: 9rem;
+	}
+	.an-transport {
+		border-block-end: var(--border-style) 1px var(--color-border);
+	}
+	:global(.an-play) {
+		min-inline-size: 5.5rem;
+	}
+	.an-frame-out,
+	.an-length {
+		font-family: var(--font-code);
+		font-size: var(--step--1);
+		min-inline-size: 7ch;
+	}
+	.an-length {
+		color: var(--color-muted);
+	}
+	.an-scroll {
+		max-block-size: 12rem;
+		overflow: auto;
+		overscroll-behavior: contain;
+	}
+	.an-tracks {
+		position: relative;
+		inline-size: max-content;
+		min-inline-size: 100%;
+		padding-block-end: var(--space-2xs);
+		touch-action: none;
+		user-select: none;
+	}
+	.an-ruler,
+	:global(.an-track) {
+		display: grid;
+		grid-template-columns: var(--label) calc(var(--frames) * var(--fw));
+		block-size: var(--space-lg);
+	}
+	.an-ruler {
+		position: sticky;
+		inset-block-start: 0;
+		z-index: 2;
+		background: var(--color-background);
+		border-block-end: var(--border-style) 1px var(--color-border);
+	}
+	:global(.an-label) {
+		position: sticky;
+		inset-inline-start: 0;
+		z-index: 1;
+		display: flex;
+		align-items: center;
+		gap: var(--space-3xs);
+		padding-inline: var(--space-xs);
+		overflow: hidden;
+		white-space: nowrap;
+		text-overflow: ellipsis;
+		font: inherit;
+		font-size: var(--step--1);
+		text-align: start;
+		color: var(--color-text);
+		background: var(--color-background);
+		border: 0;
+		border-inline-end: var(--border-style) 1px var(--color-border);
+		cursor: pointer;
+	}
+	:global(.an-track[data-selected] .an-label) {
+		background: color-mix(in oklab, var(--color-accent) 25%, var(--color-background));
+	}
+	:global(.an-lane) {
+		position: relative;
+		background-image:
+			linear-gradient(to right, var(--color-border) 1px, transparent 1px),
+			linear-gradient(to right, color-mix(in oklab, var(--color-border) 40%, transparent) 1px, transparent 1px);
+		background-size:
+			calc(var(--fw) * 5) 100%,
+			var(--fw) 100%;
+		/* Strong lines before frames 5, 10, 15…, where the ruler numbers sit. */
+		background-position: calc(var(--fw) * 4) 0, 0 0;
+		cursor: pointer;
+	}
+	:global(.an-ruler .an-lane) {
+		background-image: linear-gradient(to right, var(--color-border) 1px, transparent 1px);
+		background-size: calc(var(--fw) * 5) 100%;
+		background-position: calc(var(--fw) * 4) 0;
+	}
+	:global(.an-tick) {
+		position: absolute;
+		inset-block-start: 50%;
+		translate: 0.2em -50%;
+		font-family: var(--font-code);
+		font-size: var(--step--2);
+		color: var(--color-muted);
+		pointer-events: none;
+	}
+	:global(.an-span) {
+		position: absolute;
+		inset-block: 25%;
+		border-radius: var(--radius-xs);
+		background: color-mix(in oklab, var(--color-accent) 30%, transparent);
+		pointer-events: none;
+	}
+	:global(.an-key) {
+		position: absolute;
+		inset-block-start: 50%;
+		inline-size: calc(var(--fw) * 0.6);
+		aspect-ratio: 1;
+		translate: calc(var(--fw) * 0.2) -50%;
+		rotate: 45deg;
+		background: var(--color-text);
+		border: var(--border-style) 1px var(--color-background);
+		cursor: ew-resize;
+	}
+	:global(.an-track[data-selected] .an-key) {
+		background: var(--color-accent);
+	}
+	.an-playhead {
+		position: absolute;
+		inset-block: 0;
+		inline-size: var(--fw);
+		z-index: 1;
+		background: color-mix(in oklab, var(--color-accent) 20%, transparent);
+		border-inline: var(--border-style) 1px var(--color-accent);
+		pointer-events: none;
+	}
+
+	@media (max-width: 52rem) {
+		/* Stacked: the page grows and scrolls instead of squeezing the panels. */
+		.an-app {
+			flex: none;
+			grid-template-rows: none;
+		}
+		/* Canvas, then timeline, then inspector. */
+		.an-main {
+			display: contents;
+		}
+		.an-side {
+			order: 1;
+		}
+		.an-stage {
+			min-height: 60vw;
+		}
+		.an-side {
+			border-inline-start: 0;
+			border-block-start: var(--border-style) 2px var(--color-border);
+		}
+		.an-timeline {
+			--label: 6rem;
+		}
+	}
+</style>
