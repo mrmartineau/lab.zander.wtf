@@ -24,7 +24,7 @@ const pens: Tool[] = [
   { mode: 'pen', name: 'Pen', icon: 'ph-pen-nib', desc: 'Lines. Slow is thick, fast is thin.' },
   { mode: 'neon', name: 'Neon', icon: 'ph-lightbulb', desc: 'A glowing pen, like a light-up sign.' },
   { mode: 'ribbon', name: 'Ribbon', icon: 'ph-wave-sine', desc: 'A rainbow ribbon follows you.' },
-  { mode: 'text', name: 'Text', icon: 'ph-text-t', desc: 'Tap the page to type. Drag the handle to move it.' },
+  { mode: 'text', name: 'Text', icon: 'ph-text-t', desc: 'Tap the page to type. Drag the handles to move or turn it.' },
   { mode: 'fill', name: 'Fill', icon: 'ph-paint-bucket', desc: 'Tap a space to fill it with colour.' },
   { mode: 'eraser', name: 'Eraser', icon: 'ph-eraser', desc: 'Rubs out back to the paper.' },
 ]
@@ -36,7 +36,7 @@ const shapes: Tool[] = [
   { mode: 'heart', name: 'Heart', icon: 'ph-heart', desc: 'Drag to stamp hearts. Speed packs them closer.' },
 ]
 const vectors: Tool[] = [
-  { mode: 'v-select', name: 'Select', icon: 'ph-cursor', desc: 'Tap a shape to pick it. Drag to move it, pull the dots to stretch it.' },
+  { mode: 'v-select', name: 'Select', icon: 'ph-cursor', desc: 'Tap a shape to pick it. Drag to move it, pull the dots to stretch it, spin it with the top dot.' },
   { mode: 'v-line', name: 'Line', icon: 'ph-line-segment', desc: 'Drag a straight line. Hold Shift to snap the angle.' },
   { mode: 'v-rect', name: 'Box', icon: 'ph-rectangle', desc: 'Drag a box. Hold Shift for a square.' },
   { mode: 'v-oval', name: 'Oval', icon: 'ph-circle-dashed', desc: 'Drag an oval. Hold Shift for a circle.' },
@@ -448,18 +448,19 @@ let activeBox = null;
 const textSize = () => brushSize * 3;
 const cssColour = () => (rainbowPen ? `hsl(${hue} 85% 55%)` : penColour);
 
-function makeTextBox({ x, y, text = '', size, colour, font }) {
+function makeTextBox({ x, y, text = '', size, colour, font, rot = 0 }) {
   const box = document.createElement('div');
   box.className = 'text-box';
   box.innerHTML = `
     <div class="text-body" contenteditable="plaintext-only" spellcheck="false" aria-label="Text"></div>
     <div class="text-handles">
       <button class="text-handle text-move" aria-label="Move text"><i class="ph ph-arrows-out-cardinal"></i></button>
+      <button class="text-handle text-spin" aria-label="Turn text"><i class="ph ph-arrow-clockwise"></i></button>
       <button class="text-handle text-delete" aria-label="Delete text"><i class="ph ph-x"></i></button>
     </div>`;
   const body = box.querySelector('.text-body');
   body.textContent = text;
-  Object.assign(box.dataset, { x, y, size, colour, font });
+  Object.assign(box.dataset, { x, y, size, colour, font, rot });
   styleBox(box);
   body.addEventListener('focus', () => (activeBox = box));
   body.addEventListener('blur', () => {
@@ -470,13 +471,39 @@ function makeTextBox({ x, y, text = '', size, colour, font }) {
     box.remove();
   });
   dragWith(box.querySelector('.text-move'), box);
+  spinWith(box.querySelector('.text-spin'), box);
   textLayer.append(box);
   return box;
 }
 
 function styleBox(box) {
-  const { x, y, size, colour, font } = box.dataset;
-  Object.assign(box.style, { left: x + 'px', top: y + 'px', fontSize: size + 'px', color: colour, fontFamily: font });
+  const { x, y, size, colour, font, rot } = box.dataset;
+  Object.assign(box.style, { left: x + 'px', top: y + 'px', fontSize: size + 'px', color: colour, fontFamily: font, rotate: rot + 'deg' });
+}
+
+// Turn a box round its middle by dragging its handle. Shift snaps to 15° steps.
+function spinWith(handle, box) {
+  handle.addEventListener('pointerdown', (e) => {
+    e.preventDefault();
+    handle.setPointerCapture(e.pointerId);
+    pushHistory();
+    const r = box.getBoundingClientRect(), cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+    const angle = (ev) => (Math.atan2(ev.clientY - cy, ev.clientX - cx) * 180) / Math.PI;
+    const a0 = angle(e), rot0 = +box.dataset.rot;
+    const move = (ev) => {
+      const a = rot0 + angle(ev) - a0;
+      box.dataset.rot = Math.round(ev.shiftKey ? Math.round(a / 15) * 15 : a);
+      styleBox(box);
+    };
+    const end = () => {
+      handle.removeEventListener('pointermove', move);
+      handle.removeEventListener('pointerup', end);
+      handle.removeEventListener('pointercancel', end);
+    };
+    handle.addEventListener('pointermove', move);
+    handle.addEventListener('pointerup', end);
+    handle.addEventListener('pointercancel', end);
+  });
 }
 
 // Move a box by dragging its handle, kept inside the stage.
@@ -575,13 +602,18 @@ function svgEl(tag, attrs) {
   return el;
 }
 
+// Shapes turn round the middle of their box by `rot` radians.
+const centre = (s) => [(s.x1 + s.x2) / 2, (s.y1 + s.y2) / 2];
+const deg = (a) => r1((a * 180) / Math.PI);
+const turnAttr = (s) => (s.rot ? { transform: `rotate(${deg(s.rot)} ${pt(...centre(s))})` } : {});
+
 const inkEl = (s, d = shapePath(s)) => svgEl('path', {
   d, fill: isFilled(s) ? s.colour : 'none', stroke: s.colour, 'stroke-width': s.width,
   'stroke-linecap': 'round', 'stroke-linejoin': 'round',
 });
 
 function shapeEl(s) {
-  const g = svgEl('g', {}), d = shapePath(s);
+  const g = svgEl('g', turnAttr(s)), d = shapePath(s);
   // A wide see-through copy makes thin lines easy to tap.
   const hit = svgEl('path', {
     d, class: 'v-hit', fill: isFilled(s) ? 'transparent' : 'none', stroke: 'transparent',
@@ -593,14 +625,19 @@ function shapeEl(s) {
 }
 
 function selectionEl(s) {
-  const g = svgEl('g', { class: 'v-sel' });
+  const g = svgEl('g', { class: 'v-sel', ...turnAttr(s) });
+  const pad = s.width / 2 + 4, top = Math.min(s.y1, s.y2) - pad, [cx] = centre(s);
   if (s.type !== 'line') {
-    const pad = s.width / 2 + 4;
     g.append(svgEl('rect', {
-      class: 'v-box', x: Math.min(s.x1, s.x2) - pad, y: Math.min(s.y1, s.y2) - pad,
+      class: 'v-box', x: Math.min(s.x1, s.x2) - pad, y: top,
       width: Math.abs(s.x2 - s.x1) + pad * 2, height: Math.abs(s.y2 - s.y1) + pad * 2,
     }));
   }
+  // The spin dot sits on a stalk above the box.
+  g.append(svgEl('line', { class: 'v-box', x1: cx, y1: top, x2: cx, y2: top - 28 }));
+  const spin = svgEl('circle', { class: 'v-handle v-spin', cx, cy: top - 28, r: 9 });
+  spin.addEventListener('pointerdown', (e) => spinShape(e, s));
+  g.append(spin);
   for (const end of [1, 2]) {
     const h = svgEl('circle', { class: 'v-handle', cx: s['x' + end], cy: s['y' + end], r: 9 });
     h.addEventListener('pointerdown', (e) => dragShape(e, s, end));
@@ -666,35 +703,84 @@ function track(onMove, onEnd) {
   addEventListener('pointercancel', end);
 }
 
-// Move a shape (end 0) or drag one of its dots (end 1 or 2).
-function dragShape(e, s, end) {
+// Turn point (x,y) by angle a round (ox,oy).
+function turnPt(x, y, ox, oy, a) {
+  const c = Math.cos(a), n = Math.sin(a), dx = x - ox, dy = y - oy;
+  return [ox + dx * c - dy * n, oy + dx * n + dy * c];
+}
+
+// Start a drag on a shape: pushes an undo step once the pointer really moves.
+function startDrag(e, s, onMove) {
   if (mode !== 'v-select' || e.button > 0) return;
   e.preventDefault();
   e.stopPropagation();
   if (s !== selected) select(s);
-  const [x0, y0] = stagePoint(e), o = { ...s };
+  const [x0, y0] = stagePoint(e);
   let moved = false;
   track((ev) => {
-    const [x, y] = stagePoint(ev), dx = x - x0, dy = y - y0;
+    const [x, y] = stagePoint(ev);
     if (!moved) {
-      if (Math.hypot(dx, dy) < 3) return;
+      if (Math.hypot(x - x0, y - y0) < 3) return;
       moved = true;
       pushHistory();
     }
-    if (end !== 2) { s.x1 = o.x1 + dx; s.y1 = o.y1 + dy; }
-    if (end !== 1) { s.x2 = o.x2 + dx; s.y2 = o.y2 + dy; }
+    onMove(x, y, x - x0, y - y0, ev);
     renderVectors();
   });
 }
 
-// Butterfly and Four ways flip shapes too. Snowflake turns would tilt boxes,
-// which this model can't hold, so it leaves vector shapes alone.
+// Move a shape (end 0) or drag one of its dots (end 1 or 2). A dot follows
+// the pointer while the other one stays put, even on a turned shape.
+function dragShape(e, s, end) {
+  const o = { ...s }, rot = o.rot || 0, [ocx, ocy] = centre(o);
+  const fixed = turnPt(end === 1 ? o.x2 : o.x1, end === 1 ? o.y2 : o.y1, ocx, ocy, rot);
+  const grab = turnPt(o['x' + end] ?? 0, o['y' + end] ?? 0, ocx, ocy, rot);
+  startDrag(e, s, (x, y, dx, dy) => {
+    if (!end) {
+      s.x1 = o.x1 + dx; s.y1 = o.y1 + dy; s.x2 = o.x2 + dx; s.y2 = o.y2 + dy;
+      return;
+    }
+    const m = [grab[0] + dx, grab[1] + dy], cx = (fixed[0] + m[0]) / 2, cy = (fixed[1] + m[1]) / 2;
+    const [fx, fy] = turnPt(...fixed, cx, cy, -rot), [mx, my] = turnPt(...m, cx, cy, -rot);
+    const other = end === 1 ? 2 : 1;
+    s['x' + end] = mx; s['y' + end] = my;
+    s['x' + other] = fx; s['y' + other] = fy;
+  });
+}
+
+// Spin a shape round its middle. Shift snaps to 15° steps.
+function spinShape(e, s) {
+  startDrag(e, s, (x, y, dx, dy, ev) => {
+    const [cx, cy] = centre(s), step = Math.PI / 12;
+    const a = Math.atan2(y - cy, x - cx) + Math.PI / 2;
+    s.rot = ev.shiftKey ? Math.round(a / step) * step : a;
+  });
+}
+
+// A copy of s flipped across the page's middle (fx, fy), then turned by a
+// round it. Flipping mirrors the box, so the shape's own turn reverses.
+function mirrorCopy(s, fx, fy, a = 0) {
+  const ox = stage.clientWidth / 2, oy = stage.clientHeight / 2;
+  let [cx, cy] = centre(s), rot = s.rot || 0;
+  let dx1 = s.x1 - cx, dy1 = s.y1 - cy, dx2 = s.x2 - cx, dy2 = s.y2 - cy;
+  if (fx) { cx = 2 * ox - cx; dx1 = -dx1; dx2 = -dx2; rot = -rot; }
+  if (fy) { cy = 2 * oy - cy; dy1 = -dy1; dy2 = -dy2; rot = -rot; }
+  [cx, cy] = turnPt(cx, cy, ox, oy, a);
+  return { ...s, x1: cx + dx1, y1: cy + dy1, x2: cx + dx2, y2: cy + dy2, rot: rot + a };
+}
+
+// Mirror copies match the paint brushes, Snowflake included.
 function mirrored(s) {
-  const W = stage.clientWidth, H = stage.clientHeight;
-  const fx = (c) => ({ ...c, x1: W - c.x1, x2: W - c.x2 });
-  const fy = (c) => ({ ...c, y1: H - c.y1, y2: H - c.y2 });
-  if (symMode === 'lr') return [s, fx(s)];
-  if (symMode === 'four') return [s, fx(s), fy(s), fy(fx(s))];
+  if (symMode === 'lr') return [s, mirrorCopy(s, true, false)];
+  if (symMode === 'four') return [s, mirrorCopy(s, true, false), mirrorCopy(s, false, true), mirrorCopy(s, true, true)];
+  if (symMode === 'k6') {
+    const out = [s];
+    for (let k = 0; k < 6; k++) {
+      if (k) out.push(mirrorCopy(s, false, false, (Math.PI / 3) * k));
+      out.push(mirrorCopy(s, true, false, (Math.PI / 3) * k));
+    }
+    return out;
+  }
   return [s];
 }
 
@@ -751,12 +837,17 @@ $('#c').addEventListener('pointerdown', (e) => {
 
 function drawVectors(ctx) {
   for (const s of shapes) {
-    const path = new Path2D(shapePath(s));
+    const path = new Path2D(shapePath(s)), [cx, cy] = centre(s);
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.rotate(s.rot || 0);
+    ctx.translate(-cx, -cy);
     ctx.lineCap = ctx.lineJoin = 'round';
     if (isFilled(s)) { ctx.fillStyle = s.colour; ctx.fill(path); }
     ctx.strokeStyle = s.colour;
     ctx.lineWidth = s.width;
     ctx.stroke(path);
+    ctx.restore();
   }
 }
 
@@ -814,16 +905,17 @@ function paintImage() {
 }
 
 // Each text box where it sits on screen, split into lines.
+// Offsets ignore the box's turn, which is added back round its middle (cx, cy).
 function textRuns() {
-  const origin = stage.getBoundingClientRect();
   return textBoxes().map((box) => {
-    const body = box.querySelector('.text-body');
-    const r = body.getBoundingClientRect(), cs = getComputedStyle(body);
+    const body = box.querySelector('.text-body'), cs = getComputedStyle(body);
     const size = parseFloat(cs.fontSize), lineH = parseFloat(cs.lineHeight) || size * 1.2;
     return {
       size, lineH, weight: cs.fontWeight, family: cs.fontFamily, colour: cs.color,
-      x: r.left - origin.left + parseFloat(cs.paddingLeft),
-      y: r.top - origin.top + parseFloat(cs.paddingTop) + (lineH - size) / 2,
+      x: box.offsetLeft + body.offsetLeft + parseFloat(cs.paddingLeft),
+      y: box.offsetTop + body.offsetTop + parseFloat(cs.paddingTop) + (lineH - size) / 2,
+      cx: box.offsetLeft + box.offsetWidth / 2, cy: box.offsetTop + box.offsetHeight / 2,
+      rot: +box.dataset.rot || 0,
       lines: body.innerText.split('\n'),
     };
   });
@@ -845,7 +937,12 @@ function saveImage() {
   for (const t of textRuns()) {
     ctx.font = `${t.weight} ${t.size}px ${t.family}`;
     ctx.fillStyle = t.colour;
+    ctx.save();
+    ctx.translate(t.cx, t.cy);
+    ctx.rotate((t.rot * Math.PI) / 180);
+    ctx.translate(-t.cx, -t.cy);
     t.lines.forEach((line, i) => ctx.fillText(line, t.x, t.y + i * t.lineH));
+    ctx.restore();
   }
   download('my-art-' + Date.now() + '.png', out.toDataURL('image/png'));
 }
@@ -857,9 +954,9 @@ function saveSvg() {
   const parts = [
     `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">`,
     `<image href="${paintImage().toDataURL('image/png')}" width="${W}" height="${H}"/>`,
-    ...shapes.map((s) => inkEl(s).outerHTML),
+    ...shapes.map((s) => { const g = svgEl('g', turnAttr(s)); g.append(inkEl(s)); return g.outerHTML; }),
     ...textRuns().map((t) =>
-      `<text font-family="${esc(t.family)}" font-size="${t.size}" font-weight="${t.weight}" fill="${esc(t.colour)}" dominant-baseline="text-before-edge" xml:space="preserve">` +
+      `<text font-family="${esc(t.family)}" font-size="${t.size}" font-weight="${t.weight}" fill="${esc(t.colour)}" dominant-baseline="text-before-edge" xml:space="preserve"${t.rot ? ` transform="rotate(${t.rot} ${pt(t.cx, t.cy)})"` : ''}>` +
       t.lines.map((line, i) => `<tspan x="${r1(t.x)}" y="${r1(t.y + i * t.lineH)}">${esc(line)}</tspan>`).join('') +
       '</text>'),
     '</svg>',
@@ -1002,6 +1099,12 @@ document.addEventListener('keydown', (e) => {
   if ((e.metaKey || e.ctrlKey) && e.key === 'z') { e.preventDefault(); undo(); return; }
   if (selected && (e.key === 'Delete' || e.key === 'Backspace')) { e.preventDefault(); deleteSelected(); return; }
   if (selected && e.key === 'Escape') { select(null); return; }
+  if (selected && (e.key === '[' || e.key === ']')) {
+    pushHistory();
+    selected.rot = (selected.rot || 0) + (Math.PI / 12) * (e.key === ']' ? 1 : -1);
+    renderVectors();
+    return;
+  }
   const n = +e.key;
   if (n >= 1 && n <= magic.length) setMode(magic[n - 1]);
 });
@@ -1574,7 +1677,10 @@ new p5(function(p) {
   #stage[data-mode=v-select] .vectors { touch-action: none; }
   .v-hit { cursor: move; }
   .v-box { fill: none; stroke: var(--color-accent); stroke-width: 2; stroke-dasharray: 6 4; pointer-events: none; }
+  /* Dots have no paint attribute of their own, so they need the pointer handed back. */
+  #stage[data-mode=v-select] .v-handle { pointer-events: all; }
   .v-handle { fill: var(--color-surface); stroke: var(--color-accent); stroke-width: 3; cursor: grab; }
   .v-handle:active { cursor: grabbing; }
+  .text-spin { cursor: grab; touch-action: none; }
 
 </style>
