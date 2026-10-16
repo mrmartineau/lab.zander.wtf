@@ -215,6 +215,13 @@ export function localBox(el: El): [number, number, number, number] {
 const isColour = (v: unknown) => typeof v === 'string' && (v === 'none' || /^#[0-9a-f]{6}$/i.test(v))
 /** Only inline raster images: no remote URLs (they'd taint export canvases) and no SVG (it can carry script). */
 export const isImageData = (v: unknown) => typeof v === 'string' && /^data:image\/(png|jpeg|webp|gif);base64,[A-Za-z0-9+/]+=*$/.test(v)
+/** Ids end up in markup, so loaded ones must look like the ones `uid` makes. */
+const isId = (v: unknown): v is string => typeof v === 'string' && /^[a-z0-9_-]{1,40}$/i.test(v)
+/** `in` would also match inherited names like `toString`. */
+const has = (o: object, k: unknown) => typeof k === 'string' && Object.hasOwn(o, k)
+/** Per image, and for a whole share link once inflated. */
+export const MAX_IMAGE_CHARS = 12_000_000
+export const MAX_DOC_BYTES = 40_000_000
 const isNum = (v: unknown) => typeof v === 'number' && Number.isFinite(v)
 
 function readPose(v: unknown): Pose | null {
@@ -229,9 +236,9 @@ function readEl(v: unknown, images: Record<string, string>): El | null {
 	if (!KINDS.includes(e.kind) || !isColour(e.fill) || !isColour(e.stroke)) return null
 	if (![e.w, e.h, e.size, e.strokeWidth, e.from, e.to].every(isNum)) return null
 	if (!Array.isArray(e.points) || !e.points.every((p) => Array.isArray(p) && p.length === 2 && p.every(isNum))) return null
-	if (!(e.font in FONTS) || typeof e.text !== 'string') return null
-	const src = typeof e.src === 'string' ? e.src : ''
-	if (e.kind === 'image' && !(src in images)) return null
+	if (!has(FONTS, e.font) || typeof e.text !== 'string') return null
+	const src = isId(e.src) ? e.src : ''
+	if (e.kind === 'image' && !has(images, src)) return null
 	const keys: Record<number, Pose> = {}
 	for (const [f, p] of Object.entries(e.keys ?? {})) {
 		const pose = readPose(p)
@@ -240,7 +247,7 @@ function readEl(v: unknown, images: Record<string, string>): El | null {
 	}
 	if (!Object.keys(keys).length) return null
 	return {
-		id: typeof e.id === 'string' ? e.id : uid(),
+		id: isId(e.id) ? e.id : uid(),
 		kind: e.kind,
 		w: e.w,
 		h: e.h,
@@ -264,13 +271,13 @@ function readEl(v: unknown, images: Record<string, string>): El | null {
 export function readDoc(v: unknown): Doc | null {
 	if (!v || typeof v !== 'object') return null
 	const d = v as Doc
-	if (!(d.size in SIZES) || !isColour(d.bg) || d.bg === 'none') return null
+	if (!has(SIZES, d.size) || !isColour(d.bg) || d.bg === 'none') return null
 	if (!Number.isInteger(d.fps) || d.fps < 1 || d.fps > MAX_FPS) return null
 	if (!Number.isInteger(d.frames) || d.frames < 1 || d.frames > MAX_FRAMES) return null
 	if (!Array.isArray(d.els)) return null
 	const images: Record<string, string> = {}
 	for (const [id, url] of Object.entries(d.images ?? {})) {
-		if (!isImageData(url)) return null
+		if (!isId(id) || !isImageData(url) || (url as string).length > MAX_IMAGE_CHARS) return null
 		images[id] = url
 	}
 	const els = d.els.map((e) => readEl(e, images))
@@ -285,8 +292,29 @@ const toB64 = (bytes: Uint8Array) => {
 }
 const fromB64 = (s: string) => Uint8Array.from(atob(s.replace(/-/g, '+').replace(/_/g, '/')), (c) => c.charCodeAt(0))
 
-const pipe = async (bytes: Uint8Array, stream: CompressionStream | DecompressionStream) =>
-	new Uint8Array(await new Response(new Blob([bytes as BlobPart]).stream().pipeThrough(stream)).arrayBuffer())
+/** Runs bytes through a (de)compression stream, giving up past `max` bytes so a tiny link can't inflate into gigabytes. */
+async function pipe(bytes: Uint8Array, stream: CompressionStream | DecompressionStream, max = Infinity) {
+	const reader = new Blob([bytes as BlobPart]).stream().pipeThrough(stream).getReader()
+	const chunks: Uint8Array[] = []
+	let size = 0
+	for (;;) {
+		const { done, value } = await reader.read()
+		if (done) break
+		size += value.length
+		if (size > max) {
+			await reader.cancel()
+			throw new Error('Too big')
+		}
+		chunks.push(value)
+	}
+	const out = new Uint8Array(size)
+	let at = 0
+	for (const c of chunks) {
+		out.set(c, at)
+		at += c.length
+	}
+	return out
+}
 
 /** A compact, URL-safe string for share links. */
 export async function encodeDoc(doc: Doc) {
@@ -295,7 +323,7 @@ export async function encodeDoc(doc: Doc) {
 
 export async function decodeDoc(s: string): Promise<Doc | null> {
 	try {
-		return readDoc(JSON.parse(new TextDecoder().decode(await pipe(fromB64(s), new DecompressionStream('deflate-raw')))))
+		return readDoc(JSON.parse(new TextDecoder().decode(await pipe(fromB64(s), new DecompressionStream('deflate-raw'), MAX_DOC_BYTES))))
 	} catch {
 		return null
 	}

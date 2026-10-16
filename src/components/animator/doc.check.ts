@@ -72,6 +72,20 @@ assert.equal(readDoc({ ...withPic, images: {} }), null)
 for (const bad of ['https://example.com/x.png', 'javascript:alert(1)', 'data:image/svg+xml;base64,PHN2Zz4=', 'data:image/png;base64,"><script>']) {
 	assert.equal(readDoc({ ...withPic, images: { a: bad } }), null, bad)
 }
+// Loaded ids end up in markup: unsafe ones are replaced, and inherited names don't pass as fonts, sizes or images.
+const evil = readDoc({ ...doc, els: [{ ...el, id: '"><img src=x onerror=alert(1)>' }] })
+assert.match(evil!.els[0].id, /^[a-z0-9]+$/)
+assert.equal(readDoc({ ...doc, els: [{ ...el, font: 'toString' }] }), null)
+assert.equal(readDoc({ ...doc, size: 'constructor' }), null)
+assert.equal(readDoc({ ...withPic, els: [{ ...pic, src: 'toString' }] }), null)
+assert.equal(readDoc({ ...withPic, images: { '"><b>': png } }), null)
+// A small link that inflates past the limit is refused.
+const bomb = new Uint8Array(50_000_000).fill(32)
+const packed = new Uint8Array(await new Response(new Blob([bomb]).stream().pipeThrough(new CompressionStream('deflate-raw'))).arrayBuffer())
+let b64 = ''
+for (const c of packed) b64 += String.fromCharCode(c)
+assert.equal(await decodeDoc(btoa(b64).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')), null)
+
 // Documents saved before images existed still load.
 const { images: _, ...old } = doc
 assert.deepEqual(readDoc(JSON.parse(JSON.stringify(old)))?.images, {})

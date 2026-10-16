@@ -88,6 +88,10 @@ export async function start() {
 	const fromHash = location.hash.length > 1 ? await decodeDoc(location.hash.slice(1)) : null
 	if (fromHash) {
 		doc = fromHash
+		// Keep it before dropping the hash, so a reload doesn't lose it.
+		try {
+			localStorage.setItem(STORE, JSON.stringify(doc))
+		} catch {}
 		history.replaceState(null, '', location.pathname)
 	} else {
 		try {
@@ -382,7 +386,8 @@ export async function start() {
 	/** Paint edits go to the selection, or to the next shape when nothing is selected. */
 	function setPaint(change: Partial<typeof paint>) {
 		const el = selected()
-		mark()
+		// The default paint isn't part of the document, so it has no undo step.
+		if (el) mark()
 		Object.assign(el ?? paint, change)
 		renderCanvas()
 		renderBar()
@@ -748,6 +753,10 @@ export async function start() {
 				// Shapes that ran to the end still do.
 				el.to = el.to >= end ? v - 1 : Math.min(el.to, v - 1)
 				el.from = Math.min(el.from, el.to)
+				// Drop keys past the end, so growing the animation again doesn't bring them back.
+				const last = poseAt(el, v - 1, doc.tween)
+				for (const f of keyFrames(el)) if (f >= v) delete el.keys[f]
+				if (!keyFrames(el).length) el.keys[v - 1] = last
 			}
 			frame = Math.min(frame, v - 1)
 		})
