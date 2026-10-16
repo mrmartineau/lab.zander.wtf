@@ -11,7 +11,7 @@ design.
 
 | Slug                  | What it is                                              |
 | :-------------------- | :------------------------------------------------------ |
-| `animator`            | Frame-by-frame vector animation — rectangles, ellipses, lines, pen paths and text; moving a shape on a frame keys it there and holds until its next key (or tweens with Tween on); fps, frame count, loop, onion skin, key dragging on the timeline, undo; saves in the browser, share links, MP4 (WebM fallback), PNG and SVG export (`node src/components/animator/doc.check.ts` checks the keyframe rules) |
+| `animator`            | Frame-by-frame vector animation — rectangles, ellipses, lines, pen paths, text and pasted or dropped images (with a one-click background); moving a shape on a frame keys it there and holds until its next key (or tweens with Tween on); fps, frame count, loop, onion skin, key dragging on the timeline, undo; saves in the browser, share links, MP4 (WebM fallback), PNG and SVG export (`node src/components/animator/doc.check.ts` checks the keyframe rules) |
 | `cloze-generator`     | Paste text, hide words, test recall — for language teachers |
 | `css-icons`           | Icons drawn with nothing but CSS — no SVG, no images    |
 | `data-transformation` | A React "dojo" for practising data-transform challenges |

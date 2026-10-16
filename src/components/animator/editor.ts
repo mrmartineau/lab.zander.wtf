@@ -12,6 +12,7 @@ import {
 	moveKey,
 	newDoc,
 	pathD,
+	pruned,
 	poseAt,
 	readDoc,
 	removeKey,
@@ -33,8 +34,10 @@ import { elementsSvg } from './render'
 type Tool = 'select' | 'rect' | 'ellipse' | 'line' | 'pen' | 'text'
 
 const STORE = 'animator:doc'
-const ICON: Record<Kind, string> = { rect: 'ph-square', ellipse: 'ph-circle', line: 'ph-line-segment', path: 'ph-pen-nib', text: 'ph-text-t' }
-const NAME: Record<Kind, string> = { rect: 'Rectangle', ellipse: 'Ellipse', line: 'Line', path: 'Path', text: 'Text' }
+const ICON: Record<Kind, string> = { rect: 'ph-square', ellipse: 'ph-circle', line: 'ph-line-segment', path: 'ph-pen-nib', text: 'ph-text-t', image: 'ph-image' }
+const NAME: Record<Kind, string> = { rect: 'Rectangle', ellipse: 'Ellipse', line: 'Line', path: 'Path', text: 'Text', image: 'Image' }
+/** Pasted images are scaled down to this on the long side. */
+const MAX_IMAGE = 1600
 const TOOL_KEYS: Record<string, Tool> = { v: 'select', r: 'rect', o: 'ellipse', l: 'line', p: 'pen', t: 'text' }
 const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 
@@ -108,10 +111,16 @@ export async function start() {
 	let marked = false
 	let saveTimer = 0
 
+	/**
+	 * Undo steps leave images out: they can be megabytes each, and they're never
+	 * changed, only added. `load` keeps every image seen this session.
+	 */
+	const snapshot = () => JSON.stringify({ ...doc, images: {} })
+
 	/** Call before changing the document. One undo step per gesture or edit. */
 	function mark() {
 		if (marked) return
-		undos.push(JSON.stringify(doc))
+		undos.push(snapshot())
 		if (undos.length > 200) undos.shift()
 		redos = []
 		marked = true
@@ -122,22 +131,22 @@ export async function start() {
 		clearTimeout(saveTimer)
 		saveTimer = window.setTimeout(() => {
 			try {
-				localStorage.setItem(STORE, JSON.stringify(doc))
+				localStorage.setItem(STORE, JSON.stringify(pruned(doc)))
 			} catch {
-				say("Couldn't save in this browser")
+				say('Too big to keep in this browser. Use Export › Save file.')
 			}
 		}, 300)
 		render()
 	}
 	function load(next: Doc) {
-		doc = next
+		doc = { ...next, images: { ...doc.images, ...next.images } }
 		frame = clamp(frame, 0, doc.frames - 1)
 		if (!selected()) selId = null
 	}
 	function step(from: string[], to: string[]) {
 		const s = from.pop()
 		if (!s) return
-		to.push(JSON.stringify(doc))
+		to.push(snapshot())
 		load(JSON.parse(s))
 		marked = false
 		settle()
@@ -421,13 +430,16 @@ export async function start() {
 
 	function renderBar() {
 		const src = selected() ?? paint
-		const lineish = src !== paint && ((src as El).kind === 'line')
+		const kind = src === paint ? null : (src as El).kind
+		const lineish = kind === 'line' || kind === 'image'
 		if (src.fill !== 'none') fillIn.value = src.fill
 		fillIn.closest('label')!.toggleAttribute('data-none', src.fill === 'none' || lineish)
 		noFill.ariaPressed = String(src.fill === 'none')
-		noFill.disabled = lineish
+		noFill.disabled = fillIn.disabled = lineish
+		// Images have no paint.
+		strokeIn.disabled = widthIn.disabled = kind === 'image'
 		strokeIn.value = src.stroke
-		strokeIn.closest('label')!.toggleAttribute('data-none', src.strokeWidth === 0)
+		strokeIn.closest('label')!.toggleAttribute('data-none', src.strokeWidth === 0 || kind === 'image')
 		if (document.activeElement !== widthIn) widthIn.value = String(src.strokeWidth)
 		bgIn.value = doc.bg
 		for (const item of $$('[data-size]')) item.toggleAttribute('data-current', item.dataset.size === doc.size)
@@ -480,7 +492,8 @@ export async function start() {
 		put($<HTMLInputElement>('an-to'), String(el.to + 1))
 		for (const id of ['an-from', 'an-to']) $<HTMLInputElement>(id).max = String(doc.frames)
 
-		$('an-box-set').hidden = el.kind !== 'rect' && el.kind !== 'ellipse'
+		$('an-box-set').hidden = el.kind !== 'rect' && el.kind !== 'ellipse' && el.kind !== 'image'
+		$('an-image-set').hidden = el.kind !== 'image'
 		put($<HTMLInputElement>('an-w'), String(Math.round(el.w)))
 		put($<HTMLInputElement>('an-h'), String(Math.round(el.h)))
 		$('an-path-set').hidden = el.kind !== 'path'
@@ -535,13 +548,18 @@ export async function start() {
 		const v = num(i)
 		if (!Number.isNaN(v)) el.to = clamp(Math.round(v) - 1, el.from, doc.frames - 1)
 	})
+	// Images keep their shape.
 	field<HTMLInputElement>('an-w', (el, i) => {
 		const v = num(i)
-		if (v > 0) el.w = v
+		if (!(v > 0)) return
+		if (el.kind === 'image') el.h *= v / el.w
+		el.w = v
 	})
 	field<HTMLInputElement>('an-h', (el, i) => {
 		const v = num(i)
-		if (v > 0) el.h = v
+		if (!(v > 0)) return
+		if (el.kind === 'image') el.w *= v / el.h
+		el.h = v
 	})
 	field<HTMLInputElement>('an-closed', (el, i) => {
 		el.closed = i.checked
@@ -587,6 +605,17 @@ export async function start() {
 		selId = null
 	})
 	$('an-delete').onclick = remove
+	$('an-as-bg').onclick = withSel((el) => {
+		// Covers the canvas on every frame, behind everything else.
+		const [cw, ch] = SIZES[doc.size]
+		const k = Math.max(cw / el.w, ch / el.h)
+		el.w *= k
+		el.h *= k
+		el.keys = { 0: { x: cw / 2, y: ch / 2, rotate: 0, scale: 1, opacity: 1 } }
+		el.from = 0
+		el.to = doc.frames - 1
+		doc.els = [el, ...doc.els.filter((x) => x !== el)]
+	})
 	const duplicate = withSel((el) => {
 		const copy: El = structuredClone(el)
 		copy.id = uid()
@@ -813,16 +842,23 @@ export async function start() {
 			download(svgFile(doc, frame), 'svg')
 		},
 		async link() {
-			const url = `${location.origin}${location.pathname}#${await encodeDoc(doc)}`
+			const out = pruned(doc)
+			const url = `${location.origin}${location.pathname}#${await encodeDoc(out)}`
 			try {
 				await navigator.clipboard.writeText(url)
-				say(url.length > 8000 ? 'Link copied. It is long, so some apps may cut it short.' : 'Link copied')
+				say(
+					Object.keys(out.images).length
+						? 'Link copied. Images make it very long, so Save file is safer for sharing.'
+						: url.length > 8000
+							? 'Link copied. It is long, so some apps may cut it short.'
+							: 'Link copied',
+				)
 			} catch {
 				say("Couldn't copy the link")
 			}
 		},
 		json() {
-			download(new Blob([JSON.stringify(doc)], { type: 'application/json' }), 'json')
+			download(new Blob([JSON.stringify(pruned(doc))], { type: 'application/json' }), 'json')
 		},
 		open() {
 			$('an-file').click()
@@ -842,6 +878,67 @@ export async function start() {
 		} catch {
 			say("That file isn't an animation")
 		}
+	}
+
+	/* ───────────── images ───────────── */
+
+	/** Adds an image file as a new element, scaled down to fit the canvas. */
+	async function addImage(file: Blob, at?: Point) {
+		const url = URL.createObjectURL(file)
+		const img = new Image()
+		img.src = url
+		try {
+			await img.decode()
+		} catch {
+			say("Couldn't read that image")
+			return
+		} finally {
+			URL.revokeObjectURL(url)
+		}
+		// Re-encode: smaller to store, and the same safe format whatever was pasted.
+		const k = Math.min(1, MAX_IMAGE / Math.max(img.naturalWidth, img.naturalHeight))
+		const canvas = document.createElement('canvas')
+		canvas.width = Math.max(1, Math.round(img.naturalWidth * k))
+		canvas.height = Math.max(1, Math.round(img.naturalHeight * k))
+		canvas.getContext('2d')!.drawImage(img, 0, 0, canvas.width, canvas.height)
+		const data = canvas.toDataURL(file.type === 'image/jpeg' ? 'image/jpeg' : 'image/webp', 0.85)
+		const [cw, ch] = SIZES[doc.size]
+		const fit = Math.min(1, (cw * 0.8) / canvas.width, (ch * 0.8) / canvas.height)
+		const [x, y] = at ?? [cw / 2, ch / 2]
+		const id = uid()
+		const el = makeEl('image', frame, doc.frames, { x: Math.round(x), y: Math.round(y) }, { w: Math.round(canvas.width * fit), h: Math.round(canvas.height * fit), src: id, strokeWidth: 0 })
+		edit(() => {
+			doc.images[id] = data
+			doc.els.push(el)
+		})
+		selId = el.id
+		setTool('select')
+	}
+
+	const imageFiles = (list?: FileList | null) => [...(list ?? [])].filter((f) => f.type.startsWith('image/'))
+
+	document.addEventListener('paste', (e) => {
+		if ((e.target as HTMLElement).closest?.('input, textarea, select, [contenteditable]')) return
+		const files = imageFiles(e.clipboardData?.files)
+		if (!files.length) return
+		e.preventDefault()
+		for (const f of files) addImage(f)
+	})
+	stage.addEventListener('dragover', (e) => {
+		if (e.dataTransfer?.types.includes('Files')) e.preventDefault()
+	})
+	stage.addEventListener('drop', (e) => {
+		const files = imageFiles(e.dataTransfer?.files)
+		if (!files.length) return
+		e.preventDefault()
+		const p = toDoc(e)
+		for (const f of files) addImage(f, p)
+	})
+	const imageIn = $<HTMLInputElement>('an-image-file')
+	$('an-image-btn').onclick = () => imageIn.click()
+	imageIn.onchange = () => {
+		for (const f of imageFiles(imageIn.files)) addImage(f)
+		imageIn.value = ''
 	}
 
 	/* ───────────── keyboard ───────────── */

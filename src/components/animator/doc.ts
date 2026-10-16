@@ -1,7 +1,7 @@
 // The animation document and the keyframe rules. No DOM here, so
 // doc.check.ts can run it in Node.
 
-export const KINDS = ['rect', 'ellipse', 'line', 'path', 'text'] as const
+export const KINDS = ['rect', 'ellipse', 'line', 'path', 'text', 'image'] as const
 export type Kind = (typeof KINDS)[number]
 
 /** What a keyframe stores. Everything else about an element is the same on every frame. */
@@ -19,13 +19,15 @@ export type Point = [number, number]
 export interface El {
 	id: string
 	kind: Kind
-	/** Rect and ellipse size, centred on the pose. */
+	/** Rect, ellipse and image size, centred on the pose. */
 	w: number
 	h: number
 	/** Line and path points, relative to the pose. */
 	points: Point[]
 	closed: boolean
 	text: string
+	/** Image id, a key of `Doc.images`. */
+	src: string
 	font: Font
 	size: number
 	bold: boolean
@@ -66,12 +68,14 @@ export interface Doc {
 	tween: boolean
 	/** Back to front. */
 	els: El[]
+	/** Image id → data URL. Kept apart so many elements can share one image. */
+	images: Record<string, string>
 }
 
 export const MAX_FRAMES = 600
 export const MAX_FPS = 60
 
-export const newDoc = (): Doc => ({ size: 'wide', bg: '#ffffff', fps: 12, frames: 24, loop: true, tween: false, els: [] })
+export const newDoc = (): Doc => ({ size: 'wide', bg: '#ffffff', fps: 12, frames: 24, loop: true, tween: false, els: [], images: {} })
 
 export const clamp = (n: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, n))
 
@@ -136,6 +140,7 @@ export function makeEl(kind: Kind, frame: number, frames: number, pose: Partial<
 		points: [],
 		closed: false,
 		text: '',
+		src: '',
 		font: 'sans',
 		size: 48,
 		bold: false,
@@ -191,7 +196,7 @@ export function centre(points: Point[]): { points: Point[]; cx: number; cy: numb
 
 /** Local box of an element before its pose, as [x, y, w, h]. Text is a rough guess; the editor measures it. */
 export function localBox(el: El): [number, number, number, number] {
-	if (el.kind === 'rect' || el.kind === 'ellipse') return [-el.w / 2, -el.h / 2, el.w, el.h]
+	if (el.kind === 'rect' || el.kind === 'ellipse' || el.kind === 'image') return [-el.w / 2, -el.h / 2, el.w, el.h]
 	if (el.kind === 'text') {
 		const lines = el.text.split('\n')
 		const w = Math.max(...lines.map((l) => l.length)) * el.size * 0.55
@@ -208,6 +213,8 @@ export function localBox(el: El): [number, number, number, number] {
 /* ───────────── saving ───────────── */
 
 const isColour = (v: unknown) => typeof v === 'string' && (v === 'none' || /^#[0-9a-f]{6}$/i.test(v))
+/** Only inline raster images: no remote URLs (they'd taint export canvases) and no SVG (it can carry script). */
+export const isImageData = (v: unknown) => typeof v === 'string' && /^data:image\/(png|jpeg|webp|gif);base64,[A-Za-z0-9+/]+=*$/.test(v)
 const isNum = (v: unknown) => typeof v === 'number' && Number.isFinite(v)
 
 function readPose(v: unknown): Pose | null {
@@ -216,13 +223,15 @@ function readPose(v: unknown): Pose | null {
 	return POSE_KEYS.every((k) => isNum(p[k])) ? { x: p.x, y: p.y, rotate: p.rotate, scale: p.scale, opacity: clamp(p.opacity, 0, 1) } : null
 }
 
-function readEl(v: unknown): El | null {
+function readEl(v: unknown, images: Record<string, string>): El | null {
 	if (!v || typeof v !== 'object') return null
 	const e = v as El
 	if (!KINDS.includes(e.kind) || !isColour(e.fill) || !isColour(e.stroke)) return null
 	if (![e.w, e.h, e.size, e.strokeWidth, e.from, e.to].every(isNum)) return null
 	if (!Array.isArray(e.points) || !e.points.every((p) => Array.isArray(p) && p.length === 2 && p.every(isNum))) return null
 	if (!(e.font in FONTS) || typeof e.text !== 'string') return null
+	const src = typeof e.src === 'string' ? e.src : ''
+	if (e.kind === 'image' && !(src in images)) return null
 	const keys: Record<number, Pose> = {}
 	for (const [f, p] of Object.entries(e.keys ?? {})) {
 		const pose = readPose(p)
@@ -238,6 +247,7 @@ function readEl(v: unknown): El | null {
 		points: e.points,
 		closed: Boolean(e.closed),
 		text: e.text,
+		src,
 		font: e.font,
 		size: e.size,
 		bold: Boolean(e.bold),
@@ -258,9 +268,14 @@ export function readDoc(v: unknown): Doc | null {
 	if (!Number.isInteger(d.fps) || d.fps < 1 || d.fps > MAX_FPS) return null
 	if (!Number.isInteger(d.frames) || d.frames < 1 || d.frames > MAX_FRAMES) return null
 	if (!Array.isArray(d.els)) return null
-	const els = d.els.map(readEl)
+	const images: Record<string, string> = {}
+	for (const [id, url] of Object.entries(d.images ?? {})) {
+		if (!isImageData(url)) return null
+		images[id] = url
+	}
+	const els = d.els.map((e) => readEl(e, images))
 	if (els.some((e) => !e)) return null
-	return { size: d.size, bg: d.bg, fps: d.fps, frames: d.frames, loop: Boolean(d.loop), tween: Boolean(d.tween), els: els as El[] }
+	return { size: d.size, bg: d.bg, fps: d.fps, frames: d.frames, loop: Boolean(d.loop), tween: Boolean(d.tween), els: els as El[], images }
 }
 
 const toB64 = (bytes: Uint8Array) => {
@@ -284,4 +299,10 @@ export async function decodeDoc(s: string): Promise<Doc | null> {
 	} catch {
 		return null
 	}
+}
+
+/** The document without images no element uses any more. */
+export function pruned(doc: Doc): Doc {
+	const used = new Set(doc.els.map((e) => e.src))
+	return { ...doc, images: Object.fromEntries(Object.entries(doc.images).filter(([id]) => used.has(id))) }
 }

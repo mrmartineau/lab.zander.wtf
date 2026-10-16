@@ -1,6 +1,6 @@
 // Run: node src/components/animator/doc.check.ts
 import assert from 'node:assert/strict'
-import { decodeDoc, encodeDoc, makeEl, moveKey, newDoc, poseAt, readDoc, removeKey, setPose, visibleAt } from './doc.ts'
+import { decodeDoc, encodeDoc, makeEl, moveKey, newDoc, poseAt, pruned, readDoc, removeKey, setPose, visibleAt } from './doc.ts'
 
 const el = makeEl('rect', 0, 24, { x: 10, y: 10 }, { w: 50, h: 50 })
 
@@ -61,5 +61,19 @@ assert.equal(readDoc({ ...doc, frames: 9999 }), null)
 assert.equal(readDoc({ ...doc, els: [{ ...el, fill: 'red;}' }] }), null)
 assert.equal(readDoc({ ...doc, els: [{ ...el, keys: {} }] }), null)
 assert.equal(readDoc({ ...doc, els: [{ ...el, kind: 'script' }] }), null)
+
+// Images: inline raster data only, and every image element needs its image.
+const png = 'data:image/png;base64,iVBORw0KGgo='
+const pic = makeEl('image', 0, 24, {}, { w: 10, h: 10, src: 'a' })
+const withPic = { ...newDoc(), els: [pic], images: { a: png, unused: png } }
+assert.deepEqual(await decodeDoc(await encodeDoc(withPic)), withPic)
+assert.deepEqual(Object.keys(pruned(withPic).images), ['a'])
+assert.equal(readDoc({ ...withPic, images: {} }), null)
+for (const bad of ['https://example.com/x.png', 'javascript:alert(1)', 'data:image/svg+xml;base64,PHN2Zz4=', 'data:image/png;base64,"><script>']) {
+	assert.equal(readDoc({ ...withPic, images: { a: bad } }), null, bad)
+}
+// Documents saved before images existed still load.
+const { images: _, ...old } = doc
+assert.deepEqual(readDoc(JSON.parse(JSON.stringify(old)))?.images, {})
 
 console.log('animator: ok')

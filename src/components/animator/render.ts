@@ -5,11 +5,13 @@ const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replac
 const n = (v: number) => +v.toFixed(2)
 
 /** The shape itself, in the element's own coordinates. */
-export function shapeSvg(el: El, extra = '') {
+export function shapeSvg(el: El, images: Record<string, string>, extra = '') {
 	const paint = `fill="${el.kind === 'line' ? 'none' : el.fill}" stroke="${el.strokeWidth > 0 ? el.stroke : 'none'}" stroke-width="${el.strokeWidth}" stroke-linecap="round" stroke-linejoin="round"${extra}`
 	switch (el.kind) {
 		case 'rect':
 			return `<rect x="${n(-el.w / 2)}" y="${n(-el.h / 2)}" width="${n(el.w)}" height="${n(el.h)}" ${paint}/>`
+		case 'image':
+			return `<image href="${images[el.src] ?? ''}" x="${n(-el.w / 2)}" y="${n(-el.h / 2)}" width="${n(el.w)}" height="${n(el.h)}" preserveAspectRatio="none"${extra}/>`
 		case 'ellipse':
 			return `<ellipse rx="${n(el.w / 2)}" ry="${n(el.h / 2)}" ${paint}/>`
 		case 'line':
@@ -36,8 +38,8 @@ export function elementsSvg(doc: Doc, frame: number, hit = false) {
 		.filter((el) => visibleAt(el, frame))
 		.map((el) => {
 			const { attr } = transform(el, frame, doc.tween)
-			const grab = hit && (el.kind === 'line' || el.kind === 'path') ? shapeSvg({ ...el, strokeWidth: Math.max(14, el.strokeWidth), stroke: '#000000' }, ' class="hit"') : ''
-			return `<g data-id="${el.id}" ${attr}>${grab}${shapeSvg(el)}</g>`
+			const grab = hit && (el.kind === 'line' || el.kind === 'path') ? shapeSvg({ ...el, strokeWidth: Math.max(14, el.strokeWidth), stroke: '#000000' }, doc.images, ' class="hit"') : ''
+			return `<g data-id="${el.id}" ${attr}>${grab}${shapeSvg(el, doc.images)}</g>`
 		})
 		.join('')
 }

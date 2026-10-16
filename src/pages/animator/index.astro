@@ -5,7 +5,7 @@ import { FONTS, MAX_FPS, MAX_FRAMES, SIZES } from '../../components/animator/doc
 
 export const title = 'Animator'
 export const description =
-	'Draw vector shapes and text, then move them frame by frame. A move holds until the next frame you moved it on. Set the fps, frame count and looping; export MP4.'
+	'Draw vector shapes and text, paste in images, then move them frame by frame. A move holds until the next frame you moved it on. Set the fps, frame count and looping; export MP4.'
 export const date = '2026-10-15'
 export const status = 'live'
 export const tags = ['animation', 'svg', 'drawing', 'tool']
@@ -37,6 +37,7 @@ const keys = [
 	[', .', 'Previous / next frame'],
 	['← → ↑ ↓', 'Nudge (Shift: 10px)'],
 	['K', 'Key the selection here'],
+	['⌘V', 'Paste an image'],
 	['⌘D', 'Duplicate'],
 	['⌫', 'Delete'],
 	['⌘Z', 'Undo'],
@@ -58,6 +59,15 @@ const keys = [
 						</Tooltip>
 					))
 				}
+			</div>
+
+			<div class="an-group">
+				<Tooltip text="Image (or paste / drop one)" placement="bottom">
+					<Button id="an-image-btn" variant="ghost" size="sm" icon aria-label="Add an image">
+						<i class="ph ph-image" />
+					</Button>
+				</Tooltip>
+				<input id="an-image-file" type="file" accept="image/*" multiple hidden />
 			</div>
 
 			<div class="an-group" aria-label="Paint">
@@ -142,7 +152,7 @@ const keys = [
 			<aside class="an-side" id="an-inspect" aria-label="Inspector">
 				<div id="an-empty" class="an-empty">
 					<h2><i class="ph ph-cursor-click"></i> Nothing selected</h2>
-					<p>Draw something, or click a shape to edit it. Moving a shape on a frame changes that frame and the ones after it, up to the next frame you moved it on.</p>
+					<p>Draw something, paste or drop an image, or click a shape to edit it. Moving a shape on a frame changes that frame and the ones after it, up to the next frame you moved it on.</p>
 					<dl class="an-keys">
 						{
 							keys.map(([k, v]) => (
@@ -201,6 +211,15 @@ const keys = [
 						<div class="an-fields">
 							<label>Width <input type="number" id="an-w" min="1" step="1" /></label>
 							<label>Height <input type="number" id="an-h" min="1" step="1" /></label>
+						</div>
+					</fieldset>
+
+					<fieldset class="an-set" id="an-image-set">
+						<legend><i class="ph ph-image"></i> Image</legend>
+						<div class="an-row-btns">
+							<Button id="an-as-bg" variant="outline" size="xs" title="Cover the canvas on every frame, behind everything"
+								><i class="ph ph-frame-corners"></i> Use as background</Button
+							>
 						</div>
 					</fieldset>
 
