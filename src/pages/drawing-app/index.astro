@@ -1397,7 +1397,7 @@ document.addEventListener('keydown', (e) => {
   // Letter keys pick tools; H picks whichever stamp shape the Shapes menu shows.
   const k = e.key.toLowerCase();
   if (k === 'h') return setMode(shapeTrigger.dataset.mode);
-  const tool = $(`.tool[data-key="${k}"]`);
+  const tool = $$('.tool[data-key]').find((b) => b.dataset.key === k);
   if (tool) setMode(tool.dataset.mode);
 });
 
