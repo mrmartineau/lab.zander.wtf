@@ -900,8 +900,16 @@ function select(s) {
 }
 
 // Change the picked shape (if any) when a setting changes.
+// One undo step per settings gesture: a slider drag pushes once, then the
+// pointer or key letting go (or the input's change) arms it again.
+let styleUndoArmed = true;
+for (const ev of ['pointerup', 'keyup', 'change']) addEventListener(ev, () => (styleUndoArmed = true));
 function updateSelected(props) {
   if (mode !== 'v-select' || !selected) return;
+  if (styleUndoArmed) {
+    pushHistory();
+    styleUndoArmed = false;
+  }
   Object.assign(selected, props);
   renderVectors();
 }
@@ -925,12 +933,13 @@ function stagePoint(e) {
 }
 
 // Follow the pointer on the window, since re-rendering replaces the element pressed.
+// onEnd hears whether the gesture was cancelled (say, the system took the touch).
 function track(onMove, onEnd) {
-  const end = () => {
+  const end = (ev) => {
     removeEventListener('pointermove', onMove);
     removeEventListener('pointerup', end);
     removeEventListener('pointercancel', end);
-    onEnd?.();
+    onEnd?.(ev.type === 'pointercancel');
   };
   addEventListener('pointermove', onMove);
   addEventListener('pointerup', end);
@@ -956,6 +965,7 @@ function startDrag(e, s, onMove) {
     if (!moved) {
       if (Math.hypot(x - x0, y - y0) < 3) return;
       moved = true;
+      lastTap = { key: '', at: 0 }; // a drag is not a tap, so it can't start a double-tap
       pushHistory();
     }
     onMove(x, y, x - x0, y - y0, ev);
@@ -1043,6 +1053,12 @@ function fitCurve(s, raw) {
   s.pts = raw.map(([x, y]) => [w ? (x - s.x1) / w : 0, h ? (y - s.y1) / h : 0]);
 }
 
+// Pressing on the page leaves the toolbar and panel, so keys like Enter act
+// on the drawing rather than the last button clicked.
+stage.addEventListener('pointerdown', () => {
+  if (document.activeElement?.closest('.bar, .panel')) document.activeElement.blur();
+}, true);
+
 $('#c').addEventListener('pointerdown', (e) => {
   if (!mode.startsWith('v-') || !fromCanvas(e)) return;
   if (mode === 'v-select') return select(null);
@@ -1066,9 +1082,9 @@ $('#c').addEventListener('pointerdown', (e) => {
     }
     draft = mirrored(s);
     renderVectors();
-  }, () => {
-    // A tap with a line, box or oval makes nothing, so drop its undo step too.
-    if (s.type !== 'curve' && Math.hypot(s.x2 - s.x1, s.y2 - s.y1) < 3) undoStack.pop();
+  }, (cancelled) => {
+    // A cancelled draw, or a tap with a line, box or oval, makes nothing, so drop its undo step too.
+    if (cancelled || (s.type !== 'curve' && Math.hypot(s.x2 - s.x1, s.y2 - s.y1) < 3)) undoStack.pop();
     else shapes.push(...draft);
     draft = [];
     renderVectors();
