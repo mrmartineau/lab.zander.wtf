@@ -36,7 +36,7 @@ const shapes: Tool[] = [
   { mode: 'heart', name: 'Heart', icon: 'ph-heart', desc: 'Drag to stamp hearts. Speed packs them closer.' },
 ]
 const vectors: Tool[] = [
-  { mode: 'v-select', name: 'Select', icon: 'ph-cursor', desc: 'Tap a shape to pick it. Drag to move it, pull the dots to stretch it, spin it with the top dot.' },
+  { mode: 'v-select', name: 'Select', icon: 'ph-cursor', desc: 'Tap a shape to pick it. Drag to move it, pull the dots to stretch it, spin it with the top dot. Double-tap to edit its points.' },
   { mode: 'v-line', name: 'Line', icon: 'ph-line-segment', desc: 'Drag a straight line. Hold Shift to snap the angle.' },
   { mode: 'v-rect', name: 'Box', icon: 'ph-rectangle', desc: 'Drag a box. Hold Shift for a square.' },
   { mode: 'v-oval', name: 'Oval', icon: 'ph-circle-dashed', desc: 'Drag an oval. Hold Shift for a circle.' },
@@ -177,7 +177,7 @@ const papers = [
       </div>
 
       <section class="field" data-for="fx pen eraser shape emoji text vector">
-        <label for="size">Size <output id="size-v">12</output></label>
+        <label for="size"><span id="size-name">Size</span> <output id="size-v">12</output></label>
         <input type="range" id="size" min="2" max="40" value="12">
       </section>
       <section class="field" data-for="fx shape emoji">
@@ -219,6 +219,11 @@ const papers = [
         </div>
         <p class="hint">Changes the text you are typing, and any new text.</p>
       </section>
+      <section class="field" data-for="vector" id="corner-field">
+        <label for="corner">Corners <output id="corner-v">0</output></label>
+        <input type="range" id="corner" min="0" max="60" value="0">
+        <div class="range-ends" aria-hidden="true"><span>Sharp</span><span>Round</span></div>
+      </section>
       <section class="field" data-for="vector">
         <span class="label" id="vfill-label">Inside</span>
         <div class="choices" role="radiogroup" aria-labelledby="vfill-label">
@@ -228,8 +233,9 @@ const papers = [
       </section>
       <section class="field" data-for="vector">
         <span class="label">Shapes</span>
-        <p class="hint">Shapes stay editable. Pick one with Select to move, stretch, recolour or delete it.</p>
+        <p class="hint">Shapes stay editable. Pick one with Select to move, stretch, turn, recolour or delete it. Double-tap it (or press Edit points) to drag its points and bend its sides.</p>
         <div class="choices">
+          <button class="choice" data-action="vpoints" id="v-points" aria-pressed="false" disabled><i class="ph ph-bezier-curve"></i>Edit points</button>
           <button class="choice" data-action="vdelete" id="v-delete" disabled><i class="ph ph-trash"></i>Delete</button>
           <button class="choice" data-action="svg"><i class="ph ph-file-svg"></i>Save SVG</button>
         </div>
@@ -563,23 +569,45 @@ function restoreTexts(list) {
 // they stay editable: Select moves them, the end dots stretch them. Each shape
 // keeps two points (x1,y1)–(x2,y2): a line's ends, or a box's corners. A curve
 // keeps its points as 0–1 fractions of that box, so stretching the box
-// stretches the curve. Save draws them onto the picture.
+// stretches the curve. Editing points turns any shape into a `path`: nodes
+// joined by sides, each side straight or bent by one control point, all
+// stored as fractions of the box too. Save draws them onto the picture.
 const SVGNS = 'http://www.w3.org/2000/svg';
 const vecLayer = $('#vectors');
 let shapes = [];
 let draft = []; // the shape being drawn, plus its mirror copies
 let selected = null;
+let editing = false; // dragging points rather than the whole shape
 let vecFill = false;
+let vecRadius = 0;
 
 const r1 = (n) => Math.round(n * 10) / 10;
 const pt = (x, y) => `${r1(x)} ${r1(y)}`;
 const isFilled = (s) => s.fill && s.type !== 'line';
 
+// Box fractions to page points, and back.
+const fromBox = (s, [u, v]) => [s.x1 + u * (s.x2 - s.x1), s.y1 + v * (s.y2 - s.y1)];
+
 function shapePath(s) {
   const { x1, y1, x2, y2 } = s;
   if (s.type === 'line') return `M${pt(x1, y1)}L${pt(x2, y2)}`;
+  if (s.type === 'path') {
+    const ns = s.nodes.map((n) => fromBox(s, n)), n = ns.length;
+    let d = `M${pt(...ns[0])}`;
+    for (let i = 0; i < (s.closed ? n : n - 1); i++) {
+      const to = pt(...ns[(i + 1) % n]);
+      d += s.ctrl[i] ? `Q${pt(...fromBox(s, s.ctrl[i]))} ${to}` : `L${to}`;
+    }
+    return s.closed || s.fill ? d + 'Z' : d;
+  }
   const l = Math.min(x1, x2), r = Math.max(x1, x2), t = Math.min(y1, y2), b = Math.max(y1, y2);
-  if (s.type === 'rect') return `M${pt(l, t)}H${r1(r)}V${r1(b)}H${r1(l)}Z`;
+  if (s.type === 'rect') {
+    const k = Math.min(s.radius || 0, (r - l) / 2, (b - t) / 2);
+    if (!k) return `M${pt(l, t)}H${r1(r)}V${r1(b)}H${r1(l)}Z`;
+    const a = `A${pt(k, k)} 0 0 1 `;
+    return `M${pt(l + k, t)}H${r1(r - k)}${a}${pt(r, t + k)}V${r1(b - k)}${a}${pt(r - k, b)}` +
+      `H${r1(l + k)}${a}${pt(l, b - k)}V${r1(t + k)}${a}${pt(l + k, t)}Z`;
+  }
   if (s.type === 'oval') {
     const a = `A${pt((r - l) / 2, (b - t) / 2)} 0 1 0 `, cy = (t + b) / 2;
     return `M${pt(l, cy)}${a}${pt(r, cy)}${a}${pt(l, cy)}Z`;
@@ -626,6 +654,7 @@ function shapeEl(s) {
 
 function selectionEl(s) {
   const g = svgEl('g', { class: 'v-sel', ...turnAttr(s) });
+  if (editing && s.type === 'path') return pointsEl(s, g);
   const pad = s.width / 2 + 4, top = Math.min(s.y1, s.y2) - pad, [cx] = centre(s);
   if (s.type !== 'line') {
     g.append(svgEl('rect', {
@@ -646,13 +675,201 @@ function selectionEl(s) {
   return g;
 }
 
+// ---------- Editing points ----------
+// Square dots are the points; round dashed dots sit halfway along each side
+// and bend it. Double-tap a bend dot to add a point there, or a point to
+// remove it.
+function pointsEl(s, g) {
+  const ns = s.nodes.map((n) => fromBox(s, n)), n = ns.length;
+  for (let i = 0; i < (s.closed ? n : n - 1); i++) {
+    const a = ns[i], b = ns[(i + 1) % n], c = s.ctrl[i] && fromBox(s, s.ctrl[i]);
+    const [mx, my] = bendPoint(a, b, c);
+    if (c) g.append(svgEl('path', { class: 'v-arm', d: `M${pt(...a)}L${pt(...c)}L${pt(...b)}` }));
+    const h = svgEl('circle', { class: 'v-bend', cx: mx, cy: my, r: 7 });
+    h.addEventListener('pointerdown', (e) => {
+      if (doubleTap(`bend${i}`)) return splitSide(e, s, i);
+      const [wx, wy] = toPage(s, mx, my);
+      startDrag(e, s, (x, y, dx, dy) => bendSide(s, i, toLocal(s, wx + dx, wy + dy)));
+    });
+    g.append(h);
+  }
+  ns.forEach(([x, y], i) => {
+    const h = svgEl('rect', { class: 'v-node', x: x - 7, y: y - 7, width: 14, height: 14 });
+    h.addEventListener('pointerdown', (e) => {
+      if (doubleTap(`node${i}`)) return dropNode(e, s, i);
+      const [wx, wy] = toPage(s, x, y);
+      startDrag(e, s, (px, py, dx, dy) => {
+        const abs = absPath(s);
+        abs.nodes[i] = toLocal(s, wx + dx, wy + dy);
+        setPath(s, abs);
+      });
+    });
+    g.append(h);
+  });
+  return g;
+}
+
+// Where a side's bend dot sits: halfway along it, on the curve if bent.
+const bendPoint = (a, b, c) => (c
+  ? [(a[0] + 2 * c[0] + b[0]) / 4, (a[1] + 2 * c[1] + b[1]) / 4]
+  : [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2]);
+
+// A page point in the shape's own (unturned) frame, and back. Drags add the
+// pointer's move to where the dot started on the page, so a dot keeps its
+// grab point even though refitting the box shifts that frame.
+const toLocal = (s, x, y) => turnPt(x, y, ...centre(s), -(s.rot || 0));
+const toPage = (s, x, y) => turnPt(x, y, ...centre(s), s.rot || 0);
+
+// Two taps on the same dot within a moment.
+let lastTap = { key: '', at: 0 };
+function doubleTap(key) {
+  const now = performance.now(), hit = lastTap.key === key && now - lastTap.at < 350;
+  lastTap = hit ? { key: '', at: 0 } : { key, at: now };
+  return hit;
+}
+
+// The path's points and controls in the shape's own frame.
+function absPath(s) {
+  return { nodes: s.nodes.map((n) => fromBox(s, n)), ctrl: s.ctrl.map((c) => c && fromBox(s, c)) };
+}
+
+// Store points given in the shape's own frame: refit the box round them and
+// move it so a turned shape stays put on the page.
+function setPath(s, { nodes, ctrl }) {
+  const all = [...nodes, ...ctrl.filter(Boolean)];
+  const xs = all.map((p) => p[0]), ys = all.map((p) => p[1]);
+  const l = Math.min(...xs), r = Math.max(...xs), t = Math.min(...ys), b = Math.max(...ys);
+  const [ox, oy] = centre(s), cx = (l + r) / 2, cy = (t + b) / 2;
+  const [wx, wy] = turnPt(cx, cy, ox, oy, s.rot || 0);
+  const w = r - l, h = b - t;
+  const frac = (p) => p && [w ? (p[0] - l) / w : 0, h ? (p[1] - t) / h : 0];
+  Object.assign(s, {
+    x1: l + wx - cx, x2: r + wx - cx, y1: t + wy - cy, y2: b + wy - cy,
+    nodes: nodes.map(frac), ctrl: ctrl.map(frac),
+  });
+}
+
+// Bend side i so its middle passes through p. Near straight snaps straight.
+function bendSide(s, i, p) {
+  const abs = absPath(s), a = abs.nodes[i], b = abs.nodes[(i + 1) % abs.nodes.length];
+  const mx = (a[0] + b[0]) / 2, my = (a[1] + b[1]) / 2;
+  abs.ctrl[i] = Math.hypot(p[0] - mx, p[1] - my) < 5 ? null : [2 * p[0] - mx, 2 * p[1] - my];
+  setPath(s, abs);
+}
+
+function splitSide(e, s, i) {
+  e.preventDefault();
+  e.stopPropagation();
+  pushHistory();
+  const abs = absPath(s), a = abs.nodes[i], b = abs.nodes[(i + 1) % abs.nodes.length], c = abs.ctrl[i];
+  const m = bendPoint(a, b, c);
+  // Halving a bent side keeps its curve: each half gets a control halfway to the old one.
+  const half = (p, q) => [(p[0] + q[0]) / 2, (p[1] + q[1]) / 2];
+  abs.nodes.splice(i + 1, 0, m);
+  abs.ctrl.splice(i, 1, c && half(a, c), c && half(c, b));
+  setPath(s, abs);
+  renderVectors();
+}
+
+function dropNode(e, s, i) {
+  e.preventDefault();
+  e.stopPropagation();
+  if (s.nodes.length <= (s.closed ? 3 : 2)) return;
+  pushHistory();
+  const abs = absPath(s), n = abs.nodes.length;
+  abs.nodes.splice(i, 1);
+  // The sides either side of the point merge into one straight side.
+  if (!s.closed && i === n - 1) abs.ctrl.splice(i - 1, 1);
+  else if (!s.closed && i === 0) abs.ctrl.splice(0, 1);
+  else { abs.ctrl.splice(i, 1); abs.ctrl[(i - 1 + n - 1) % (n - 1)] = null; }
+  setPath(s, abs);
+  renderVectors();
+}
+
+// Drop points that sit on the line between their neighbours (Ramer–Douglas–Peucker).
+function simplify(ps, eps = 2) {
+  if (ps.length < 3) return ps;
+  const [a, b] = [ps[0], ps.at(-1)], len = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1;
+  let far = 0, at = 0;
+  for (let i = 1; i < ps.length - 1; i++) {
+    const d = Math.abs((b[0] - a[0]) * (a[1] - ps[i][1]) - (a[0] - ps[i][0]) * (b[1] - a[1])) / len;
+    if (d > far) { far = d; at = i; }
+  }
+  if (far <= eps) return [a, b];
+  return [...simplify(ps.slice(0, at + 1), eps).slice(0, -1), ...simplify(ps.slice(at), eps)];
+}
+
+// Turn a shape into an editable path, in place, without moving it.
+function toPath(s) {
+  if (s.type === 'path') return;
+  const l = Math.min(s.x1, s.x2), r = Math.max(s.x1, s.x2), t = Math.min(s.y1, s.y2), b = Math.max(s.y1, s.y2);
+  let nodes, ctrl, closed = true;
+  if (s.type === 'line') {
+    nodes = [[s.x1, s.y1], [s.x2, s.y2]]; ctrl = [null]; closed = false;
+    s.fill = false; // a line has no inside, even once bent
+  } else if (s.type === 'rect') {
+    const k = Math.min(s.radius || 0, (r - l) / 2, (b - t) / 2);
+    if (!k) { nodes = [[l, t], [r, t], [r, b], [l, b]]; ctrl = [null, null, null, null]; }
+    else {
+      // Each round corner becomes a bent side.
+      nodes = [[l + k, t], [r - k, t], [r, t + k], [r, b - k], [r - k, b], [l + k, b], [l, b - k], [l, t + k]];
+      ctrl = [null, [r, t], null, [r, b], null, [l, b], null, [l, t]];
+    }
+  } else if (s.type === 'oval') {
+    // Eight bent sides follow an oval closely.
+    const cx = (l + r) / 2, cy = (t + b) / 2, rx = (r - l) / 2, ry = (b - t) / 2, k = 1 / Math.cos(Math.PI / 8);
+    nodes = []; ctrl = [];
+    for (let i = 0; i < 8; i++) {
+      const a = (Math.PI / 4) * i, m = a + Math.PI / 8;
+      nodes.push([cx + rx * Math.cos(a), cy + ry * Math.sin(a)]);
+      ctrl.push([cx + rx * k * Math.cos(m), cy + ry * k * Math.sin(m)]);
+    }
+  } else {
+    // A curve keeps its look: the points it bends round become controls.
+    const ps = simplify(s.pts.map((p) => fromBox(s, p)));
+    closed = false;
+    if (ps.length < 3) { nodes = ps.length < 2 ? [ps[0], ps[0]] : ps; ctrl = [null]; }
+    else {
+      const mid = (i) => [(ps[i][0] + ps[i + 1][0]) / 2, (ps[i][1] + ps[i + 1][1]) / 2];
+      nodes = [ps[0]]; ctrl = [];
+      for (let i = 1; i < ps.length - 1; i++) {
+        nodes.push(i === ps.length - 2 ? ps.at(-1) : mid(i));
+        ctrl.push(ps[i]);
+      }
+    }
+  }
+  delete s.pts;
+  delete s.radius;
+  s.type = 'path';
+  s.closed = closed;
+  setPath(s, { nodes, ctrl });
+}
+
+function editPoints(on) {
+  if (!selected) return;
+  if (on && selected.type !== 'path') {
+    pushHistory();
+    toPath(selected);
+  }
+  editing = on;
+  renderVectors();
+}
+
 function renderVectors() {
   vecLayer.replaceChildren(...[...shapes, ...draft].map(shapeEl));
   if (selected) vecLayer.append(selectionEl(selected));
-  $('#v-delete').disabled = !selected;
+  $('#v-delete').disabled = $('#v-points').disabled = !selected;
+  $('#v-points').setAttribute('aria-pressed', String(editing && !!selected));
+  syncCornerField();
+}
+
+// Corners only apply to a box: one being drawn, or one picked.
+function syncCornerField() {
+  $('#corner-field').hidden = kindOf(mode) !== 'vector' || !(mode === 'v-rect' || selected?.type === 'rect');
 }
 
 function select(s) {
+  if (s !== selected) editing = false;
   selected = s;
   if (s) {
     // Show the picked shape's settings in the panel.
@@ -661,6 +878,11 @@ function select(s) {
     $('#size-v').textContent = s.width;
     vecFill = s.fill;
     checkOne(fillBtns, fillBtns.find((b) => !!b.dataset.fill === s.fill));
+    if (s.type === 'rect') {
+      vecRadius = s.radius || 0;
+      $('#corner').value = vecRadius;
+      $('#corner-v').textContent = vecRadius;
+    }
   }
   renderVectors();
 }
@@ -732,6 +954,11 @@ function startDrag(e, s, onMove) {
 // Move a shape (end 0) or drag one of its dots (end 1 or 2). A dot follows
 // the pointer while the other one stays put, even on a turned shape.
 function dragShape(e, s, end) {
+  if (!end && mode === 'v-select' && doubleTap('shape') && s === selected) {
+    e.preventDefault();
+    e.stopPropagation();
+    return editPoints(!editing);
+  }
   const o = { ...s }, rot = o.rot || 0, [ocx, ocy] = centre(o);
   const fixed = turnPt(end === 1 ? o.x2 : o.x1, end === 1 ? o.y2 : o.y1, ocx, ocy, rot);
   const grab = turnPt(o['x' + end] ?? 0, o['y' + end] ?? 0, ocx, ocy, rot);
@@ -810,6 +1037,7 @@ $('#c').addEventListener('pointerdown', (e) => {
   e.preventDefault();
   const [x, y] = stagePoint(e), raw = [[x, y]];
   const s = { type: mode.slice(2), x1: x, y1: y, x2: x, y2: y, colour: cssColour(), width: brushSize, fill: vecFill };
+  if (s.type === 'rect') s.radius = vecRadius;
   if (s.type === 'curve') fitCurve(s, raw);
   pushHistory();
   draft = mirrored(s);
@@ -986,6 +1214,8 @@ function syncPanel() {
   $('#tool-name').textContent = b.dataset.name;
   $('#tool-desc').textContent = b.dataset.desc;
   $$('.field[data-for]').forEach((s) => (s.hidden = !s.dataset.for.split(' ').includes(kindOf(mode))));
+  $('#size-name').textContent = kindOf(mode) === 'vector' ? 'Border width' : 'Size';
+  syncCornerField();
 }
 
 const tools = $$('.tool:not(.menu-trigger)');
@@ -1015,6 +1245,12 @@ for (const [id, set] of [['size', (v) => { brushSize = v; updateActiveBox({ size
   const el = $('#' + id), out = $('#' + id + '-v');
   el.addEventListener('input', () => { set(+el.value); out.textContent = el.value; });
 }
+
+$('#corner').addEventListener('input', (e) => {
+  vecRadius = +e.target.value;
+  $('#corner-v').textContent = vecRadius;
+  if (selected?.type === 'rect') updateSelected({ radius: vecRadius });
+});
 
 const WOBBLE_WORDS = ['Very smooth', 'Very smooth', 'Smooth', 'Smooth', 'Natural', 'Natural', 'Natural', 'Wobbly', 'Wobbly', 'Jittery', 'Very jittery'];
 $('#wobble').addEventListener('input', (e) => {
@@ -1080,6 +1316,7 @@ const actions = {
   save: saveImage,
   svg: saveSvg,
   vdelete: deleteSelected,
+  vpoints: () => editPoints(!editing),
   shuffle: randomColour,
   surprise() {
     const choices = [...tools.filter((t) => !['eraser', 'fill', 'text', 'v-select'].includes(t.dataset.mode)), ...shapeItems];
@@ -1098,7 +1335,7 @@ document.addEventListener('keydown', (e) => {
   if (e.target.closest('input, select, textarea, [contenteditable]')) return;
   if ((e.metaKey || e.ctrlKey) && e.key === 'z') { e.preventDefault(); undo(); return; }
   if (selected && (e.key === 'Delete' || e.key === 'Backspace')) { e.preventDefault(); deleteSelected(); return; }
-  if (selected && e.key === 'Escape') { select(null); return; }
+  if (selected && e.key === 'Escape') { editing ? editPoints(false) : select(null); return; }
   if (selected && (e.key === '[' || e.key === ']')) {
     pushHistory();
     selected.rot = (selected.rot || 0) + (Math.PI / 12) * (e.key === ']' ? 1 : -1);
@@ -1591,6 +1828,8 @@ new p5(function(p) {
     display: flex; flex-direction: column; gap: var(--space-sm); padding: var(--space-sm);
     border-inline-start: var(--border-style) 2px var(--color-border); background: var(--color-surface);
     overflow-y: auto; font-size: var(--step--1);
+    /* A tall panel scrolls rather than stretching the page, which would resize the canvas. */
+    contain: size;
   }
   .head { display: flex; gap: var(--space-xs); align-items: flex-start; }
   .head-icon {
@@ -1638,6 +1877,7 @@ new p5(function(p) {
   .font { justify-content: center; font-size: var(--step-0); font-weight: 700; }
   .choice[aria-checked=true] { background: var(--color-accent); color: var(--color-black); }
   .choice:disabled { opacity: 0.45; cursor: default; }
+  .choice[aria-pressed=true] { background: var(--color-accent); color: var(--color-black); }
   .choice:disabled:hover { background: transparent; }
 
   @media (width < 1440px) {
@@ -1645,7 +1885,7 @@ new p5(function(p) {
   }
   @media (width < 760px) {
     .main { grid-template-columns: 1fr; grid-template-rows: 1fr auto; }
-    .panel { max-height: 38dvh; border-inline-start: 0; border-block-start: var(--border-style) 2px var(--color-border); }
+    .panel { contain: none; max-height: 38dvh; border-inline-start: 0; border-block-start: var(--border-style) 2px var(--color-border); }
   }
 </style>
 
@@ -1678,9 +1918,12 @@ new p5(function(p) {
   .v-hit { cursor: move; }
   .v-box { fill: none; stroke: var(--color-accent); stroke-width: 2; stroke-dasharray: 6 4; pointer-events: none; }
   /* Dots have no paint attribute of their own, so they need the pointer handed back. */
-  #stage[data-mode=v-select] .v-handle { pointer-events: all; }
+  #stage[data-mode=v-select] :is(.v-handle, .v-node, .v-bend) { pointer-events: all; }
   .v-handle { fill: var(--color-surface); stroke: var(--color-accent); stroke-width: 3; cursor: grab; }
   .v-handle:active { cursor: grabbing; }
+  .v-node { fill: var(--color-accent); stroke: var(--color-black); stroke-width: 2; cursor: move; }
+  .v-bend { fill: var(--color-surface); stroke: var(--color-accent); stroke-width: 2; stroke-dasharray: 3 2; cursor: grab; }
+  .v-arm { fill: none; stroke: var(--color-accent); stroke-width: 1; opacity: 0.6; pointer-events: none; }
   .text-spin { cursor: grab; touch-action: none; }
 
 </style>

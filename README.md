@@ -14,7 +14,7 @@ design.
 | `cloze-generator`     | Paste text, hide words, test recall — for language teachers |
 | `css-icons`           | Icons drawn with nothing but CSS — no SVG, no images    |
 | `data-transformation` | A React "dojo" for practising data-transform challenges |
-| `drawing-app`         | Kid-friendly drawing app — magic brushes, fill, editable vector shapes (move, stretch, rotate, SVG export), colouring pages, rotatable text, mirrors |
+| `drawing-app`         | Kid-friendly drawing app — magic brushes, fill, editable vector shapes (move, stretch, rotate, round corners, bend sides and edit points, SVG export), colouring pages, rotatable text, mirrors |
 | `playground`          | Creative Coding Playground (Solid + Tweakpane + WebGL shaders) — grainy blobs, silk folds, conic gradients, shards, arcs, bird swarms; drag items on the canvas to move them; favourites, share links, PNG export up to 8192px, looping MP4 export up to 4K |
 | `keyboard-only`       | A cursorless page navigated entirely with the keyboard  |
 | `loop-synth`          | Step sequencer — draw tunes on a 16/32-step grid, loop one pattern or chain 4 into a song (Follow tracks the playing bar), Space / media keys play-pause, delay + reverb, all synthesised live with the Web Audio API; save compositions in the browser, share links, WAV + MIDI export (`node src/components/loop-synth/song.check.ts` checks the song and file logic) |
