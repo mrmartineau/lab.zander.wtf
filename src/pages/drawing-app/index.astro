@@ -1142,7 +1142,7 @@ function randomColour() {
 // Snapshot the paint (and which colouring page is showing) so it can be undone.
 function pushHistory() {
   if (!p5Instance) return;
-  undoStack.push({ img: p5Instance.get(), page, pageBox, texts: readTexts(), vectors: structuredClone(shapes) });
+  undoStack.push({ img: p5Instance.get(), page, pageBox, bg: bgColour, name: currentName, texts: readTexts(), vectors: structuredClone(shapes) });
   if (undoStack.length > 12) undoStack.shift();
 }
 
@@ -1150,6 +1150,10 @@ function undo() {
   const last = p5Instance && undoStack.pop();
   if (!last) return;
   p5Instance.image(last.img, 0, 0);
+  // Paper colour and the open drawing's name come back too, so the eraser
+  // and ⌘S match the picture again (say, after undoing an open).
+  bgColour = last.bg;
+  currentName = last.name;
   restoreTexts(last.texts);
   restoreVectors(last.vectors);
   if (last.page !== page || last.pageBox !== pageBox) {
@@ -1288,11 +1292,15 @@ function saveDrawing(name) {
     entry.paint = $('#c').toDataURL('image/webp', 0.9);
     ok = storeDrawings([entry, ...list]);
   }
-  if (!ok) return sayDrawings('Not enough room to save. Delete an old drawing and try again.');
+  if (!ok) {
+    sayDrawings('Not enough room to save. Delete an old drawing and try again.');
+    return false;
+  }
   currentName = name;
   nameInput.value = name;
   sayDrawings(`Saved "${name}".`);
   renderDrawings();
+  return true;
 }
 
 function openDrawing(d) {
@@ -1345,8 +1353,22 @@ function renderDrawings() {
   if (!list.length) $('#drawings-list').innerHTML = '<li class="hint">No saved drawings yet.</li>';
 }
 
-function showDrawings() {
-  sayDrawings('');
+// Save without opening the dialog; the toolbar button says so briefly.
+let savedFlash;
+function quickSave() {
+  if (!saveDrawing(currentName)) return showDrawings($('#drawings-msg').textContent); // show why it failed
+  const btn = $('[data-action="drawings"]'), label = btn.querySelector('span');
+  clearTimeout(savedFlash);
+  btn.dataset.saved = 'true';
+  label.textContent = 'Saved';
+  savedFlash = setTimeout(() => {
+    delete btn.dataset.saved;
+    label.textContent = 'My drawings';
+  }, 1500);
+}
+
+function showDrawings(msg = '') {
+  sayDrawings(msg);
   nameInput.value = currentName;
   renderDrawings();
   if (!drawingsDialog.open) drawingsDialog.showModal();
@@ -1527,11 +1549,13 @@ $$('[data-action]').forEach((b) => b.addEventListener('click', () => actions[b.d
 
 const magic = $$('.group[aria-label="Magic brushes"] .tool').map((b) => b.dataset.mode);
 document.addEventListener('keydown', (e) => {
-  // ⌘S saves straight back to the open drawing, or asks for a name.
+  // ⌘S saves straight back to the open drawing, or asks for a name. In the
+  // name field it submits the form, so a typed name is kept.
   if ((e.metaKey || e.ctrlKey) && e.key === 's') {
     e.preventDefault();
-    showDrawings();
-    if (currentName) saveDrawing(currentName);
+    if (e.target === nameInput) $('#drawing-save').requestSubmit();
+    else if (currentName && !drawingsDialog.open) quickSave();
+    else showDrawings();
     return;
   }
   if (drawingsDialog.open) return;
@@ -2014,6 +2038,7 @@ new p5(function(p) {
   .act:hover { background: var(--color-background); }
   .act span { white-space: nowrap; }
   .primary { background: var(--color-accent); color: var(--color-black); }
+  .act[data-saved] { background: var(--color-success); color: var(--color-black); }
   .primary:hover { background: var(--color-accent); filter: brightness(1.08); }
 
   .main { display: grid; grid-template-columns: 1fr 280px; min-height: 0; }
