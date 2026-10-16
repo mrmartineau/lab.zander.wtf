@@ -147,8 +147,8 @@ export async function start() {
 			say('Too big to keep in this browser. Use Export › Save file.')
 		}
 	}
-	// Don't lose an edit made just before leaving or reloading.
-	addEventListener('pagehide', () => saveTimer && keep())
+	// Don't lose an edit made just before leaving or reloading, or one mid-drag.
+	addEventListener('pagehide', keep)
 	function load(next: Doc) {
 		doc = { ...next, images: { ...doc.images, ...next.images } }
 		frame = clamp(frame, 0, doc.frames - 1)
@@ -1048,14 +1048,24 @@ export async function start() {
 	$<HTMLFormElement>('an-save').onsubmit = (e) => {
 		e.preventDefault()
 		const list = loadSaves()
-		const name = nameIn.value.trim() || `Animation ${list.length + 1}`
+		// A generated name must not replace an existing save.
+		let n = list.length + 1
+		while (list.some((y) => y.name === `Animation ${n}`)) n++
+		const name = nameIn.value.trim() || `Animation ${n}`
 		setName(name)
 		if (storeSaves([{ name, doc: pruned(doc), at: Date.now() }, ...list.filter((y) => y.name !== name)])) {
 			say(`Saved "${name}"`)
 			renderSaves()
 		}
 	}
-	nameIn.oninput = () => renderSaves()
+	// Typing only moves the highlight; the list (and its thumbnails) stays.
+	nameIn.oninput = () => {
+		const current = nameIn.value.trim()
+		for (const item of saves.querySelectorAll<HTMLButtonElement>('.an-save-item')) {
+			if (item.querySelector('span')?.textContent === current) item.ariaCurrent = 'true'
+			else item.removeAttribute('aria-current')
+		}
+	}
 
 	/* ───────────── keyboard ───────────── */
 
