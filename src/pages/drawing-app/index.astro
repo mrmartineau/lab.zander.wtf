@@ -9,7 +9,8 @@ export const date = '2026-05-19'
 export const status = 'live'
 export const tags = ['drawing', 'p5.js']
 
-type Tool = { mode: string; name: string; icon: string; desc: string }
+// key: the letter that picks the tool (number keys pick magic brushes).
+type Tool = { mode: string; name: string; icon: string; desc: string; key?: string }
 
 const magic: Tool[] = [
   { mode: 'trails', name: 'Trails', icon: 'ph-sparkle', desc: 'Rainbow dots that wobble as you move.' },
@@ -21,12 +22,12 @@ const magic: Tool[] = [
   { mode: 'grass', name: 'Grass', icon: 'ph-plant', desc: 'Little blades grow as you drag.' },
 ]
 const pens: Tool[] = [
-  { mode: 'pen', name: 'Pen', icon: 'ph-pen-nib', desc: 'Lines. Slow is thick, fast is thin.' },
-  { mode: 'neon', name: 'Neon', icon: 'ph-lightbulb', desc: 'A glowing pen, like a light-up sign.' },
+  { mode: 'pen', key: 'p', name: 'Pen', icon: 'ph-pen-nib', desc: 'Lines. Slow is thick, fast is thin.' },
+  { mode: 'neon', key: 'n', name: 'Neon', icon: 'ph-lightbulb', desc: 'A glowing pen, like a light-up sign.' },
   { mode: 'ribbon', name: 'Ribbon', icon: 'ph-wave-sine', desc: 'A rainbow ribbon follows you.' },
-  { mode: 'text', name: 'Text', icon: 'ph-text-t', desc: 'Tap the page to type. Drag the handles to move or turn it.' },
-  { mode: 'fill', name: 'Fill', icon: 'ph-paint-bucket', desc: 'Tap a space to fill it with colour.' },
-  { mode: 'eraser', name: 'Eraser', icon: 'ph-eraser', desc: 'Rubs out back to the paper.' },
+  { mode: 'text', key: 't', name: 'Text', icon: 'ph-text-t', desc: 'Tap the page to type. Drag the handles to move or turn it.' },
+  { mode: 'fill', key: 'f', name: 'Fill', icon: 'ph-paint-bucket', desc: 'Tap a space to fill it with colour.' },
+  { mode: 'eraser', key: 'e', name: 'Eraser', icon: 'ph-eraser', desc: 'Rubs out back to the paper.' },
 ]
 const shapes: Tool[] = [
   { mode: 'circle', name: 'Circle', icon: 'ph-circle', desc: 'Drag to stamp circles. Speed packs them closer.' },
@@ -36,14 +37,15 @@ const shapes: Tool[] = [
   { mode: 'heart', name: 'Heart', icon: 'ph-heart', desc: 'Drag to stamp hearts. Speed packs them closer.' },
 ]
 const vectors: Tool[] = [
-  { mode: 'v-select', name: 'Select', icon: 'ph-cursor', desc: 'Tap a shape to pick it. Drag to move it, pull the dots to stretch it, spin it with the top dot. Double-tap to edit its points.' },
-  { mode: 'v-line', name: 'Line', icon: 'ph-line-segment', desc: 'Drag a straight line. Hold Shift to snap the angle.' },
-  { mode: 'v-rect', name: 'Box', icon: 'ph-rectangle', desc: 'Drag a box. Hold Shift for a square.' },
-  { mode: 'v-oval', name: 'Oval', icon: 'ph-circle-dashed', desc: 'Drag an oval. Hold Shift for a circle.' },
-  { mode: 'v-curve', name: 'Curve', icon: 'ph-bezier-curve', desc: 'Draw a smooth line you can move and stretch later.' },
+  { mode: 'v-select', key: 'v', name: 'Select', icon: 'ph-cursor', desc: 'Tap a shape to pick it. Drag to move it, pull the dots to stretch it, spin it with the top dot. Double-tap to edit its points.' },
+  { mode: 'v-line', key: 'l', name: 'Line', icon: 'ph-line-segment', desc: 'Drag a straight line. Hold Shift to snap the angle.' },
+  { mode: 'v-rect', key: 'r', name: 'Box', icon: 'ph-rectangle', desc: 'Drag a box. Hold Shift for a square.' },
+  { mode: 'v-oval', key: 'o', name: 'Oval', icon: 'ph-circle-dashed', desc: 'Drag an oval. Hold Shift for a circle.' },
+  { mode: 'v-curve', key: 'c', name: 'Curve', icon: 'ph-bezier-curve', desc: 'Draw a smooth line you can move and stretch later.' },
 ]
-const stamp: Tool ={ mode: 'emoji', name: 'Stickers', icon: 'ph-stamp', desc: 'Drag to stamp stickers. Speed packs them closer.' }
+const stamp: Tool ={ mode: 'emoji', key: 's', name: 'Stickers', icon: 'ph-stamp', desc: 'Drag to stamp stickers. Speed packs them closer.' }
 const stickers = ['🌈', '🐱', '🚀', '🦄', '🌟', '🌸', '🐶', '🦋', '❤️', '🦖', '🐠', '🍕', '🍩', '🌻', '🐝', '👑', '🎈', '⚽']
+const withKey = (t: Tool) => (t.key ? `${t.name} (${t.key.toUpperCase()})` : t.name)
 const colours = ['#ffffff', '#ff4d6d', '#ff9f1c', '#ffd60a', '#52d273', '#2ec4f1', '#4d7cff', '#a66cff', '#ff7ac6', '#8b5a2b', '#1a1a1a']
 const mirrors = [
   { v: 'off', icon: 'ph-prohibit', name: 'Off' },
@@ -82,17 +84,17 @@ const papers = [
     </div>
     <div class="group" aria-label="Pens">
       {pens.map((t) => (
-        <Tooltip text={t.name} placement="bottom"><button class="tool" data-mode={t.mode} data-desc={t.desc} data-name={t.name} aria-label={t.name} aria-pressed="false"><i class={`ph ${t.icon}`}></i></button></Tooltip>
+        <Tooltip text={withKey(t)} placement="bottom"><button class="tool" data-key={t.key} data-mode={t.mode} data-desc={t.desc} data-name={t.name} aria-label={t.name} aria-pressed="false"><i class={`ph ${t.icon}`}></i></button></Tooltip>
       ))}
     </div>
     <div class="group" aria-label="Vector shapes">
       {vectors.map((t) => (
-        <Tooltip text={t.name} placement="bottom"><button class="tool" data-mode={t.mode} data-desc={t.desc} data-name={t.name} aria-label={t.name} aria-pressed="false"><i class={`ph ${t.icon}`}></i></button></Tooltip>
+        <Tooltip text={withKey(t)} placement="bottom"><button class="tool" data-key={t.key} data-mode={t.mode} data-desc={t.desc} data-name={t.name} aria-label={t.name} aria-pressed="false"><i class={`ph ${t.icon}`}></i></button></Tooltip>
       ))}
     </div>
     <div class="group" aria-label="Shapes and stickers">
       <Menu id="shape-menu">
-        <Tooltip text="Shapes" placement="bottom">
+        <Tooltip text="Shapes (H)" placement="bottom">
         <MenuTrigger class="tool menu-trigger" id="shape-trigger" data-mode={shapes[0].mode} data-desc={shapes[0].desc} data-name={shapes[0].name} aria-label="Shapes">
           <i class={`ph ${shapes[0].icon}`}></i><i class="ph ph-caret-down caret" aria-hidden="true"></i>
         </MenuTrigger>
@@ -105,7 +107,7 @@ const papers = [
           ))}
         </MenuContent>
       </Menu>
-      <Tooltip text={stamp.name} placement="bottom"><button class="tool" data-mode={stamp.mode} data-desc={stamp.desc} data-name={stamp.name} aria-label={stamp.name} aria-pressed="false"><i class={`ph ${stamp.icon}`}></i></button></Tooltip>
+      <Tooltip text={withKey(stamp)} placement="bottom"><button class="tool" data-key={stamp.key} data-mode={stamp.mode} data-desc={stamp.desc} data-name={stamp.name} aria-label={stamp.name} aria-pressed="false"><i class={`ph ${stamp.icon}`}></i></button></Tooltip>
     </div>
     <div class="group" aria-label="Page">
       <Menu id="mirror-menu">
@@ -238,7 +240,7 @@ const papers = [
       </section>
       <section class="field" data-for="vector">
         <span class="label">Shapes</span>
-        <p class="hint">Shapes stay editable. Pick one with Select to move, stretch, turn, recolour or delete it. Double-tap it (or press Edit points) to drag its points and bend its sides.</p>
+        <p class="hint">Shapes stay editable. Pick one with Select (V) to move, stretch, turn, recolour or delete it. Double-tap it, or press Edit points or Enter, to drag its points and bend its sides.</p>
         <div class="choices">
           <button class="choice" data-action="vpoints" id="v-points" aria-pressed="false" disabled><i class="ph ph-bezier-curve"></i>Edit points</button>
           <button class="choice" data-action="vdelete" id="v-delete" disabled><i class="ph ph-trash"></i>Delete</button>
@@ -1368,8 +1370,16 @@ document.addEventListener('keydown', (e) => {
     renderVectors();
     return;
   }
+  // Enter on a focused button already clicks it.
+  if (selected && e.key === 'Enter' && !e.target.closest('button')) { editPoints(!editing); return; }
+  if (e.metaKey || e.ctrlKey || e.altKey) return;
   const n = +e.key;
-  if (n >= 1 && n <= magic.length) setMode(magic[n - 1]);
+  if (n >= 1 && n <= magic.length) return setMode(magic[n - 1]);
+  // Letter keys pick tools; H picks whichever stamp shape the Shapes menu shows.
+  const k = e.key.toLowerCase();
+  if (k === 'h') return setMode(shapeTrigger.dataset.mode);
+  const tool = $(`.tool[data-key="${k}"]`);
+  if (tool) setMode(tool.dataset.mode);
 });
 
 stage.dataset.mode = mode;
