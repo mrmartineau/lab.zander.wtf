@@ -839,11 +839,14 @@ function toPath(s) {
     if (ps.length < 3) { nodes = ps.length < 2 ? [ps[0], ps[0]] : ps; ctrl = [null]; }
     else {
       const mid = (i) => [(ps[i][0] + ps[i + 1][0]) / 2, (ps[i][1] + ps[i + 1][1]) / 2];
+      // Same as the curve renderer: bend through each midpoint, then a straight end.
       nodes = [ps[0]]; ctrl = [];
       for (let i = 1; i < ps.length - 1; i++) {
-        nodes.push(i === ps.length - 2 ? ps.at(-1) : mid(i));
+        nodes.push(mid(i));
         ctrl.push(ps[i]);
       }
+      nodes.push(ps.at(-1));
+      ctrl.push(null);
     }
   }
   delete s.pts;
