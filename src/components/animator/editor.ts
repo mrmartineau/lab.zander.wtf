@@ -30,7 +30,7 @@ import {
 	type Size,
 } from './doc'
 import { png, svg as svgFile, video } from './export'
-import { elementsSvg } from './render'
+import { elementsSvg, frameSvg } from './render'
 
 type Tool = 'select' | 'rect' | 'ellipse' | 'line' | 'pen' | 'text'
 
@@ -134,15 +134,21 @@ export async function start() {
 	function settle() {
 		marked = false
 		clearTimeout(saveTimer)
-		saveTimer = window.setTimeout(() => {
-			try {
-				localStorage.setItem(STORE, JSON.stringify(pruned(doc)))
-			} catch {
-				say('Too big to keep in this browser. Use Export › Save file.')
-			}
-		}, 300)
+		saveTimer = window.setTimeout(keep, 300)
 		render()
 	}
+	/** Keeps the working document in the browser. */
+	function keep() {
+		clearTimeout(saveTimer)
+		saveTimer = 0
+		try {
+			localStorage.setItem(STORE, JSON.stringify(pruned(doc)))
+		} catch {
+			say('Too big to keep in this browser. Use Export › Save file.')
+		}
+	}
+	// Don't lose an edit made just before leaving or reloading.
+	addEventListener('pagehide', () => saveTimer && keep())
 	function load(next: Doc) {
 		doc = { ...next, images: { ...doc.images, ...next.images } }
 		frame = clamp(frame, 0, doc.frames - 1)
@@ -426,7 +432,9 @@ export async function start() {
 		if (doc.els.length && !confirm('Start a new animation? You can undo this.')) return
 		edit(() => load({ ...newDoc(), size: doc.size, fps: doc.fps, frames: doc.frames, loop: doc.loop }))
 		frame = 0
+		setName('')
 		render()
+		renderSaves()
 	}
 	$('an-demo').onclick = () => {
 		edit(() => load(demo()))
@@ -956,6 +964,99 @@ export async function start() {
 		imageIn.value = ''
 	}
 
+	/* ───────────── saved animations ───────────── */
+
+	type Saved = { name: string; doc: Doc; at: number }
+	const SAVES = 'animator:saved'
+	const NAME_KEY = 'animator:name'
+	const nameIn = $<HTMLInputElement>('an-name')
+	const saves = $<HTMLUListElement>('an-saves')
+	try {
+		nameIn.value = localStorage.getItem(NAME_KEY) ?? ''
+	} catch {}
+
+	function loadSaves(): Saved[] {
+		try {
+			const list = JSON.parse(localStorage.getItem(SAVES) ?? '[]')
+			if (!Array.isArray(list)) return []
+			return list.flatMap((x) => {
+				const d = typeof x?.name === 'string' ? readDoc(x.doc) : null
+				return d ? [{ name: x.name, doc: d, at: Number(x.at) || 0 }] : []
+			})
+		} catch {
+			return []
+		}
+	}
+
+	function storeSaves(list: Saved[]) {
+		try {
+			localStorage.setItem(SAVES, JSON.stringify(list))
+			return true
+		} catch {
+			say('Too big to save in this browser. Use Export › Save file.')
+			return false
+		}
+	}
+
+	function renderSaves() {
+		const current = nameIn.value.trim()
+		saves.replaceChildren(
+			...loadSaves().map((x) => {
+				const li = document.createElement('li')
+				const open = document.createElement('button')
+				open.type = 'button'
+				open.className = 'zui-button zui-button-variant-ghost an-save-item'
+				if (x.name === current) open.ariaCurrent = 'true'
+				open.innerHTML = '<img alt=""><span></span><small></small>'
+				open.querySelector('img')!.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(frameSvg(x.doc, 0))}`
+				open.querySelector('span')!.textContent = x.name
+				open.querySelector('small')!.textContent = `${x.doc.frames} frames · ${new Date(x.at).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}`
+				open.onclick = () => openSave(x)
+				const del = document.createElement('button')
+				del.type = 'button'
+				del.className = 'zui-button zui-button-variant-ghost zui-button-icon zui-button-size-sm'
+				del.ariaLabel = `Delete ${x.name}`
+				del.innerHTML = '<i class="ph ph-trash"></i>'
+				del.onclick = () => {
+					if (!confirm(`Delete "${x.name}"?`)) return
+					if (storeSaves(loadSaves().filter((y) => y.name !== x.name))) renderSaves()
+				}
+				li.append(open, del)
+				return li
+			}),
+		)
+	}
+
+	function setName(name: string) {
+		nameIn.value = name
+		try {
+			localStorage.setItem(NAME_KEY, name)
+		} catch {}
+	}
+
+	function openSave(x: Saved) {
+		if (playing) pause()
+		edit(() => load(structuredClone(x.doc)))
+		frame = 0
+		selId = null
+		setName(x.name)
+		render()
+		renderSaves()
+		say(`Opened "${x.name}"`)
+	}
+
+	$<HTMLFormElement>('an-save').onsubmit = (e) => {
+		e.preventDefault()
+		const list = loadSaves()
+		const name = nameIn.value.trim() || `Animation ${list.length + 1}`
+		setName(name)
+		if (storeSaves([{ name, doc: pruned(doc), at: Date.now() }, ...list.filter((y) => y.name !== name)])) {
+			say(`Saved "${name}"`)
+			renderSaves()
+		}
+	}
+	nameIn.oninput = () => renderSaves()
+
 	/* ───────────── keyboard ───────────── */
 
 	document.addEventListener('keydown', (e) => {
@@ -1019,6 +1120,8 @@ export async function start() {
 		renderInspector()
 		renderBar()
 	}
+
+	renderSaves()
 
 	// The selection handles are sized in screen pixels.
 	new ResizeObserver(() => renderSelection()).observe(stage)
