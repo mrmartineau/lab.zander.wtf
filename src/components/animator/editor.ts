@@ -1,5 +1,6 @@
 // The editor: canvas tools, inspector, timeline and playback.
 import {
+	MAX_DOC_BYTES,
 	MAX_FPS,
 	MAX_FRAMES,
 	SIZES,
@@ -852,6 +853,11 @@ export async function start() {
 		},
 		async link() {
 			const out = pruned(doc)
+			// Opening a link refuses anything bigger, so don't hand one out.
+			if (new TextEncoder().encode(JSON.stringify(out)).length > MAX_DOC_BYTES) {
+				say('Too big for a link. Use Save file instead.')
+				return
+			}
 			const url = `${location.origin}${location.pathname}#${await encodeDoc(out)}`
 			try {
 				await navigator.clipboard.writeText(url)
