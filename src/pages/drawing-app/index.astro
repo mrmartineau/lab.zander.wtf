@@ -1,6 +1,6 @@
 ---
 import Layout from '../../layouts/Layout.astro'
-import { Menu, MenuContent, MenuItem, MenuTrigger, Tooltip } from '@mrmartineau/zui/astro'
+import { Button, Dialog, DialogBody, DialogHeader, DialogTitle, Field, Input, Label, Menu, MenuContent, MenuItem, MenuTrigger, Tooltip } from '@mrmartineau/zui/astro'
 
 // Lab item metadata — read by the homepage listing.
 export const title = 'Drawing app'
@@ -155,6 +155,7 @@ const papers = [
     </div>
     <span class="spacer"></span>
     <Tooltip text="Pick a surprise tool" placement="bottom"><button class="act" data-action="surprise"><i class="ph ph-dice-five"></i><span>Surprise!</span></button></Tooltip>
+    <Tooltip text="My drawings (⌘S)" placement="bottom"><button class="act" data-action="drawings"><i class="ph ph-folder-open"></i><span>My drawings</span></button></Tooltip>
     <Tooltip text="Undo (⌘Z)" placement="bottom"><button class="act" data-action="undo"><i class="ph ph-arrow-counter-clockwise"></i><span>Undo</span></button></Tooltip>
     <Tooltip text="Clear the page" placement="bottom"><button class="act" data-action="clear"><i class="ph ph-trash"></i><span>Clear</span></button></Tooltip>
     <Tooltip text="Save as a picture" placement="bottom"><button class="act primary" data-action="save"><i class="ph ph-download-simple"></i><span>Save</span></button></Tooltip>
@@ -257,6 +258,25 @@ const papers = [
     </aside>
   </div>
 </div>
+
+<Dialog id="drawings" size="md" aria-labelledby="drawings-title">
+  <DialogHeader class="drawings-head">
+    <DialogTitle id="drawings-title"><i class="ph ph-folder-open"></i> My drawings</DialogTitle>
+    <button class="small" data-action="closeDrawings" aria-label="Close"><i class="ph ph-x"></i></button>
+  </DialogHeader>
+  <DialogBody class="drawings-body">
+    <form id="drawing-save" class="drawing-save">
+      <Field>
+        <Label for="drawing-name">Name</Label>
+        <Input id="drawing-name" maxlength="60" placeholder="My picture" autocomplete="off" />
+      </Field>
+      <Button type="submit" size="sm"><i class="ph ph-floppy-disk"></i> Save</Button>
+    </form>
+    <p class="hint">Saved in this browser. Saving with the same name replaces it. Opening one can be undone.</p>
+    <p class="drawings-msg" id="drawings-msg" role="status"></p>
+    <ul class="drawings-list" id="drawings-list"></ul>
+  </DialogBody>
+</Dialog>
 </Layout>
 
 <script is:inline src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.4/p5.min.js"></script>
@@ -1192,7 +1212,8 @@ function download(name, href) {
   link.click();
 }
 
-function saveImage() {
+// The whole picture as you see it: paint, page lines, shapes and text.
+function composeImage() {
   const out = paintImage(), ctx = out.getContext('2d');
   const pd = out.width / stage.clientWidth;
   ctx.scale(pd, pd);
@@ -1208,8 +1229,133 @@ function saveImage() {
     t.lines.forEach((line, i) => ctx.fillText(line, t.x, t.y + i * t.lineH));
     ctx.restore();
   }
-  download('my-art-' + Date.now() + '.png', out.toDataURL('image/png'));
+  return out;
 }
+
+function saveImage() {
+  download('my-art-' + Date.now() + '.png', composeImage().toDataURL('image/png'));
+}
+
+// ---------- My drawings ----------
+// Drawings are kept in this browser's localStorage, like the loop synth's
+// compositions: the paint as a picture, plus the page, vector shapes and
+// text as data, so everything stays editable when opened again.
+const DRAWINGS_KEY = 'drawing-app-drawings';
+const drawingsDialog = $('#drawings');
+const nameInput = $('#drawing-name');
+let currentName = '';
+
+function loadDrawings() {
+  try {
+    const list = JSON.parse(localStorage.getItem(DRAWINGS_KEY) ?? '[]');
+    return Array.isArray(list) ? list.filter((d) => typeof d?.name === 'string' && typeof d?.paint === 'string') : [];
+  } catch {
+    return [];
+  }
+}
+
+function storeDrawings(list) {
+  try {
+    localStorage.setItem(DRAWINGS_KEY, JSON.stringify(list));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+const sayDrawings = (text) => ($('#drawings-msg').textContent = text);
+
+// A small picture for the list: the whole drawing, shrunk.
+function thumbnail() {
+  const full = composeImage();
+  const t = document.createElement('canvas');
+  t.width = 240;
+  t.height = Math.round((240 * full.height) / full.width);
+  t.getContext('2d').drawImage(full, 0, 0, t.width, t.height);
+  return t.toDataURL('image/jpeg', 0.7);
+}
+
+function saveDrawing(name) {
+  const list = loadDrawings().filter((d) => d.name !== name);
+  const entry = {
+    name, at: Date.now(), w: stage.clientWidth, h: stage.clientHeight, bg: bgColour,
+    page, pageBox, shapes: shapes, texts: readTexts(), thumb: thumbnail(),
+    paint: $('#c').toDataURL('image/png'),
+  };
+  // A busy picture can be big: fall back to a smaller (slightly lossy) copy.
+  let ok = storeDrawings([entry, ...list]);
+  if (!ok) {
+    entry.paint = $('#c').toDataURL('image/webp', 0.9);
+    ok = storeDrawings([entry, ...list]);
+  }
+  if (!ok) return sayDrawings('Not enough room to save. Delete an old drawing and try again.');
+  currentName = name;
+  nameInput.value = name;
+  sayDrawings(`Saved "${name}".`);
+  renderDrawings();
+}
+
+function openDrawing(d) {
+  const img = new Image();
+  img.onload = () => {
+    pushHistory();
+    bgColour = d.bg || bgColour;
+    p5Instance.background(bgColour);
+    // p5's context is already scaled to CSS pixels, so this fills the saved size.
+    p5Instance.drawingContext.drawImage(img, 0, 0, d.w, d.h);
+    page = d.page ?? null;
+    pageBox = d.pageBox ?? null;
+    drawLines();
+    restoreTexts(d.texts || []);
+    restoreVectors(structuredClone(d.shapes || []));
+    currentName = d.name;
+    nameInput.value = d.name;
+    drawingsDialog.close();
+  };
+  img.onerror = () => sayDrawings(`"${d.name}" could not be read.`);
+  img.src = d.paint;
+}
+
+function renderDrawings() {
+  const list = loadDrawings();
+  $('#drawings-list').replaceChildren(...list.map((d) => {
+    const li = document.createElement('li');
+    const open = document.createElement('button');
+    open.className = 'drawing-open';
+    if (d.name === currentName) open.ariaCurrent = 'true';
+    open.innerHTML = '<img alt=""><span></span><small></small>';
+    open.querySelector('img').src = d.thumb || d.paint;
+    open.querySelector('span').textContent = d.name;
+    open.querySelector('small').textContent = new Date(d.at).toLocaleDateString();
+    open.addEventListener('click', () => openDrawing(d));
+    const del = document.createElement('button');
+    del.className = 'small drawing-delete';
+    del.ariaLabel = `Delete ${d.name}`;
+    del.innerHTML = '<i class="ph ph-trash"></i>';
+    del.addEventListener('click', () => {
+      if (!confirm(`Delete "${d.name}"?`)) return;
+      if (storeDrawings(loadDrawings().filter((x) => x.name !== d.name))) {
+        if (d.name === currentName) currentName = '';
+        renderDrawings();
+      }
+    });
+    li.append(open, del);
+    return li;
+  }));
+  if (!list.length) $('#drawings-list').innerHTML = '<li class="hint">No saved drawings yet.</li>';
+}
+
+function showDrawings() {
+  sayDrawings('');
+  nameInput.value = currentName;
+  renderDrawings();
+  if (!drawingsDialog.open) drawingsDialog.showModal();
+}
+
+$('#drawing-save').addEventListener('submit', (e) => {
+  e.preventDefault();
+  saveDrawing(nameInput.value.trim() || `Drawing ${loadDrawings().length + 1}`);
+});
 
 // An SVG keeps the vector shapes and text as real shapes; the paint goes in as a picture.
 function saveSvg() {
@@ -1361,6 +1507,8 @@ const actions = {
   undo,
   clear: clearCanvas,
   save: saveImage,
+  drawings: showDrawings,
+  closeDrawings: () => drawingsDialog.close(),
   svg: saveSvg,
   vdelete: deleteSelected,
   vpoints: () => editPoints(!editing),
@@ -1379,6 +1527,14 @@ $$('[data-action]').forEach((b) => b.addEventListener('click', () => actions[b.d
 
 const magic = $$('.group[aria-label="Magic brushes"] .tool').map((b) => b.dataset.mode);
 document.addEventListener('keydown', (e) => {
+  // ⌘S saves straight back to the open drawing, or asks for a name.
+  if ((e.metaKey || e.ctrlKey) && e.key === 's') {
+    e.preventDefault();
+    showDrawings();
+    if (currentName) saveDrawing(currentName);
+    return;
+  }
+  if (drawingsDialog.open) return;
   if (e.target.closest('input, select, textarea, [contenteditable]')) return;
   if ((e.metaKey || e.ctrlKey) && e.key === 'z') { e.preventDefault(); undo(); return; }
   if (selected && (e.key === 'Delete' || e.key === 'Backspace')) { e.preventDefault(); deleteSelected(); return; }
@@ -1965,6 +2121,38 @@ new p5(function(p) {
   #stage[data-mode=text] .text-body { outline: 2px dashed var(--color-gray-500); }
   #stage[data-mode=text] .text-body:focus { outline: var(--border-style) 2px var(--color-accent); }
   #stage[data-mode=text] .text-handles { display: flex; }
+
+  /* My drawings: global, as the script builds the list. */
+  .drawings-head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-xs); }
+  .drawings-head .small { flex: none; }
+  .drawings-body { display: grid; gap: var(--space-xs); }
+  .drawing-save { display: flex; align-items: end; gap: var(--space-xs); }
+  .drawing-save > :first-child { flex: 1; }
+  .drawings-msg:empty { display: none; }
+  .drawings-msg { margin: 0; font-weight: 700; }
+  .drawings-list {
+    list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-xs);
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); max-height: 55dvh; overflow-y: auto;
+  }
+  .drawings-list li { position: relative; }
+  .drawing-open {
+    width: 100%; display: grid; gap: var(--space-4xs); padding: var(--space-3xs); text-align: start;
+    border: var(--border-style) 2px var(--color-border); border-radius: var(--radius-md);
+    background: var(--color-surface); color: inherit; font: inherit; cursor: pointer;
+  }
+  /* Border colour, not outline: the scrolling list would clip an outline. */
+  .drawing-open:hover { background: var(--color-background); }
+  .drawing-open[aria-current=true] { border-color: var(--color-accent); box-shadow: inset 0 0 0 2px var(--color-accent); }
+  .drawing-open img { width: 100%; aspect-ratio: 3 / 2; object-fit: cover; background: var(--color-background); }
+  .drawing-open span { font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .drawing-open small { opacity: 0.65; }
+  .drawing-delete {
+    position: absolute; top: var(--space-2xs); right: var(--space-2xs); width: 30px; height: 30px;
+    display: grid; place-items: center; border: var(--border-style) 2px var(--color-border);
+    background: var(--color-surface); color: inherit; cursor: pointer;
+  }
+  .drawings-list .hint { opacity: 0.65; }
+  .drawing-delete:hover { background: var(--color-error); color: var(--color-white); }
 
   /* Vector shapes only take the pointer with the Select tool. */
   .vectors { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; }
