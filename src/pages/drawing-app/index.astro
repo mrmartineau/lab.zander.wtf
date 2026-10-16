@@ -230,6 +230,11 @@ const papers = [
           <button class="choice vfill" role="radio" aria-checked="true" data-fill=""><i class="ph ph-square"></i>Empty</button>
           <button class="choice vfill" role="radio" aria-checked="false" data-fill="1"><i class="ph ph-paint-bucket"></i>Filled</button>
         </div>
+        <div class="field" id="fill-alpha-field" hidden>
+          <label for="fill-alpha">Fill strength <output id="fill-alpha-v">50%</output></label>
+          <input type="range" id="fill-alpha" min="10" max="100" step="5" value="50">
+          <div class="range-ends" aria-hidden="true"><span>See-through</span><span>Solid</span></div>
+        </div>
       </section>
       <section class="field" data-for="vector">
         <span class="label">Shapes</span>
@@ -580,6 +585,7 @@ let selected = null;
 let editing = false; // dragging points rather than the whole shape
 let vecFill = false;
 let vecRadius = 0;
+let vecAlpha = 50; // fill strength, in %
 
 const r1 = (n) => Math.round(n * 10) / 10;
 const pt = (x, y) => `${r1(x)} ${r1(y)}`;
@@ -636,7 +642,7 @@ const deg = (a) => r1((a * 180) / Math.PI);
 const turnAttr = (s) => (s.rot ? { transform: `rotate(${deg(s.rot)} ${pt(...centre(s))})` } : {});
 
 const inkEl = (s, d = shapePath(s)) => svgEl('path', {
-  d, fill: isFilled(s) ? s.colour : 'none', stroke: s.colour, 'stroke-width': s.width,
+  d, fill: isFilled(s) ? s.colour : 'none', 'fill-opacity': (s.fillAlpha ?? 100) / 100, stroke: s.colour, 'stroke-width': s.width,
   'stroke-linecap': 'round', 'stroke-linejoin': 'round',
 });
 
@@ -878,6 +884,10 @@ function select(s) {
     $('#size-v').textContent = s.width;
     vecFill = s.fill;
     checkOne(fillBtns, fillBtns.find((b) => !!b.dataset.fill === s.fill));
+    vecAlpha = s.fillAlpha ?? 100;
+    $('#fill-alpha').value = vecAlpha;
+    $('#fill-alpha-v').textContent = vecAlpha + '%';
+    syncFillAlpha();
     if (s.type === 'rect') {
       vecRadius = s.radius || 0;
       $('#corner').value = vecRadius;
@@ -1036,7 +1046,7 @@ $('#c').addEventListener('pointerdown', (e) => {
   if (mode === 'v-select') return select(null);
   e.preventDefault();
   const [x, y] = stagePoint(e), raw = [[x, y]];
-  const s = { type: mode.slice(2), x1: x, y1: y, x2: x, y2: y, colour: cssColour(), width: brushSize, fill: vecFill };
+  const s = { type: mode.slice(2), x1: x, y1: y, x2: x, y2: y, colour: cssColour(), width: brushSize, fill: vecFill, fillAlpha: vecAlpha };
   if (s.type === 'rect') s.radius = vecRadius;
   if (s.type === 'curve') fitCurve(s, raw);
   pushHistory();
@@ -1071,7 +1081,12 @@ function drawVectors(ctx) {
     ctx.rotate(s.rot || 0);
     ctx.translate(-cx, -cy);
     ctx.lineCap = ctx.lineJoin = 'round';
-    if (isFilled(s)) { ctx.fillStyle = s.colour; ctx.fill(path); }
+    if (isFilled(s)) {
+      ctx.fillStyle = s.colour;
+      ctx.globalAlpha = (s.fillAlpha ?? 100) / 100;
+      ctx.fill(path);
+      ctx.globalAlpha = 1;
+    }
     ctx.strokeStyle = s.colour;
     ctx.lineWidth = s.width;
     ctx.stroke(path);
@@ -1286,8 +1301,19 @@ const fillBtns = $$('.vfill');
 fillBtns.forEach((b) => b.addEventListener('click', () => {
   vecFill = !!b.dataset.fill;
   checkOne(fillBtns, b);
+  syncFillAlpha();
   updateSelected({ fill: vecFill });
 }));
+
+// Fill strength only matters for a filled shape.
+function syncFillAlpha() {
+  $('#fill-alpha-field').hidden = !vecFill;
+}
+$('#fill-alpha').addEventListener('input', (e) => {
+  vecAlpha = +e.target.value;
+  $('#fill-alpha-v').textContent = vecAlpha + '%';
+  updateSelected({ fillAlpha: vecAlpha });
+});
 
 const stickerBtns = $$('.sticker');
 stickerBtns.forEach((b) => b.addEventListener('click', () => {
